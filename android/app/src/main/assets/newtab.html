@@ -7,6 +7,7 @@
 <style>
   :root {
     --yoru: #1C1A33; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
+    --pop: #2C2950; --err: #FFB4C0; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197; --fukai-rgb: 22, 20, 42; --yoru-rgb: 28, 26, 51;
     --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", "Noto Serif", Georgia, serif;
     --gothic: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", Roboto, system-ui, sans-serif;
   }
@@ -15,7 +16,7 @@
   #scene, #photo, #shade { position: fixed; inset: 0; width: 100%; height: 100%; }
   #photo { background: center / cover no-repeat; opacity: 0; transition: opacity 1.2s ease; }
   #photo.on { opacity: 1; }
-  #shade { background: linear-gradient(90deg, rgba(20, 18, 40, .82) 0%, rgba(20, 18, 40, .45) 55%, rgba(20, 18, 40, .15) 100%); opacity: 0; transition: opacity 1.2s; }
+  #shade { background: linear-gradient(90deg, rgba(var(--yoru-rgb), .82) 0%, rgba(var(--yoru-rgb), .45) 55%, rgba(var(--yoru-rgb), .15) 100%); opacity: 0; transition: opacity 1.2s; }
   #photo.on + #shade { opacity: 1; }
   canvas#petals { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
@@ -28,7 +29,7 @@
   form { position: relative; width: min(560px, 100% - 28px); }
   #q {
     width: 100%; height: 52px; padding: 0 20px 0 50px; border: 0; outline: 0; border-radius: 14px; font: 16px var(--gothic);
-    color: var(--washi); background: rgba(22, 20, 42, .72); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(238, 231, 226, .14);
+    color: var(--washi); background: rgba(var(--fukai-rgb), .72); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(var(--washi-rgb), .14);
   }
   #q::placeholder { color: var(--usuzumi); }
   #q:focus { box-shadow: inset 0 0 0 1.5px var(--sakura), 0 10px 40px rgba(8, 6, 18, .4); }
@@ -36,20 +37,20 @@
 
   #tiles { display: grid; grid-template-columns: repeat(auto-fill, 88px); gap: 14px 10px; width: min(560px, 100% - 28px); margin-top: 34px; }
   .tile { position: relative; display: grid; justify-items: center; gap: 8px; padding: 6px 0 4px; border-radius: 12px; text-decoration: none; color: var(--washi); }
-  .tile:hover, .tile:focus-visible { background: rgba(238, 231, 226, .07); outline: 0; }
+  .tile:hover, .tile:focus-visible { background: rgba(var(--washi-rgb), .07); outline: 0; }
   .tile:focus-visible { box-shadow: 0 0 0 2px var(--sakura); }
   .stamp {
     width: 52px; height: 52px; display: grid; place-items: center; border-radius: 6px; font: 500 24px/1 var(--mincho);
-    color: var(--sakura); background: rgba(22, 20, 42, .6); box-shadow: inset 0 0 0 1.5px rgba(242, 179, 197, .55);
+    color: var(--sakura); background: rgba(var(--fukai-rgb), .6); box-shadow: inset 0 0 0 1.5px rgba(var(--sakura-rgb), .55);
   }
   .stamp img { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
-  .stamp:has(img) { background: rgba(250, 246, 242, .94); box-shadow: inset 0 0 0 1.5px rgba(242, 179, 197, .9); }
+  .stamp:has(img) { background: rgba(250, 246, 242, .94); box-shadow: inset 0 0 0 1.5px rgba(var(--sakura-rgb), .9); }
   .tile:nth-child(3n+1) .stamp { transform: rotate(-3deg); }
   .tile:nth-child(3n+2) .stamp { transform: rotate(2deg); }
   .tile .name { font-size: 12.5px; max-width: 84px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--washi); }
   .tile .edit {
     position: absolute; top: 0; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 6px; padding: 0; display: grid; place-items: center;
-    background: rgba(22, 20, 42, .85); color: var(--washi); opacity: 0; font: 14px var(--gothic); cursor: pointer;
+    background: rgba(var(--fukai-rgb), .85); color: var(--washi); opacity: 0; font: 14px var(--gothic); cursor: pointer;
   }
   .tile:hover .edit, .tile .edit:focus-visible { opacity: 1; }
   .tile.add .stamp { color: var(--usuzumi); box-shadow: inset 0 0 0 1.5px rgba(165, 158, 184, .4); font-family: var(--gothic); font-weight: 300; font-size: 28px; }
@@ -57,18 +58,18 @@
 
   #private { position: fixed; top: 20px; right: 24px; padding: 6px 14px; border-radius: 99px; font: 14px var(--mincho); background: rgba(217, 86, 111, .22); box-shadow: inset 0 0 0 1px rgba(217, 86, 111, .6); }
 
-  dialog { border: 0; border-radius: 16px; padding: 22px 22px 18px; width: min(380px, 92vw); background: #2C2950; color: var(--washi); box-shadow: 0 0 0 1px rgba(238, 231, 226, .1), 0 30px 60px rgba(4, 2, 12, .6); }
+  dialog { border: 0; border-radius: 16px; padding: 22px 22px 18px; width: min(380px, 92vw); background: var(--pop); color: var(--washi); box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .1), 0 30px 60px rgba(4, 2, 12, .6); }
   dialog::backdrop { background: rgba(8, 6, 18, .5); }
   dialog h2 { margin: 0 0 14px; font: 400 22px var(--mincho); }
   dialog label { display: grid; gap: 4px; margin-bottom: 12px; color: var(--usuzumi); font-size: 13px; }
-  dialog input { height: 38px; padding: 0 12px; border: 0; outline: 0; border-radius: 9px; background: var(--fukai); color: var(--washi); font: 15px var(--gothic); box-shadow: inset 0 0 0 1px rgba(238, 231, 226, .1); }
+  dialog input { height: 38px; padding: 0 12px; border: 0; outline: 0; border-radius: 9px; background: var(--fukai); color: var(--washi); font: 15px var(--gothic); box-shadow: inset 0 0 0 1px rgba(var(--washi-rgb), .1); }
   dialog input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
   dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
   dialog .row .left { margin-right: auto; }
-  dialog button { height: 36px; padding: 0 16px; border: 0; border-radius: 9px; font: 14px var(--gothic); background: rgba(238, 231, 226, .1); color: var(--washi); cursor: pointer; }
+  dialog button { height: 36px; padding: 0 16px; border: 0; border-radius: 9px; font: 14px var(--gothic); background: rgba(var(--washi-rgb), .1); color: var(--washi); cursor: pointer; }
   dialog button.primary { background: var(--sakura); color: var(--fukai); font-weight: 600; }
-  dialog button.danger { color: #FFB4C0; background: transparent; padding: 0 6px; }
-  #err { color: #FFB4C0; font-size: 13px; margin: -4px 0 8px; }
+  dialog button.danger { color: var(--err); background: transparent; padding: 0 6px; }
+  #err { color: var(--err); font-size: 13px; margin: -4px 0 8px; }
 
   @media (max-width: 640px) {
     main { padding: 0 20px 10vh; justify-content: flex-end; }
@@ -112,6 +113,7 @@
   </form>
 </dialog>
 
+<script src="themes.js"></script>
 <script>
 // ---------- Verbindung zum Browser (Windows: window.sakura, Android: window.SakuraAndroid)
 const api = window.sakura || (window.sakuraNative ? nativeBridge(window.sakuraNative)
@@ -221,44 +223,47 @@ form.addEventListener('submit', async e => {
 
 // ---------- Hintergrund: gezeichnete Nacht mit Mond und Kirschzweig
 function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+let T = window.SakuraThemes ? SakuraThemes.resolve({}) : null; // gewähltes Design
+const SC = () => (T && T.scene) || { sky: ['#16142C', '#25214A', '#3A2B55'], moon: '#F1E6DC', hill: '#100E22', branch: '#0E0C1D', star: '#EEE7E2', petals: ['#F2B3C5', '#FAD6DE', '#D97896'], center: '#A03C5A' };
 function drawScene() {
+  const sc = SC();
   const c = $('#scene'), dpr = Math.min(2, devicePixelRatio || 1);
   const W = innerWidth, H = innerHeight;
   c.width = W * dpr; c.height = H * dpr;
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
   const sky = g.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#16142C'); sky.addColorStop(.55, '#25214A'); sky.addColorStop(1, '#3A2B55');
+  sky.addColorStop(0, sc.sky[0]); sky.addColorStop(.55, sc.sky[1]); sky.addColorStop(1, sc.sky[2]);
   g.fillStyle = sky; g.fillRect(0, 0, W, H);
 
   const r = rng(20261115);
   // Sterne
   for (let i = 0; i < 140; i++) {
     g.globalAlpha = .15 + r() * .5;
-    g.fillStyle = '#EEE7E2';
+    g.fillStyle = sc.star;
     g.fillRect(r() * W, r() * H * .7, r() < .9 ? 1 : 1.6, r() < .9 ? 1 : 1.6);
   }
   g.globalAlpha = 1;
   // Mond
   const mx = W * .74, my = H * .3, mr = Math.max(46, Math.min(W, H) * .085);
   const glow = g.createRadialGradient(mx, my, mr * .8, mx, my, mr * 4.5);
-  glow.addColorStop(0, 'rgba(242,224,214,.22)'); glow.addColorStop(1, 'rgba(242,224,214,0)');
+  glow.addColorStop(0, sc.moon + '38'); glow.addColorStop(1, sc.moon + '00');
   g.fillStyle = glow; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#F1E6DC'; g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+  g.fillStyle = sc.moon; g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
   g.fillStyle = 'rgba(200,180,175,.25)';
   for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(mx + (r() - .5) * mr, my + (r() - .5) * mr, mr * (.08 + r() * .12), 0, Math.PI * 2); g.fill(); }
   // Hügel / Dunst
-  g.fillStyle = 'rgba(16,14,34,.85)';
+  g.fillStyle = sc.hill; g.globalAlpha = .85;
   g.beginPath(); g.moveTo(0, H);
   for (let x = 0; x <= W; x += 20) g.lineTo(x, H * .86 - Math.sin(x / W * 3.2 + 1) * H * .04 - Math.sin(x / 90) * 6);
-  g.lineTo(W, H); g.fill();
+  g.lineTo(W, H); g.fill(); g.globalAlpha = 1;
 
   // Zweig von rechts oben
   const blossoms = [];
   function branch(x, y, ang, len, w, depth) {
     const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
     const cx = (x + x2) / 2 + (r() - .5) * len * .35, cy = (y + y2) / 2 + (r() - .5) * len * .35;
-    g.strokeStyle = '#0E0C1D'; g.lineWidth = w; g.lineCap = 'round';
+    g.strokeStyle = sc.branch; g.lineWidth = w; g.lineCap = 'round';
     g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(cx, cy, x2, y2); g.stroke();
     if (depth <= 2 || r() < .35) blossoms.push([x2, y2, depth]);
     if (depth <= 0) return;
@@ -272,18 +277,18 @@ function drawScene() {
     const count = d <= 1 ? 6 : 3;
     for (let i = 0; i < count; i++) {
       const bx = x + (r() - .5) * 26 * s, by = y + (r() - .5) * 22 * s, br = (3 + r() * 4.5) * Math.max(.7, s);
-      g.fillStyle = r() < .5 ? 'rgba(242,179,197,.92)' : r() < .6 ? 'rgba(250,214,222,.9)' : 'rgba(217,120,150,.85)';
-      flower(g, bx, by, br, r() * 6);
+      g.fillStyle = r() < .5 ? sc.petals[0] : r() < .6 ? sc.petals[1] : sc.petals[2];
+      g.globalAlpha = .9; flower(g, bx, by, br, r() * 6, sc.center); g.globalAlpha = 1;
     }
   }
 }
-function flower(g, x, y, rad, rot) {
+function flower(g, x, y, rad, rot, center) {
   g.save(); g.translate(x, y); g.rotate(rot);
   for (let i = 0; i < 5; i++) {
     g.rotate(Math.PI * 2 / 5);
     g.beginPath(); g.ellipse(0, -rad * .62, rad * .42, rad * .62, 0, 0, Math.PI * 2); g.fill();
   }
-  g.fillStyle = 'rgba(160,60,90,.9)'; g.beginPath(); g.arc(0, 0, rad * .18, 0, Math.PI * 2); g.fill();
+  g.fillStyle = center; g.beginPath(); g.arc(0, 0, rad * .18, 0, Math.PI * 2); g.fill();
   g.restore();
 }
 
@@ -304,10 +309,11 @@ function petals() {
       p.x += (p.vx + Math.sin(p.w) * .35) * dt; p.y += p.vy * dt;
       if (p.y > H + 20 || p.x < -30) Object.assign(p, make());
       g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.scale(1, .55 + Math.sin(p.w * 2) * .35);
-      g.fillStyle = 'rgba(242,179,197,.8)';
+      g.fillStyle = SC().petals[0]; g.globalAlpha = .8;
       g.beginPath(); g.moveTo(0, -p.s); g.quadraticCurveTo(p.s, 0, 0, p.s); g.quadraticCurveTo(-p.s, 0, 0, -p.s); g.fill();
       g.restore();
     }
+    g.globalAlpha = 1;
     if (!document.hidden) requestAnimationFrame(frame); else document.addEventListener('visibilitychange', () => { last = performance.now(); requestAnimationFrame(frame); }, { once: true });
   })(last);
 }
@@ -332,15 +338,23 @@ function startPhotos(prefs) {
 // ---------- Start
 let resizeT;
 addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(drawScene, 120); });
-drawScene();
-if (!reduce) petals();
+// Design aus den Einstellungen übernehmen und die Szene neu zeichnen
+async function applyTheme(prefs) {
+  prefs = prefs || (await api.call('prefs')) || {};
+  if (window.SakuraThemes) T = SakuraThemes.apply(document.documentElement, prefs);
+  drawScene();
+  return prefs;
+}
+if (window.sakura && window.sakura.onTheme) window.sakura.onTheme(() => applyTheme());
 (async () => {
+  const prefs = await applyTheme();
+  if (!reduce) petals();
   await loadTiles();
-  startPhotos(await api.call('prefs'));
+  startPhotos(prefs);
   if (await api.call('isPrivate')) $('#private').hidden = false;
 })();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadTiles(); });
-window.sakuraRefresh = loadTiles; // Android ruft das nach einer Synchronisation auf
+window.sakuraRefresh = () => { loadTiles(); applyTheme(); }; // Android ruft das nach einer Synchronisation auf
 </script>
 </body>
 </html>

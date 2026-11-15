@@ -33,7 +33,20 @@ const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } 
 api.on('state', s => { S = s; render(); });
 api.call('state').then(s => { if (s) { S = s; render(); } });
 
+// Design: Farben kommen fertig aus dem Hauptprozess (pages/themes.js)
+let themeKey = '';
+function applyTheme(t) {
+  const key = JSON.stringify(t || null);
+  if (key === themeKey) return;
+  themeKey = key;
+  const root = document.documentElement;
+  for (const k of [...root.style]) if (k.startsWith('--')) root.style.removeProperty(k);
+  if (t) for (const [k, v] of Object.entries(t.vars)) root.style.setProperty(k, v);
+  document.body.classList.toggle('light', !!(t && !t.dark));
+}
+
 function render() {
+  applyTheme(S.theme);
   renderTabs();
   $('#back').disabled = !S.canBack;
   $('#forward').disabled = !S.canForward;
@@ -747,6 +760,17 @@ async function renderSettings() {
       <select id="engine">${p.engines.map(e => `<option value="${e}"${e === p.searchEngine ? ' selected' : ''}>${ENGINE_NAMES[e] || e}</option>`).join('')}</select>
     </label>
   </section>
+  <section class="set" id="design-section">
+    <h3>Design</h3>
+    <div class="themes" role="radiogroup" aria-label="Design">${p.themes.map(t => `
+      <button class="theme${t.id === (p.theme || 'sakura') ? ' on' : ''}" role="radio" aria-checked="${t.id === (p.theme || 'sakura')}" data-theme="${esc(t.id)}"
+        style="--t-bg:${esc(t.yoru)};--t-ac:${esc(t.accent)}"><i></i><span>${esc(t.label)}</span></button>`).join('')}
+    </div>
+    <div class="row accent-row">
+      <label class="accent">Eigene Akzentfarbe <input type="color" id="accent" value="${esc(p.accent || (p.themes.find(t => t.id === (p.theme || 'sakura')) || p.themes[0]).accent)}"></label>
+      <button class="btn" id="accent-reset"${p.accent ? '' : ' hidden'}>Farbe des Designs verwenden</button>
+    </div>
+  </section>
   <section class="set">
     <h3>Darstellung und Start</h3>
     <label class="field">Webseiten
@@ -798,6 +822,7 @@ async function renderSettings() {
   </section>`;
 
   $('#engine').onchange = e => api.call('setPrefs', { searchEngine: e.target.value });
+  bindDesign(p);
   const showRestart = r => { $('#restart-row').hidden = !(r && r.restart); };
   showRestart({ restart: (p.siteTheme === 'force') !== (p.startTheme === 'force') });
   $('#theme').onchange = async e => showRestart(await api.call('setPrefs', { siteTheme: e.target.value }));
@@ -822,6 +847,31 @@ async function renderSettings() {
   $('#datadir').onclick = () => api.call('openDataFolder');
   bindSync();
   bindImport();
+}
+
+function bindDesign(p) {
+  const box = $('#design-section');
+  const accentOf = id => (p.themes.find(t => t.id === id) || p.themes[0]).accent;
+  box.querySelectorAll('[data-theme]').forEach(b => {
+    b.onclick = async () => {
+      box.querySelectorAll('[data-theme]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+      p.theme = b.dataset.theme;
+      if (!p.accent) $('#accent').value = accentOf(p.theme);
+      await api.call('setPrefs', { theme: p.theme });
+    };
+  });
+  // „input“ feuert beim Ziehen im Farbwähler sehr oft → kurz warten
+  let t = null;
+  $('#accent').oninput = e => {
+    clearTimeout(t);
+    t = setTimeout(() => { p.accent = e.target.value; $('#accent-reset').hidden = false; api.call('setPrefs', { accent: p.accent }); }, 150);
+  };
+  $('#accent-reset').onclick = () => {
+    p.accent = '';
+    $('#accent').value = accentOf(p.theme || 'sakura');
+    $('#accent-reset').hidden = true;
+    api.call('setPrefs', { accent: '' });
+  };
 }
 
 async function bindImport() {

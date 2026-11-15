@@ -23,6 +23,8 @@ const DEFAULT_PREFS = {
   restoreSession: true,
   siteTheme: 'system', // 'system' | 'dark' | 'force'
   downloadAsk: false,
+  theme: 'sakura', // Design (pages/themes.js)
+  accent: '',      // eigene Akzentfarbe (#RRGGBB) oder leer = Farbe des Designs
   updatedAt: 0
 };
 

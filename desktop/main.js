@@ -15,6 +15,7 @@ const { Downloads } = require('./lib/downloads');
 const Updater = require('./lib/updater');
 const { Favicons } = require('./lib/favicons');
 const Importer = require('./lib/importer');
+const Themes = require('./pages/themes');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -56,6 +57,9 @@ app.userAgentFallback = app.userAgentFallback
   .filter(t => !/^(Electron|Sakura|sakura-browser)\//i.test(t))
   .join(' ');
 
+/** Aktuelles Design (Farben) aus den Einstellungen */
+function theme() { return Themes.resolve(store.prefs()); }
+
 function applySiteTheme() {
   nativeTheme.themeSource = store.prefs().siteTheme === 'system' ? 'system' : 'dark';
 }
@@ -67,6 +71,7 @@ function prepareSession(ses, isPrivate) {
   ses.protocol.handle('sakura', req => {
     const u = new URL(req.url);
     if (u.hostname === 'favicon') return favicons.respond(u.searchParams.get('u') || '');
+    if (u.pathname === '/themes.js') return net.fetch(pathToFileURL(path.join(__dirname, 'pages', 'themes.js')).toString());
     const name = { newtab: 'newtab.html', error: 'error.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
@@ -126,9 +131,9 @@ class SakuraWindow {
     this.win = new BaseWindow({
       width: 1300, height: 840, minWidth: 560, minHeight: 400, show: false, icon: ICON, ...(bounds || {}),
       title: isPrivate ? 'Sakura – Privat' : 'Sakura',
-      backgroundColor: isPrivate ? BG.private : BG.normal,
+      backgroundColor: this.bgColor(),
       titleBarStyle: 'hidden',
-      titleBarOverlay: { color: isPrivate ? BG.private : BG.normal, symbolColor: '#EEE7E2', height: TABBAR_H }
+      titleBarOverlay: { color: this.bgColor(), symbolColor: this.isPrivate ? '#EEE7E2' : theme().colors.washi, height: TABBAR_H }
     });
 
     this.ui = new WebContentsView({
@@ -238,6 +243,25 @@ class SakuraWindow {
     return 'detached';
   }
 
+  /** Grundfarbe des Fensters: privat immer dunkel, sonst aus dem Design */
+  bgColor() { return this.isPrivate ? BG.private : theme().colors.yoru; }
+
+  /** Design geändert → Titelleiste und Hintergrund anpassen */
+  applyTheme() {
+    if (this.win.isDestroyed() || this.isPrivate) return;
+    try {
+      this.win.setBackgroundColor(this.bgColor());
+      if (this.win.setTitleBarOverlay) this.win.setTitleBarOverlay({ color: this.bgColor(), symbolColor: theme().colors.washi, height: TABBAR_H });
+    } catch { /* nicht jedes System kennt das Overlay */ }
+    for (const t of this.tabs) {
+      const u = t.pending || t.url;
+      if (String(u).startsWith('sakura:')) {
+        t.view.setBackgroundColor(this.bgColor());
+        if (!t.pending && !t.view.webContents.isDestroyed()) t.view.webContents.send('sakura-theme');
+      }
+    }
+  }
+
   get active() { return this.tabs.find(t => t.id === this.activeId); }
   get pinnedCount() { return this.tabs.filter(t => t.pinned).length; }
   topHeight() {
@@ -268,8 +292,8 @@ class SakuraWindow {
     });
     // Eigene Sakura-Seiten dunkel, alle anderen Webseiten mit dem üblichen weißen Grund –
     // viele Seiten (z. B. Googles Cookie-Hinweis) setzen keinen eigenen Hintergrund.
-    const ownBg = this.isPrivate ? BG.private : BG.normal; // privat bleibt privat, auch in einem anderen Fenster
-    const setBg = u => view.setBackgroundColor(String(u || '').startsWith('sakura:') ? ownBg : '#FFFFFF');
+    const isPriv = this.isPrivate; // privat bleibt privat, auch in einem anderen Fenster
+    const setBg = u => view.setBackgroundColor(String(u || '').startsWith('sakura:') ? (isPriv ? BG.private : theme().colors.yoru) : '#FFFFFF');
     setBg(url || NEWTAB);
     const tab = {
       id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null,
@@ -543,6 +567,7 @@ class SakuraWindow {
     try { host = new URL(realUrl).hostname.replace(/^www\./, ''); } catch {}
     return {
       private: this.isPrivate,
+      theme: this.isPrivate ? null : { vars: theme().vars, dark: theme().dark },
       activeId: this.activeId,
       groups: [...this.groups.values()].map(g => ({ ...g, count: this.tabs.filter(t => t.group === g.id).length })),
       tabs: this.tabs.map(t => ({
@@ -1002,8 +1027,10 @@ const uiCommands = {
     if (cookies) await session.defaultSession.clearStorageData();
   },
   devices: () => store.otherDevices(),
-  prefs: () => ({ ...store.prefs(), engines: Object.keys(M.ENGINES), blocklistSize: blocker.size, startTheme }),
+  prefs: () => ({ ...store.prefs(), engines: Object.keys(M.ENGINES), blocklistSize: blocker.size, startTheme, themes: Themes.list }),
   setPrefs: async (w, patch) => {
+    if ('theme' in patch && !Themes.list.some(t => t.id === patch.theme)) delete patch.theme;
+    if ('accent' in patch && patch.accent !== '' && !Themes.isHex(patch.accent)) delete patch.accent;
     store.setPrefs(patch);
     if ('siteTheme' in patch) applySiteTheme();
     if (patch.adblockExtended) { try { await blocker.refreshExtended(true); } catch (e) { return { error: e.message }; } }
@@ -1161,7 +1188,7 @@ app.whenReady().then(async () => {
   sync.tabsProvider = openTabsForSync;
   sync.on('status', s => broadcast('sync-status', s));
   store.on('change', (kind) => {
-    if (kind === 'prefs' || kind === 'all') for (const w of windows) w.layout(); // Favoritenleiste an/aus (auch per Abgleich)
+    if (kind === 'prefs' || kind === 'all') for (const w of windows) { w.layout(); w.applyTheme(); } // Favoritenleiste, Design (auch per Abgleich)
     if (kind !== 'tabs') broadcastState();
   });
 

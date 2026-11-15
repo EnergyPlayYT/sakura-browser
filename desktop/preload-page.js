@@ -3,7 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 if (location.protocol === 'sakura:') {
   contextBridge.exposeInMainWorld('sakura', {
-    call: (cmd, arg) => ipcRenderer.invoke('page', cmd, arg === undefined ? null : arg)
+    call: (cmd, arg) => ipcRenderer.invoke('page', cmd, arg === undefined ? null : arg),
+    onTheme: fn => ipcRenderer.on('sakura-theme', () => fn()) // Design wurde geändert
   });
 }
 

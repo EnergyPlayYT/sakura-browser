@@ -29,6 +29,8 @@ object SyncModel {
         .put("restoreSession", true)
         .put("siteTheme", "system")
         .put("downloadAsk", false)
+        .put("theme", "sakura")
+        .put("accent", "")
         .put("updatedAt", updatedAt)
 
     fun emptyData(): JSONObject {

@@ -7,7 +7,8 @@
 <style>
   :root {
     --yoru: #1C1A33; --kasumi: #28254A; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
-    --line: rgba(238, 231, 226, .09);
+    --err: #FFB4C0; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197;
+    --line: rgba(var(--washi-rgb), .09);
     --mincho: "Noto Serif JP", "Noto Serif CJK JP", "Noto Serif", Georgia, serif;
     --gothic: Roboto, system-ui, sans-serif;
   }
@@ -27,20 +28,20 @@
   .search { margin-bottom: 8px; }
   .day { font: 16px var(--mincho); color: var(--usuzumi); margin: 18px 6px 6px; }
   .item { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-radius: 10px; }
-  .item:active { background: rgba(238, 231, 226, .06); }
-  .fav { width: 32px; height: 32px; flex: none; border-radius: 6px; display: grid; place-items: center; font: 600 14px var(--mincho); color: var(--sakura); background: rgba(242, 179, 197, .14); }
+  .item:active { background: rgba(var(--washi-rgb), .06); }
+  .fav { width: 32px; height: 32px; flex: none; border-radius: 6px; display: grid; place-items: center; font: 600 14px var(--mincho); color: var(--sakura); background: rgba(var(--sakura-rgb), .14); }
   .txt { flex: 1; min-width: 0; }
   .txt div, .txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .txt small { display: block; color: var(--usuzumi); font-size: 13px; }
   time { color: var(--usuzumi); font-size: 13px; }
   .ib { width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px; background: none; color: var(--usuzumi); font-size: 18px; }
-  .ib:active { background: rgba(238, 231, 226, .1); }
+  .ib:active { background: rgba(var(--washi-rgb), .1); }
   .empty { color: var(--usuzumi); padding: 28px 8px; line-height: 1.6; }
   .edit { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .18); margin: 4px 0; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  .btn { height: 42px; padding: 0 16px; border: 0; border-radius: 10px; font: 15px var(--gothic); color: var(--washi); background: rgba(238, 231, 226, .1); }
+  .btn { height: 42px; padding: 0 16px; border: 0; border-radius: 10px; font: 15px var(--gothic); color: var(--washi); background: rgba(var(--washi-rgb), .1); }
   .btn.primary { background: var(--sakura); color: var(--fukai); font-weight: 600; }
-  .btn.danger { color: #FFB4C0; }
+  .btn.danger { color: var(--err); }
   .btn:disabled { opacity: .5; }
   section { padding: 16px 6px; border-top: 1px solid var(--line); }
   section:first-child { border-top: 0; }
@@ -48,7 +49,7 @@
   p { color: var(--usuzumi); margin: 4px 0 12px; line-height: 1.55; }
   label.f { display: grid; gap: 6px; margin-bottom: 12px; color: var(--usuzumi); font-size: 14px; }
   .sw { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
-  .sw input { appearance: none; -webkit-appearance: none; width: 42px; height: 24px; padding: 0; border-radius: 12px; background: rgba(238, 231, 226, .2); position: relative; flex: none; box-shadow: none; }
+  .sw input { appearance: none; -webkit-appearance: none; width: 42px; height: 24px; padding: 0; border-radius: 12px; background: rgba(var(--washi-rgb), .2); position: relative; flex: none; box-shadow: none; }
   .sw input::after { content: ""; position: absolute; width: 18px; height: 18px; top: 3px; left: 3px; border-radius: 50%; background: var(--washi); transition: transform .15s; }
   .sw input:checked { background: var(--sakura); }
   .sw input:checked::after { transform: translateX(18px); background: var(--fukai); }
@@ -57,7 +58,7 @@
   .status.ok i { background: #9FD8B0; }
   .status.error i { background: var(--beni); }
   .status.syncing i { background: var(--sakura); }
-  .err { color: #FFB4C0; }
+  .err { color: var(--err); }
   details summary { color: var(--sakura); margin: 6px 0; }
   details ol { padding-left: 20px; color: var(--usuzumi); line-height: 1.6; }
   code { color: var(--washi); background: rgba(0, 0, 0, .25); padding: 1px 5px; border-radius: 4px; }
@@ -67,6 +68,13 @@
   .script .txt { flex: 1; min-width: 0; }
   textarea.code { min-height: 260px; font: 13px/1.45 "Roboto Mono", monospace; white-space: pre; }
   textarea.matches { min-height: 72px; font: 13px/1.45 "Roboto Mono", monospace; }
+  .themes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .theme { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--washi); font: 14px var(--gothic); text-align: left; box-shadow: inset 0 0 0 1px var(--line); }
+  .theme.on { box-shadow: inset 0 0 0 2px var(--sakura); }
+  .theme i { width: 24px; height: 24px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--t-bg) 50%, var(--t-ac) 50%); box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .25); }
+  .theme span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .accent { display: flex; align-items: center; gap: 12px; color: var(--usuzumi); }
+  .accent input { width: 52px; height: 36px; padding: 0; background: none; box-shadow: none; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -78,6 +86,7 @@
   <a href="#settings" id="t-settings">Einstellungen</a>
 </nav>
 <main id="main"></main>
+<script src="themes.js"></script>
 <script>
 function nativeBridge(port) {
   let n = 0; const wait = {};
@@ -91,6 +100,13 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 const letter = t => (String(t || '?').replace(/^https?:\/\/(www\.)?/, '').trim()[0] || '?').toUpperCase();
 const lines = v => v.split(/\n/).map(x => x.trim()).filter(Boolean);
+
+// Design aus den Einstellungen übernehmen (gemeinsam mit dem PC: themes.js)
+async function applyTheme(p) {
+  p = p || (await api.call('prefs')) || {};
+  if (window.SakuraThemes) SakuraThemes.apply(document.documentElement, p);
+}
+applyTheme();
 
 function route() {
   const k = (location.hash || '#bookmarks').slice(1);
@@ -261,6 +277,15 @@ async function settings() {
     <h2>Suche</h2>
     <label class="f">Suchmaschine<select id="engine">${p.engines.map(e => `<option value="${e}"${e === p.searchEngine ? ' selected' : ''}>${NAMES[e] || e}</option>`).join('')}</select></label>
   </section>
+  <section id="design">
+    <h2>Design</h2>
+    <div class="themes">${(window.SakuraThemes ? SakuraThemes.list : []).map(t => `
+      <button class="theme${t.id === (p.theme || 'sakura') ? ' on' : ''}" data-theme="${esc(t.id)}" style="--t-bg:${esc(t.yoru)};--t-ac:${esc(t.accent)}"><i></i><span>${esc(t.label)}</span></button>`).join('')}</div>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <label class="accent">Eigene Akzentfarbe <input type="color" id="accent" value="${esc(p.accent || SakuraThemes.resolve(p).colors.accent)}"></label>
+      <button class="btn" id="accent-reset"${p.accent ? '' : ' hidden'}>Farbe des Designs</button>
+    </div>
+  </section>
   <section>
     <h2>Darstellung</h2>
     <label class="sw"><input type="checkbox" id="dark"${p.siteTheme === 'force' ? ' checked' : ''}><span>Auch Seiten ohne Dunkelmodus dunkel anzeigen</span></label>
@@ -296,6 +321,19 @@ async function settings() {
     <div class="row" style="justify-content:flex-start"><button class="btn danger" id="clr">Verlauf und Cache löschen</button></div>
   </section>`;
   $('#engine').onchange = e => api.call('setPrefs', { searchEngine: e.target.value });
+  const setDesign = async patch => {
+    Object.assign(p, patch);
+    applyTheme(p);
+    if (!p.accent) $('#accent').value = SakuraThemes.resolve(p).colors.accent;
+    $('#accent-reset').hidden = !p.accent;
+    await api.call('setPrefs', patch);
+  };
+  document.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('[data-theme]').forEach(x => x.classList.toggle('on', x === b));
+    setDesign({ theme: b.dataset.theme });
+  });
+  $('#accent').onchange = e => setDesign({ accent: e.target.value });
+  $('#accent-reset').onclick = () => setDesign({ accent: '' });
   $('#dark').onchange = e => api.call('setPrefs', { siteTheme: e.target.checked ? 'force' : 'dark' });
   $('#ab').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
   $('#abx').onchange = async e => {

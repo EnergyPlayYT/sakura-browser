@@ -12,7 +12,7 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
   preload-ui.js     Brücke für die Browser-Oberfläche (window.chrome2.call / .on)
   preload-page.js   Brücke für sakura://-Seiten + „Zu Sakura hinzufügen“-Knopf im Chrome Web Store
   ui/               Browser-Oberfläche: Tabs, Adressleiste, Favoritenleiste, Menüs, Seitenleisten-Panels
-  pages/            sakura://newtab (Startseite) und sakura://error – newtab.html wird auch von Android genutzt
+  pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt
   lib/              model.js (Datenmodell + Zusammenführen), store.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
                     crypto.js, adblock.js, extensions.js + crx.js (Chrome-Erweiterungen), downloads.js,
                     updater.js (electron-updater), favicons.js
@@ -25,10 +25,10 @@ firebase/           firestore.rules
 
 ## Regeln
 
-- **Gemeinsame Dateien synchron halten:** Nach jeder Änderung an `desktop/pages/newtab.html`, `error.html` oder `desktop/assets/blocklist.txt` die Datei nach `android/app/src/main/assets/` kopieren.
+- **Gemeinsame Dateien synchron halten:** Nach jeder Änderung an `desktop/pages/newtab.html`, `error.html`, `themes.js` (Designs) oder `desktop/assets/blocklist.txt` die Datei nach `android/app/src/main/assets/` kopieren (`theme-test` prüft newtab.html und themes.js).
 - **Synchronisierte Daten** (Lesezeichen, Kacheln, Verlauf, Skripte, Geräte, Einstellungen) müssen auf PC (`lib/model.js`) und Android (`SyncModel.kt`) gleich zusammengeführt werden. Neue synchronisierte Felder in beiden ergänzen. Die Verschlüsselung (`crypto.js` / `SyncCrypto.kt`) nicht ändern, sonst können sich Geräte nicht mehr lesen.
 - **Sicherheit:** Seiten-Inhalte niemals mit Node-Rechten ausführen. Neue Befehle für sakura://-Seiten nur in `pageCommands` (prüft die Herkunft). Webinhalte, Dateinamen, Titel immer mit `esc()` ausgeben. Die Oberfläche hat eine CSP ohne Inline-Skripte/-Handler.
-- **Design:** Dunkles Nachtindigo (`--yoru #1C1A33`), Kirschblüte als Akzent (`--sakura #F2B3C5`), Rot für Siegel/Privat (`--beni #D9566F`), Mincho-Schrift für Überschriften. Keine Emojis in der Oberfläche. Texte kurz, im Du, aktiv („Lesezeichen gespeichert“).
+- **Design:** Farben nie fest eintragen, sondern über die CSS-Variablen aus `pages/themes.js` (Nutzer können Designs und Akzentfarbe wählen). Standard: Dunkles Nachtindigo (`--yoru #1C1A33`), Kirschblüte als Akzent (`--sakura #F2B3C5`), Rot für Siegel/Privat (`--beni #D9566F`), Mincho-Schrift für Überschriften. Keine Emojis in der Oberfläche. Texte kurz, im Du, aktiv („Lesezeichen gespeichert“).
 - **Tests:** Vor jedem Commit `cd desktop && npm test`. Für neue Logik Tests in `desktop/test/` ergänzen und in `run-all.js` eintragen. Android-Code kann ohne Android-SDK nicht gebaut werden – Kotlin sorgfältig schreiben; GitHub baut die APK nur, wenn der Signaturschlüssel hinterlegt ist.
 - **Veröffentlichen = auf `main` pushen.** Jeder Push, der `desktop/` oder `android/` ändert, baut automatisch eine neue Version (Versionsnummer zählt der Workflow selbst hoch – `package.json`-Version nicht von Hand ändern). Installierte Sakura-Versionen aktualisieren sich dann selbst. Nach dem Push den Lauf unter Actions prüfen; schlägt er fehl, Ursache beheben und erneut pushen.
 - Vor dem Push `git pull --rebase`, weil der Workflow Versions-Commits auf `main` schreibt.

@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
         blocker = AdBlocker(this, store)
         store.onChange = { kind, synced ->
             sync.noteChange(kind, synced)
-            if (kind == "prefs" || kind == "all") { blocker.syncPrefs(); applyDarkAll() }
+            if (kind == "prefs" || kind == "all") { blocker.syncPrefs(); applyDarkAll(); refreshStartPages() } // Design auf der Startseite übernehmen
             updateUi()
         }
         sync.onMerged = { refreshStartPages() }

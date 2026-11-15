@@ -46,6 +46,10 @@ setTimeout(async()=>{
   await call('navigate','chrome://extensions'); assert(ui.sent.some(([c,d])=>c==='open-panel'&&d==='extensions'));
   const r = await call('setPrefs',{siteTheme:'force'}); assert.equal(r.restart,true);
   await call('setPrefs',{siteTheme:'system'});
+  // Design wechseln: Farben kommen im Zustand mit, ungültige Werte werden ignoriert
+  await call('setPrefs',{theme:'neon',accent:'#123456'}); st=await call('state'); assert.equal(st.theme.vars['--sakura'],'#123456'); assert.equal(st.theme.vars['--yoru'],'#150B28');
+  await call('setPrefs',{theme:'<x>',accent:'rot'}); assert.equal((await call('prefs')).theme,'neon');
+  await call('setPrefs',{theme:'sakura',accent:''});
   assert(await call('devices'));
   // Import: nachgebautes Edge-Profil
   { const L=fs.mkdtempSync(path.join(require('os').tmpdir(),'la')), d=path.join(L,'Microsoft','Edge','User Data','Default');
