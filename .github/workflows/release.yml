@@ -10,6 +10,7 @@ on:
     paths:
       - 'desktop/**'
       - 'android/**'
+      - '!desktop/test/**'
 
 permissions:
   contents: write
