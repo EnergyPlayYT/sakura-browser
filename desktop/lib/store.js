@@ -51,10 +51,12 @@ class Store extends EventEmitter {
   findBookmark(url) {
     return this.data.bookmarks.find(b => !b.deleted && b.url === url);
   }
-  addBookmark(url, title) {
+  addBookmark(url, title, favicon) {
     if (!url || this.findBookmark(url)) return;
     const now = Date.now();
-    this.data.bookmarks.push({ id: M.newId(), url, title: title || url, createdAt: now, updatedAt: now });
+    const order = Math.max(-1, ...this.barBookmarks().map(b => b.order)) + 1;
+    const icon = typeof favicon === 'string' && /^https?:/.test(favicon) && favicon.length < 500 ? favicon : undefined;
+    this.data.bookmarks.push({ id: M.newId(), url, title: title || url, favicon: icon, order, createdAt: now, updatedAt: now });
     this.changed('bookmarks');
   }
   updateBookmark(id, patch) {
@@ -71,9 +73,28 @@ class Store extends EventEmitter {
     b.deleted = true; b.updatedAt = Date.now();
     this.changed('bookmarks');
   }
-  toggleBookmark(url, title) {
+  /** Reihenfolge für die Favoritenleiste (älteste zuerst, per Ziehen änderbar) */
+  barBookmarks() {
+    return this.data.bookmarks.filter(b => !b.deleted)
+      .map(b => ({ ...b, order: typeof b.order === 'number' ? b.order : (b.createdAt || 0) / 1e13 }))
+      .sort((a, b) => a.order - b.order || (a.createdAt || 0) - (b.createdAt || 0));
+  }
+  moveBookmark(id, toIndex) {
+    const list = this.barBookmarks();
+    const from = list.findIndex(b => b.id === id);
+    if (from < 0) return;
+    const [item] = list.splice(from, 1);
+    list.splice(Math.max(0, Math.min(toIndex, list.length)), 0, item);
+    const now = Date.now();
+    list.forEach((b, i) => {
+      const real = this.data.bookmarks.find(x => x.id === b.id);
+      if (real && real.order !== i) { real.order = i; real.updatedAt = now; }
+    });
+    this.changed('bookmarks');
+  }
+  toggleBookmark(url, title, favicon) {
     const b = this.findBookmark(url);
-    if (b) this.removeBookmark(b.id); else this.addBookmark(url, title);
+    if (b) this.removeBookmark(b.id); else this.addBookmark(url, title, favicon);
     return !b;
   }
 

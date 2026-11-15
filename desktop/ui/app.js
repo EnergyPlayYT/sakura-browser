@@ -11,6 +11,22 @@ let panelKind = null;
 
 const letterOf = t => (String(t || '?').replace(/^https?:\/\/(www\.)?/, '').trim()[0] || '?').toUpperCase();
 const prettyUrl = u => { if (!u) return ''; try { return decodeURI(u); } catch { return u; } };
+// Logo einer Webseite (aus Sakuras Zwischenspeicher); fehlt es, bleibt der Buchstabe stehen
+const iconUrl = u => /^https?:/i.test(String(u || '')) ? 'sakura://favicon/?u=' + encodeURIComponent(u) : null;
+function iconImg(url, label, cls = '') {
+  const src = iconUrl(url);
+  const letter = esc(letterOf(label || url));
+  return src ? `<img class="ficon ${cls}" src="${esc(src)}" alt="" data-letter="${letter}">` : `<i class="ficon-l ${cls}">${letter}</i>`;
+}
+// Kein Logo gefunden → Buchstabe statt kaputtem Bild
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains('ficon')) return;
+  const i = document.createElement('i');
+  i.className = 'ficon-l';
+  i.textContent = img.dataset.letter || '?';
+  img.replaceWith(i);
+}, true);
 const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
 // ------------------------------------------------------------ Zustand anzeigen
@@ -42,9 +58,81 @@ function render() {
   $('#scripts-ind').title = S.scripts === 1 ? 'Ein eigenes Skript läuft auf dieser Seite' : `${S.scripts} eigene Skripte laufen auf dieser Seite`;
   renderExtActions();
   renderUpdateBtn();
+  renderBar();
   renderDownloadsBtn();
   if (overlay === 'shield') fillShield();
 }
+
+// ---------- Favoritenleiste
+let barKey = '';
+function renderBar() {
+  const show = !!S.bar;
+  document.body.classList.toggle('has-bar', show);
+  $('#bookmarkbar').hidden = !show;
+  $('#menu-bar').firstChild.textContent = show ? 'Favoritenleiste ausblenden' : 'Favoritenleiste anzeigen';
+  if (!show) { barKey = ''; return; }
+  const key = JSON.stringify(S.bar);
+  if (key === barKey) return;
+  barKey = key;
+  const box = $('#bm-items');
+  box.innerHTML = '';
+  if (!S.bar.length) {
+    box.innerHTML = '<span class="bm-empty">Leg hier Lesezeichen ab: Klick in der Adressleiste auf den Stern oder drück Strg+D.</span>';
+  }
+  for (const b of S.bar) {
+    const el = document.createElement('button');
+    el.className = 'bm';
+    el.title = `${b.title}\n${b.url}`;
+    el.draggable = true;
+    el.dataset.id = b.id;
+    const label = b.title && b.title !== b.url ? b.title : hostOf(b.url);
+    el.innerHTML = `<img src="${esc(iconUrl(b.url) || b.favicon || '')}" alt=""><span>${esc(label)}</span>`;
+    const img = el.querySelector('img');
+    img.onerror = () => {
+      // erst das gespeicherte Logo der Seite versuchen, dann den Buchstaben
+      if (b.favicon && img.src !== b.favicon) { img.src = b.favicon; return; }
+      img.replaceWith(Object.assign(document.createElement('i'), { textContent: letterOf(label) }));
+    };
+    el.addEventListener('click', e => api.call('bmOpen', { url: b.url, newTab: e.ctrlKey || e.shiftKey, background: e.ctrlKey && !e.shiftKey }));
+    el.addEventListener('auxclick', e => { if (e.button === 1) { e.preventDefault(); api.call('bmOpen', { url: b.url, newTab: true, background: true }); } });
+    el.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+    el.addEventListener('contextmenu', e => { e.preventDefault(); api.call('bmMenu', b.id); });
+    el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/sakura-bm', b.id); el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', e => { if (e.dataTransfer.types.includes('text/sakura-bm')) { e.preventDefault(); el.classList.add('drop-before'); } });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-before'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('drop-before');
+      const id = e.dataTransfer.getData('text/sakura-bm');
+      if (id && id !== b.id) {
+        const order = S.bar.map(x => x.id).filter(x => x !== id);
+        api.call('bmMove', { id, index: order.indexOf(b.id) });
+      }
+    });
+    box.appendChild(el);
+  }
+  requestAnimationFrame(fitBar);
+}
+// Was nicht in die Leiste passt, kommt ins »-Menü
+function fitBar() {
+  const box = $('#bm-items');
+  const items = [...box.querySelectorAll('.bm')];
+  items.forEach(el => { el.style.display = ''; });
+  const limit = box.getBoundingClientRect().right;
+  const hidden = items.filter(el => el.getBoundingClientRect().right > limit + 1);
+  hidden.forEach(el => { el.style.display = 'none'; });
+  $('#bm-more').hidden = !hidden.length;
+  $('#bm-more').dataset.ids = JSON.stringify(hidden.map(el => el.dataset.id));
+}
+window.addEventListener('resize', () => { if (S.bar) fitBar(); });
+$('#bm-more').onclick = () => api.call('bmOverflow', JSON.parse($('#bm-more').dataset.ids || '[]'));
+$('#bookmarkbar').addEventListener('contextmenu', e => { if (e.target.closest('.bm')) return; e.preventDefault(); openPanel('bookmarks'); });
+api.on('edit-bookmark', async id => {
+  openPanel('bookmarks');
+  await new Promise(r => setTimeout(r, 120));
+  const row = document.querySelector(`#panel-body .p-item[data-id="${id}"] [data-act=edit]`);
+  if (row) row.click();
+});
 
 function renderUpdateBtn() {
   const u = S.update || {};
@@ -121,6 +209,7 @@ function renderTabs() {
     if (t.loading) fav = '<span class="fav spin"></span>';
     else if (t.newtab) fav = '<span class="fav letter">桜</span>';
     else if (t.favicon) fav = `<span class="fav"><img src="${esc(t.favicon)}" alt=""></span>`;
+    else if (t.url && iconUrl(t.url)) fav = `<span class="fav"><img src="${esc(iconUrl(t.url))}" alt=""></span>`;
     else fav = `<span class="fav letter">${esc(letterOf(t.title))}</span>`;
     el.innerHTML = `${fav}<span class="title">${esc(t.title)}</span>${t.muted ? '<svg class="snd muted" data-mute><title>Ton einschalten</title><use href="#i-muted"/></svg>' : t.audible ? '<svg class="snd" data-mute><title>Stummschalten</title><use href="#i-sound"/></svg>' : ''}<button class="close" title="Tab schließen (Strg+W)"><svg><use href="#i-x"/></svg></button>${g ? '<span class="gline"></span>' : ''}`;
     const img = el.querySelector('img');
@@ -132,8 +221,13 @@ function renderTabs() {
     });
     el.addEventListener('contextmenu', e => { e.preventDefault(); api.call('tabMenu', t.id); });
     el.querySelector('.close').addEventListener('click', e => { e.stopPropagation(); api.call('closeTab', t.id); });
-    el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/sakura-tab', String(t.id)); el.classList.add('dragging'); });
-    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/sakura-tab', String(t.id));
+      e.dataTransfer.effectAllowed = 'move';
+      el.classList.add('dragging');
+    });
+    // Losgelassen: Sakura prüft anhand der Mausposition, ob der Tab in ein neues oder anderes Fenster soll
+    el.addEventListener('dragend', () => { el.classList.remove('dragging'); api.call('tabDragEnd', t.id); });
     el.addEventListener('dragover', e => e.preventDefault());
     el.addEventListener('drop', e => {
       e.preventDefault();
@@ -331,7 +425,8 @@ function paintSuggest() {
     const icon = s.kind === 'bookmark' ? 'star' : s.kind === 'history' ? 'clock' : 'search';
     const title = s.kind === 'typed' ? esc(s.title) : esc(s.title || s.url);
     const sub = s.kind === 'typed' ? '' : ` <span class="u">— ${esc(s.url.replace(/^https?:\/\/(www\.)?/, ''))}</span>`;
-    return `<li role="option" data-i="${i}" class="${s.kind}${i === sel ? ' sel' : ''}"><svg><use href="#i-${icon}"/></svg><span class="t">${title}</span>${sub}</li>`;
+    const lead = s.kind === 'typed' ? `<svg><use href="#i-${icon}"/></svg>` : `<span class="sfav">${iconImg(s.url, s.title)}</span>`;
+    return `<li role="option" data-i="${i}" class="${s.kind}${i === sel ? ' sel' : ''}">${lead}<span class="t">${title}</span>${sub}${s.kind === 'bookmark' ? '<svg class="bmk"><use href="#i-star"/></svg>' : ''}</li>`;
   }).join('');
 }
 $('#suggest').addEventListener('mousedown', e => {
@@ -379,7 +474,7 @@ $('#panel-close').onclick = () => closeOverlay();
 
 function itemHtml(it, extra = '') {
   return `<div class="p-item" data-id="${esc(it.id)}">
-    <span class="fav">${esc(letterOf(it.title || it.url))}</span>
+    <span class="fav">${iconImg(it.url, it.title)}</span>
     <div class="txt" data-url="${esc(it.url)}" title="${esc(it.url)}"><div>${esc(it.title || it.url)}</div><small>${esc(hostOf(it.url))}</small></div>
     ${extra}</div>`;
 }

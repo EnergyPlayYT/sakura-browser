@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme
+  dialog, webContents, shell, nativeTheme, screen
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +13,7 @@ const M = require('./lib/model');
 const { Extensions } = require('./lib/extensions');
 const { Downloads } = require('./lib/downloads');
 const Updater = require('./lib/updater');
+const { Favicons } = require('./lib/favicons');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -25,6 +26,8 @@ const NEWTAB = 'sakura://newtab/';
 const TABBAR_H = 40;
 const TOOLBAR_H = 46;
 const FINDBAR_H = 44;
+const BOOKMARKBAR_H = 32;
+const barVisible = () => store.prefs().bookmarksBar !== false;
 const ICON = path.join(__dirname, 'assets', 'icon.png');
 const BG = { normal: '#1C1A33', private: '#141022' };
 const WEBSTORE = 'https://chromewebstore.google.com/category/extensions?hl=de';
@@ -37,7 +40,7 @@ const store = new Store(app.getPath('userData'));
 const startTheme = store.prefs().siteTheme;
 if (startTheme === 'force') app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
-let blocker, sync, extensions, downloads, updater;
+let blocker, sync, extensions, downloads, updater, favicons;
 const windows = new Set();
 let tabCounter = 0;
 let privateCounter = 0;
@@ -61,6 +64,7 @@ function prepareSession(ses, isPrivate) {
   preparedSessions.add(ses);
   ses.protocol.handle('sakura', req => {
     const u = new URL(req.url);
+    if (u.hostname === 'favicon') return favicons.respond(u.searchParams.get('u') || '');
     const name = { newtab: 'newtab.html', error: 'error.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
@@ -104,9 +108,10 @@ function prepareSession(ses, isPrivate) {
 
 // ---------------------------------------------------------------- Fenster
 class SakuraWindow {
-  constructor({ isPrivate = false, url, restore } = {}) {
+  constructor({ isPrivate = false, url, restore, adopt, bounds, ses } = {}) {
     this.isPrivate = isPrivate;
-    this.ses = isPrivate ? session.fromPartition('sakura-private-' + (++privateCounter)) : session.defaultSession;
+    // Ein herausgezogener privater Tab nimmt seine private Sitzung mit
+    this.ses = ses || (isPrivate ? session.fromPartition('sakura-private-' + (++privateCounter)) : session.defaultSession);
     prepareSession(this.ses, isPrivate);
     this.tabs = [];
     this.activeId = null;
@@ -117,7 +122,7 @@ class SakuraWindow {
     this.groups = new Map(); // id → { id, name, color, collapsed }
 
     this.win = new BaseWindow({
-      width: 1300, height: 840, minWidth: 560, minHeight: 400, show: false, icon: ICON,
+      width: 1300, height: 840, minWidth: 560, minHeight: 400, show: false, icon: ICON, ...(bounds || {}),
       title: isPrivate ? 'Sakura – Privat' : 'Sakura',
       backgroundColor: isPrivate ? BG.private : BG.normal,
       titleBarStyle: 'hidden',
@@ -141,7 +146,8 @@ class SakuraWindow {
       for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       windows.delete(this);
-      if (this.isPrivate) this.ses.clearStorageData().catch(() => {});
+      // Private Daten erst löschen, wenn kein anderes Fenster dieselbe private Sitzung nutzt
+      if (this.isPrivate && ![...windows].some(x => x.ses === this.ses)) this.ses.clearStorageData().catch(() => {});
       else if (!quitting && windows.size) saveSession();
     });
 
@@ -159,13 +165,83 @@ class SakuraWindow {
       this.restoring = false;
       this.normalize();
       this.activate(this.tabs[act].id);
-    } else this.newTab(url || NEWTAB);
+    } else if (adopt) this.adoptTab(adopt);
+    else this.newTab(url || NEWTAB);
     this.layout();
+  }
+
+  // ---------- Tabs zwischen Fenstern verschieben
+  /** Nimmt einen Tab aus einem anderen Fenster auf – die Seite lädt dabei nicht neu */
+  adoptTab(tab, index) {
+    tab.w = this;
+    tab.group = null;
+    tab.pinned = false;
+    const i = typeof index === 'number' ? Math.max(this.pinnedCount, Math.min(index, this.tabs.length)) : this.tabs.length;
+    this.tabs.splice(i, 0, tab);
+    this.win.contentView.addChildView(tab.view, 0);
+    this.normalize();
+    this.activate(tab.id);
+    this.win.focus();
+  }
+
+  /** Löst einen Tab aus diesem Fenster, ohne seine Seite zu schließen */
+  releaseTab(id) {
+    const i = this.tabs.findIndex(t => t.id === id);
+    if (i < 0) return null;
+    const [t] = this.tabs.splice(i, 1);
+    this.win.contentView.removeChildView(t.view);
+    if (!this.tabs.length) { setImmediate(() => { if (!this.win.isDestroyed()) this.win.close(); }); return t; }
+    this.normalize();
+    if (this.activeId === id) this.activate(this.tabs[Math.min(i, this.tabs.length - 1)].id);
+    else this.sendState();
+    return t;
+  }
+
+  /** Tab wurde losgelassen: bei point (Bildschirmkoordinaten) prüfen, wohin er gehört */
+  dropTab(id, point) {
+    const t = this.tabs.find(x => x.id === id);
+    if (!t) return 'none';
+    const inStrip = (w, p) => {
+      const b = w.win.getContentBounds();
+      return p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y - 8 && p.y <= b.y + TABBAR_H + 16;
+    };
+    // Über der eigenen Tableiste losgelassen → normales Sortieren, nichts weiter
+    if (inStrip(this, point)) return 'none';
+    // Über der Tableiste eines anderen Fensters → dorthin verschieben
+    const target = [...windows].find(w => w !== this && !w.win.isDestroyed() && !w.win.isMinimized() &&
+      w.isPrivate === this.isPrivate && w.ses === this.ses && inStrip(w, point));
+    if (target) {
+      const b = target.win.getContentBounds();
+      const per = Math.max(60, Math.min(220, (b.width - 230) / Math.max(1, target.tabs.length)));
+      const index = Math.round((point.x - b.x - 40) / per);
+      const moved = this.releaseTab(id);
+      if (moved) target.adoptTab(moved, index);
+      return 'merged';
+    }
+    // Einziger Tab → einfach das Fenster dorthin schieben
+    if (this.tabs.length === 1) {
+      const wb = this.win.getBounds();
+      this.win.setBounds({ x: point.x - 120, y: point.y - 16, width: wb.width, height: wb.height });
+      return 'moved';
+    }
+    // Sonst: neues Fenster an der Mausposition
+    const wb = this.win.getBounds();
+    const area = screen.getDisplayNearestPoint(point).workArea;
+    const width = Math.min(wb.width, area.width), height = Math.min(wb.height, area.height);
+    const x = Math.max(area.x, Math.min(point.x - 120, area.x + area.width - width));
+    const y = Math.max(area.y, Math.min(point.y - 16, area.y + area.height - height));
+    if (this.win.isMaximized()) this.win.unmaximize();
+    const moved = this.releaseTab(id);
+    if (moved) new SakuraWindow({ isPrivate: this.isPrivate, ses: this.ses, adopt: moved, bounds: { x, y, width, height } });
+    return 'detached';
   }
 
   get active() { return this.tabs.find(t => t.id === this.activeId); }
   get pinnedCount() { return this.tabs.filter(t => t.pinned).length; }
-  topHeight() { return this.htmlFullscreen ? 0 : TABBAR_H + TOOLBAR_H + (this.findOpen ? FINDBAR_H : 0); }
+  topHeight() {
+    if (this.htmlFullscreen) return 0;
+    return TABBAR_H + TOOLBAR_H + (barVisible() ? BOOKMARKBAR_H : 0) + (this.findOpen ? FINDBAR_H : 0);
+  }
 
   layout() {
     if (this.win.isDestroyed()) return;
@@ -190,13 +266,14 @@ class SakuraWindow {
     });
     // Eigene Sakura-Seiten dunkel, alle anderen Webseiten mit dem üblichen weißen Grund –
     // viele Seiten (z. B. Googles Cookie-Hinweis) setzen keinen eigenen Hintergrund.
-    const ownBg = this.isPrivate ? BG.private : BG.normal;
+    const ownBg = this.isPrivate ? BG.private : BG.normal; // privat bleibt privat, auch in einem anderen Fenster
     const setBg = u => view.setBackgroundColor(String(u || '').startsWith('sakura:') ? ownBg : '#FFFFFF');
     setBg(url || NEWTAB);
     const tab = {
       id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null,
       loading: false, audible: false, muted: false, pinned: !!pinned, pending: lazy ? (url || NEWTAB) : null,
-      group: !pinned && group && this.groups.has(group) ? group : null
+      group: !pinned && group && this.groups.has(group) ? group : null,
+      w: this // Fenster, in dem der Tab gerade steckt (ändert sich beim Herausziehen)
     };
     let i = typeof index === 'number' ? index : this.tabs.length;
     i = tab.pinned ? Math.min(i, this.pinnedCount) : Math.max(i, this.pinnedCount);
@@ -205,17 +282,21 @@ class SakuraWindow {
     const wc = view.webContents;
 
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
-      const at = this.tabs.indexOf(tab) + 1;
-      this.newTab(u, { background: disposition === 'background-tab', index: at, group: tab.group });
+      const at = tab.w.tabs.indexOf(tab) + 1;
+      tab.w.newTab(u, { background: disposition === 'background-tab', index: at, group: tab.group });
       return { action: 'deny' };
     });
-    const upd = () => this.sendState();
+    const upd = () => tab.w.sendState();
     wc.on('page-title-updated', (e, t) => {
       tab.title = t;
-      if (!this.isPrivate) store.updateTitle(wc.getURL(), t);
+      if (!tab.w.isPrivate) store.updateTitle(wc.getURL(), t);
       upd();
     });
-    wc.on('page-favicon-updated', (e, icons) => { tab.favicon = icons[0] || null; upd(); });
+    wc.on('page-favicon-updated', (e, icons) => {
+      tab.favicon = icons[0] || null;
+      if (!tab.w.isPrivate && tab.favicon) favicons.remember(wc.getURL(), tab.favicon);
+      upd();
+    });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
     wc.on('did-stop-loading', () => { tab.loading = false; upd(); });
     wc.on('did-start-navigation', (d) => {
@@ -223,13 +304,13 @@ class SakuraWindow {
     });
     wc.on('did-navigate', (e, u) => {
       tab.url = u; tab.favicon = null;
-      if (!this.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
+      if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
     });
     wc.on('did-navigate-in-page', (e, u, isMain) => {
       if (!isMain) return;
       tab.url = u;
-      if (!this.isPrivate) store.visit(u, wc.getTitle());
+      if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
     wc.on('dom-ready', () => runUserScripts(wc));
@@ -240,11 +321,11 @@ class SakuraWindow {
     wc.on('audio-state-changed', e => { tab.audible = !!e.audible; upd(); });
     wc.on('media-started-playing', () => { tab.audible = true; upd(); });
     wc.on('media-paused', () => { tab.audible = false; upd(); });
-    wc.on('found-in-page', (e, r) => this.ui.webContents.send('find-result', { active: r.activeMatchOrdinal, total: r.matches }));
-    wc.on('context-menu', (e, p) => this.pageMenu(tab, p));
-    wc.on('enter-html-full-screen', () => { this.htmlFullscreen = true; this.win.setFullScreen(true); this.layout(); });
-    wc.on('leave-html-full-screen', () => { this.htmlFullscreen = false; this.win.setFullScreen(false); this.layout(); });
-    attachShortcuts(wc, this);
+    wc.on('found-in-page', (e, r) => tab.w.ui.webContents.send('find-result', { active: r.activeMatchOrdinal, total: r.matches }));
+    wc.on('context-menu', (e, p) => tab.w.pageMenu(tab, p));
+    wc.on('enter-html-full-screen', () => { tab.w.htmlFullscreen = true; tab.w.win.setFullScreen(true); tab.w.layout(); });
+    wc.on('leave-html-full-screen', () => { tab.w.htmlFullscreen = false; tab.w.win.setFullScreen(false); tab.w.layout(); });
+    attachShortcuts(wc, () => tab.w);
 
     if (!lazy) wc.loadURL(url || NEWTAB).catch(() => {});
     this.normalize();
@@ -481,7 +562,8 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       update: updater ? { state: updater.state.state, version: updater.state.version, percent: updater.state.percent } : null,
-      scripts: realUrl ? M.scriptsFor(store.data.scripts, realUrl).length : 0
+      scripts: realUrl ? M.scriptsFor(store.data.scripts, realUrl).length : 0,
+      bar: barVisible() ? store.barBookmarks().slice(0, 100).map(b => ({ id: b.id, title: b.title, url: b.url, favicon: b.favicon || null })) : null
     };
   }
 
@@ -563,6 +645,7 @@ class SakuraWindow {
       { type: 'separator' },
       { label: 'Neu laden', click: () => t.view.webContents.reload() },
       { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) },
+      { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
       { type: 'separator' },
       { label: 'Zu neuer Gruppe hinzufügen', click: () => this.newGroup(id) },
@@ -755,9 +838,11 @@ async function installFromStore(w, id) {
 }
 
 // ---------------------------------------------------------------- Tastenkürzel (in jedem Tab und in der Oberfläche)
-function attachShortcuts(wc, w) {
+function attachShortcuts(wc, winOrGetter) {
+  const getW = typeof winOrGetter === 'function' ? winOrGetter : () => winOrGetter;
   wc.on('before-input-event', (e, i) => {
     if (i.type !== 'keyDown') return;
+    const w = getW();
     const c = i.control || i.meta;
     const k = i.key.toLowerCase();
     const act = w.active && w.active.view.webContents;
@@ -775,6 +860,7 @@ function attachShortcuts(wc, w) {
     else if (c && k === 'd') toggleBookmarkActive(w);
     else if (c && k === 'h') w.ui.webContents.send('open-panel', 'history');
     else if (c && i.shift && k === 'o') w.ui.webContents.send('open-panel', 'bookmarks');
+    else if (c && i.shift && k === 'b') toggleBar();
     else if (c && k === 'j') w.ui.webContents.send('open-panel', 'downloads');
     else if (c && k === 'f') w.openFind();
     else if (c && k === 'p') act && act.print();
@@ -803,11 +889,34 @@ function toggleBookmarkActive(w) {
   if (!a) return;
   const url = w.displayUrl(a.url);
   if (!url) return;
-  store.toggleBookmark(url, a.title);
+  store.toggleBookmark(url, a.title, a.favicon);
   broadcastState();
 }
 
 function broadcastState() { for (const w of windows) w.sendState(); }
+
+function toggleBar() {
+  store.setPrefs({ bookmarksBar: !barVisible() });
+  for (const w of windows) w.layout();
+  broadcastState();
+}
+
+function bookmarkMenu(w, id) {
+  const b = store.bookmarks().find(x => x.id === id);
+  if (!b) return;
+  Menu.buildFromTemplate([
+    { label: 'Öffnen', click: () => w.navigate(b.url) },
+    { label: 'In neuem Tab öffnen', click: () => w.newTab(b.url) },
+    { label: 'In neuem Fenster öffnen', click: () => new SakuraWindow({ url: b.url }) },
+    { label: 'In privatem Fenster öffnen', click: () => new SakuraWindow({ isPrivate: true, url: b.url }) },
+    { type: 'separator' },
+    { label: 'Bearbeiten …', click: () => w.ui.webContents.send('edit-bookmark', id) },
+    { label: 'Adresse kopieren', click: () => clipboard.writeText(b.url) },
+    { label: 'Löschen', click: () => { store.removeBookmark(id); broadcastState(); } },
+    { type: 'separator' },
+    { label: 'Favoritenleiste ausblenden', click: () => toggleBar() }
+  ]).popup();
+}
 function broadcast(channel, data) { for (const w of windows) if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send(channel, data); }
 function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender); }
 
@@ -817,6 +926,14 @@ const uiCommands = {
   closeTab: (w, id) => w.closeTab(id),
   activate: (w, id) => w.activate(id),
   moveTab: (w, { id, index }) => w.moveTab(id, index),
+  tabDragEnd: (w, id) => w.dropTab(id, screen.getCursorScreenPoint()),
+  tabToNewWindow: (w, id) => {
+    const t = w.tabs.find(x => x.id === id);
+    if (!t || w.tabs.length < 2) return;
+    const wb = w.win.getBounds();
+    const moved = w.releaseTab(id);
+    if (moved) new SakuraWindow({ isPrivate: w.isPrivate, ses: w.ses, adopt: moved, bounds: { x: wb.x + 40, y: wb.y + 40, width: wb.width, height: wb.height } });
+  },
   tabMenu: (w, id) => w.tabMenu(id),
   toggleMute: (w, id) => w.toggleMute(id),
   groupNew: (w, tabId) => w.newGroup(tabId),
@@ -860,6 +977,19 @@ const uiCommands = {
   devtools: w => w.active && w.active.view.webContents.toggleDevTools(),
   suggest: (w, q) => store.suggest(q),
   bookmarks: () => store.bookmarks(),
+  bmOpen: (w, { url, newTab, background }) => {
+    if (!/^(https?|sakura|chrome-extension):/i.test(String(url))) return;
+    if (newTab) w.newTab(url, { background: !!background, index: w.tabs.indexOf(w.active) + 1 });
+    else w.navigate(url);
+  },
+  bmMenu: (w, id) => bookmarkMenu(w, id),
+  bmMove: (w, { id, index }) => { store.moveBookmark(id, index); broadcastState(); },
+  bmOverflow: (w, ids) => {
+    const all = store.bookmarks();
+    const items = ids.map(id => all.find(b => b.id === id)).filter(Boolean);
+    Menu.buildFromTemplate(items.map(b => ({ label: (b.title || b.url).slice(0, 60), click: () => w.navigate(b.url) }))).popup();
+  },
+  toggleBar: () => toggleBar(),
   updateBookmark: (w, { id, patch }) => { store.updateBookmark(id, patch); broadcastState(); },
   removeBookmark: (w, id) => { store.removeBookmark(id); broadcastState(); },
   history: (w, q) => store.history(q || ''),
@@ -977,6 +1107,7 @@ app.whenReady().then(async () => {
   })();
   blocker.refreshExtended().catch(() => {});
 
+  favicons = new Favicons({ dir: path.join(userDir, 'Favicons'), store, fetchFn: (u, o) => net.fetch(u, o) });
   downloads = new Downloads({ store, dir: app.getPath('downloads'), shell });
   downloads.on('change', () => { broadcastState(); broadcast('downloads-changed'); });
   downloads.on('started', () => broadcast('download-started'));
@@ -994,7 +1125,10 @@ app.whenReady().then(async () => {
   sync = new Sync(store);
   sync.tabsProvider = openTabsForSync;
   sync.on('status', s => broadcast('sync-status', s));
-  store.on('change', (kind) => { if (kind !== 'tabs') broadcastState(); });
+  store.on('change', (kind) => {
+    if (kind === 'prefs' || kind === 'all') for (const w of windows) w.layout(); // Favoritenleiste an/aus (auch per Abgleich)
+    if (kind !== 'tabs') broadcastState();
+  });
 
   ipcMain.handle('ui', async (e, cmd, arg) => {
     const w = winOf(e.sender);

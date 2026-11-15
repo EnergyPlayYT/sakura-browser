@@ -11,7 +11,9 @@
   --gothic: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", system-ui, sans-serif;
   --tabbar: 40px;
   --toolbar: 46px;
+  --bar: 0px;
 }
+body.has-bar { --bar: 32px; }
 body.private {
   --yoru: #141022;
   --kasumi: #211A35;
@@ -135,6 +137,35 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .tab.pinned .snd { position: absolute; right: 4px; top: 4px; width: 11px; height: 11px; }
 #shield.off svg { stroke-dasharray: 3 2.4; }
 
+/* ---------------- Webseiten-Logos ---------------- */
+.ficon { width: 100%; height: 100%; object-fit: contain; border-radius: 3px; }
+.ficon-l { font-style: normal; display: grid; place-items: center; width: 100%; height: 100%; }
+.p-item .fav:has(img.ficon) { background: rgba(255, 255, 255, .9); padding: 3px; }
+.sfav { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 3px; font: 600 10px var(--mincho); background: rgba(242, 179, 197, .16); color: var(--sakura); overflow: hidden; }
+.sfav:has(img.ficon) { background: none; }
+#suggest li svg.bmk { width: 14px; height: 14px; color: var(--sakura); margin-left: auto; }
+
+/* ---------------- Favoritenleiste ---------------- */
+#bookmarkbar {
+  height: 32px; display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--kasumi);
+  border-bottom: 1px solid rgba(0, 0, 0, .25); margin-top: -1px;
+}
+#toolbar:has(+ #bookmarkbar:not([hidden])) { border-bottom: 0; }
+#bm-items { flex: 1; min-width: 0; display: flex; gap: 2px; overflow: hidden; }
+.bm {
+  flex: none; max-width: 180px; height: 26px; padding: 0 10px 0 7px; display: flex; align-items: center; gap: 7px;
+  border-radius: 7px; color: var(--washi); font-size: 12.5px; white-space: nowrap;
+}
+.bm:hover, .bm:focus-visible { background: rgba(238, 231, 226, .08); }
+.bm:active { background: rgba(238, 231, 226, .14); }
+.bm span { overflow: hidden; text-overflow: ellipsis; }
+.bm img, .bm i { width: 16px; height: 16px; flex: none; border-radius: 3px; }
+.bm i { display: grid; place-items: center; font: normal 600 10px/1 var(--mincho); background: rgba(242, 179, 197, .16); color: var(--sakura); }
+.bm.dragging { opacity: .4; }
+.bm.drop-before { box-shadow: inset 2px 0 0 var(--sakura); }
+.bm-empty { color: var(--usuzumi); font-size: 12.5px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bm-more { font: 16px var(--gothic); color: var(--usuzumi); }
+
 /* ---------------- Suchleiste auf der Seite ---------------- */
 #findbar {
   height: 44px; display: flex; align-items: center; gap: 4px; padding: 0 12px; background: var(--kasumi);
@@ -148,11 +179,11 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 #find-count { min-width: 64px; color: var(--usuzumi); padding: 0 8px; font-variant-numeric: tabular-nums; }
 
 /* ---------------- Overlays ---------------- */
-#backdrop { position: fixed; inset: calc(var(--tabbar) + var(--toolbar)) 0 0 0; background: rgba(8, 6, 18, .42); }
+#backdrop { position: fixed; inset: calc(var(--tabbar) + var(--toolbar) + var(--bar)) 0 0 0; background: rgba(8, 6, 18, .42); }
 #backdrop.clear { background: transparent; }
 
 .pop {
-  position: fixed; top: calc(var(--tabbar) + var(--toolbar) - 4px); right: 8px; min-width: 300px; padding: 6px;
+  position: fixed; top: calc(var(--tabbar) + var(--toolbar) + var(--bar) - 4px); right: 8px; min-width: 300px; padding: 6px;
   background: #2C2950; border-radius: 12px; box-shadow: 0 0 0 1px var(--line), 0 18px 40px rgba(4, 2, 12, .55);
   animation: pop .14s ease-out;
 }
@@ -193,7 +224,7 @@ body.private #suggest { background: #251E3C; }
 
 /* ---------------- Seitenleiste ---------------- */
 #panel {
-  position: fixed; top: calc(var(--tabbar) + var(--toolbar)); right: 0; bottom: 0; width: min(420px, 92vw);
+  position: fixed; top: calc(var(--tabbar) + var(--toolbar) + var(--bar)); right: 0; bottom: 0; width: min(420px, 92vw);
   background: #221F3E; box-shadow: -1px 0 0 var(--line), -24px 0 48px rgba(4, 2, 12, .4);
   display: flex; flex-direction: column; animation: slide .18s ease-out; user-select: text;
 }

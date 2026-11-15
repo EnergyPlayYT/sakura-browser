@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: http: sakura:; style-src 'self' 'unsafe-inline'">
 <title>Sakura</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -66,6 +66,11 @@
   <button id="menu-btn" class="icon" title="Menü"><svg><use href="#i-menu"/></svg></button>
 </nav>
 
+<div id="bookmarkbar" hidden role="toolbar" aria-label="Favoritenleiste">
+  <div id="bm-items"></div>
+  <button id="bm-more" class="icon small" title="Weitere Lesezeichen" hidden>»</button>
+</div>
+
 <div id="findbar" hidden>
   <input id="find-input" placeholder="Auf der Seite suchen" spellcheck="false">
   <span id="find-count"></span>
@@ -86,6 +91,7 @@
   <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
   <hr>
   <button data-panel="bookmarks">Lesezeichen<kbd>Strg+Umschalt+O</kbd></button>
+  <button data-cmd="toggleBar" id="menu-bar">Favoritenleiste ausblenden<kbd>Strg+Umschalt+B</kbd></button>
   <button data-panel="history">Verlauf und andere Geräte<kbd>Strg+H</kbd></button>
   <button data-panel="downloads">Downloads<kbd>Strg+J</kbd></button>
   <button data-panel="extensions">Erweiterungen</button>
