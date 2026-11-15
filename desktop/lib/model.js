@@ -29,6 +29,9 @@ const DEFAULT_PREFS = {
   youtube: true,      // YouTube: Werbung überspringen
   ytSponsor: true,    // Sponsor-Abschnitte überspringen (SponsorBlock)
   ytQuality: 'hd1080',
+  sleepAfter: 30,     // Hintergrund-Tabs nach so vielen Minuten schlafen legen (0 = nie)
+  ramLimit: 0,        // RAM-Grenze für Sakura in MB (0 = keine)
+  cpuLimit: 0,        // CPU-Grenze pro Hintergrund-Tab in % (0 = keine)
   theme: 'sakura', // Design (pages/themes.js)
   accent: '',      // eigene Akzentfarbe (#RRGGBB) oder leer = Farbe des Designs
   updatedAt: 0

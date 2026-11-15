@@ -15,11 +15,11 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] **Cookie-Banner automatisch ablehnen** (Schalter in den Einstellungen, standardmäßig an): eingebautes Seitenskript nach dem Laden (wie `runUserScripts`). Bekannte Banner direkt ablehnen (OneTrust `#onetrust-reject-all-handler`, Cookiebot, Usercentrics im Shadow-DOM `#usercentrics-root`, Didomi, Quantcast, Google/YouTube-Zustimmungsseite „Alle ablehnen“), sonst Knöpfe mit Text wie „Alle ablehnen“/„Nur notwendige“/„Reject all“ in Elementen mit cookie/consent/gdpr/cmp in id/class. 10 Sekunden lang per MutationObserver nachsehen. Ausnahme pro Seite über das Schild-Menü.
 - [x] **YouTube** (Schalter, standardmäßig an): Werbung überspringen (bei `.ad-showing` Video ans Ende setzen, Überspringen-Knöpfe klicken, Werbeflächen per CSS ausblenden), Sponsor-Abschnitte über die SponsorBlock-API mit Hash-Präfix (`/api/skipSegments/<sha256-Präfix>` – schützt die Privatsphäre) überspringen, Qualität auf 1080p setzen. Auch beim Wechsel zwischen Videos (YouTube lädt ohne Seitenwechsel → `yt-navigate-finish`).
 - [x] **Hintergrundbilder** (Wunsch von Ali): Ordner `desktop/backgrounds/` – Bilder darin zeigt die Startseite auf PC und Android als Diashow, Wechsel jede Minute mit weichem Überblenden und langsamem Zoom. Bilder lädt Ali selbst auf GitHub hoch.
-- [ ] Danach: Version veröffentlichen, Lauf prüfen, Ali in einfachen Worten berichten.
+- [x] Danach: Version veröffentlichen, Lauf prüfen, Ali in einfachen Worten berichten.
 
 ## Etappe 2 – Leistung und Gaming
 - [x] Leistungs-Panel: CPU/RAM pro Tab (`app.getAppMetrics()`), Internet, Ping; Tab „schlafen legen“.
-- [ ] Grenzen für RAM/CPU; Hintergrund-Tabs automatisch schlafen legen.
+- [x] Grenzen für RAM/CPU; Hintergrund-Tabs automatisch schlafen legen.
 - [ ] Gaming-Modus: erkennt laufende Spiele (Prozessliste) und senkt Sakuras Priorität.
 - [ ] Schwebendes Video über allem (always-on-top, optional durchklickbar), Medientasten.
 

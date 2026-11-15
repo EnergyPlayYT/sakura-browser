@@ -73,6 +73,9 @@ setTimeout(async()=>{
       assert.notEqual(t.title, 'T about:blank', 'Titel bleibt'); await call('activate', t.id); await new Promise(r=>setTimeout(r,30));
       st = await call('state'); assert(!st.tabs.find(x=>x.id===t.id).sleeping); assert.equal(st.url, awake[0].url, 'lädt beim Anklicken wieder');
     } else assert.fail('kein Hintergrund-Tab zum Testen');
+    await call('setPrefs',{sleepAfter:0,ramLimit:0,cpuLimit:0}); assert.deepEqual(await call('autoSleepNow'), []);
+    await call('setPrefs',{ramLimit:1}); const picked = await call('autoSleepNow'); assert(Array.isArray(picked));
+    await call('setPrefs',{ramLimit:0,sleepAfter:30});
   }
   // Import: nachgebautes Edge-Profil
   { const L=fs.mkdtempSync(path.join(require('os').tmpdir(),'la')), d=path.join(L,'Microsoft','Edge','User Data','Default');

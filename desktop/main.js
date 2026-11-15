@@ -18,6 +18,7 @@ const { Favicons } = require('./lib/favicons');
 const Importer = require('./lib/importer');
 const Themes = require('./pages/themes');
 const SB = require('./lib/sponsorblock');
+const { pickTabsToSleep } = require('./lib/sleeper');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -327,6 +328,7 @@ class SakuraWindow {
       id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null,
       loading: false, audible: false, muted: false, pinned: !!pinned, pending: lazy ? (url || NEWTAB) : null,
       group: !pinned && group && this.groups.has(group) ? group : null,
+      lastActive: Date.now(),
       w: this // Fenster, in dem der Tab gerade steckt (ändert sich beim Herausziehen)
     };
     let i = typeof index === 'number' ? index : this.tabs.length;
@@ -395,6 +397,9 @@ class SakuraWindow {
   activate(id) {
     const t = this.tabs.find(x => x.id === id);
     if (!t) return;
+    const prev = this.active;
+    if (prev) prev.lastActive = Date.now(); // zuletzt benutzt = als er verlassen wurde
+    t.lastActive = Date.now();
     this.activeId = id;
     if (t.group && this.groups.get(t.group) && this.groups.get(t.group).collapsed) this.groups.get(t.group).collapsed = false;
     if (t.pending) { const u = t.pending; t.pending = null; t.sleeping = false; t.view.webContents.loadURL(u).catch(() => {}); }
@@ -924,6 +929,23 @@ async function perfInfo(viewer) {
     ping: await measurePing()
   };
 }
+// Automatisch schlafen legen (Einstellungen: sleepAfter, ramLimit, cpuLimit)
+const cpuStrikes = new Map();
+async function autoSleepTick() {
+  const p = store.prefs();
+  if (!Number(p.sleepAfter) && !Number(p.ramLimit) && !Number(p.cpuLimit)) return [];
+  const info = await perfInfo();
+  const byId = new Map(info.tabs.map(r => [r.id, r]));
+  const list = [];
+  for (const w of windows) for (const t of w.tabs) {
+    const r = byId.get(t.id) || {};
+    list.push({ id: t.id, active: w.activeId === t.id, audible: t.audible, sleeping: !!t.pending, web: /^https?:/i.test(t.url), lastActive: t.lastActive, mem: r.mem || 0, cpu: r.cpu || 0 });
+  }
+  const picked = pickTabsToSleep(list, p, Date.now(), info.sakura.mem, cpuStrikes);
+  for (const x of picked) { const f = findTab(x.id); if (f) f.w.sleepTab(x.id); }
+  return picked;
+}
+
 function findTab(id) {
   for (const w of windows) { const t = w.tabs.find(x => x.id === id); if (t) return { w, t }; }
   return null;
@@ -1212,6 +1234,7 @@ const uiCommands = {
   // Leistung
   perf: w => perfInfo(w),
   sleepTab: (w, id) => { const f = findTab(id); return f ? f.w.sleepTab(id) : false; },
+  autoSleepNow: () => autoSleepTick(),
   sleepBackground: () => { let n = 0; for (const x of windows) for (const t of [...x.tabs]) if (x.sleepTab(t.id)) n++; return n; },
   focusTab: (w, id) => { const f = findTab(id); if (f) { f.w.activate(id); f.w.win.focus(); } },
   // Downloads
@@ -1385,6 +1408,7 @@ app.whenReady().then(async () => {
   }
 
   if (sync.configured) setTimeout(() => sync.syncNow(), 1500);
+  setInterval(() => autoSleepTick().catch(() => {}), 30000);
   // Einmal pro Woche Erweiterungen aktualisieren
   if (Date.now() - (store.data.extensionsCheckedAt || 0) > 7 * 864e5) {
     setTimeout(() => extensions.checkUpdates().catch(() => {}), 30000);

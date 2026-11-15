@@ -789,6 +789,19 @@ async function renderSettings() {
     <label class="switch"><input type="checkbox" id="dlask"${p.downloadAsk ? ' checked' : ''}><span>Vor jedem Download fragen, wo gespeichert wird</span></label>
   </section>
   <section class="set">
+    <h3>Leistung</h3>
+    <label class="field">Hintergrund-Tabs schlafen legen nach
+      <select id="sl-after">${[[0, 'Nie'],[10, '10 Minuten'],[30, '30 Minuten'],[60, '1 Stunde'],[120, '2 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.sleepAfter || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <label class="field">RAM-Grenze für Sakura
+      <select id="sl-ram">${[[0, 'Keine'],[1024, '1 GB'],[2048, '2 GB'],[4096, '4 GB'],[8192, '8 GB']].map(([v, l]) => `<option value="${v}"${Number(p.ramLimit || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <label class="field">CPU-Grenze pro Hintergrund-Tab
+      <select id="sl-cpu">${[[0, 'Keine'],[10, '10 %'],[25, '25 %'],[50, '50 %']].map(([v, l]) => `<option value="${v}"${Number(p.cpuLimit || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <p>Wird eine Grenze überschritten, schlafen die am längsten unbenutzten Hintergrund-Tabs. Tabs mit Ton schlafen nie.</p>
+  </section>
+  <section class="set">
     <h3>Werbeblocker</h3>
     <label class="switch"><input type="checkbox" id="ab-on"${p.adblock ? ' checked' : ''}><span>Werbung und Tracker blockieren</span></label>
     <label class="switch"><input type="checkbox" id="ab-ext"${p.adblockExtended ? ' checked' : ''}><span>Erweiterte Liste verwenden (rund 80.000 Domains, wird wöchentlich geladen)</span></label>
@@ -852,6 +865,7 @@ async function renderSettings() {
   $('#restart').onclick = () => api.call('relaunch');
   $('#restore').onchange = e => api.call('setPrefs', { restoreSession: e.target.checked });
   $('#dlask').onchange = e => api.call('setPrefs', { downloadAsk: e.target.checked });
+  for (const [id, key] of [['#sl-after', 'sleepAfter'], ['#sl-ram', 'ramLimit'], ['#sl-cpu', 'cpuLimit']]) $(id).onchange = e => api.call('setPrefs', { [key]: Number(e.target.value) });
   $('#ab-on').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
   $('#ab-ext').onchange = async e => {
     $('#ab-info').textContent = e.target.checked ? 'Liste wird geladen …' : '';
