@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const CI = require('./cookie-import');
 
 const HISTORY_DAYS = 90;
 const HISTORY_MAX = 3000;
@@ -43,7 +44,7 @@ function findProfiles(env = process.env) {
       const found = dirs.filter(d => usable(path.join(base, d))).sort((a, b) => (a === 'Default' ? -1 : b === 'Default' ? 1 : a.localeCompare(b, 'de', { numeric: true })));
       for (const d of found) {
         const pname = (info[d] && (info[d].name || info[d].gaia_name)) || (d === 'Default' ? 'Standardprofil' : d);
-        out.push({ browser: b.name, profile: pname, kind: 'chromium', dir: path.join(base, d) });
+        out.push({ browser: b.name, profile: pname, kind: 'chromium', dir: path.join(base, d), base });
       }
     }
   }
@@ -51,7 +52,7 @@ function findProfiles(env = process.env) {
     for (const b of OPERA) {
       const base = path.join(roaming, ...b.dir);
       const dir = usable(base) ? base : usable(path.join(base, 'Default')) ? path.join(base, 'Default') : null;
-      if (dir) out.push({ browser: b.name, profile: '', kind: 'chromium', dir });
+      if (dir) out.push({ browser: b.name, profile: '', kind: 'chromium', dir, base });
     }
     const ffBase = path.join(roaming, 'Mozilla', 'Firefox');
     for (const p of firefoxProfiles(ffBase)) out.push(p);
@@ -247,19 +248,32 @@ function readProfile(p, { bookmarks = true, history = true } = {}, now = Date.no
   return res;
 }
 
-/** „87 Lesezeichen und 1.240 Verlaufseinträge aus Chrome übernommen.“ */
-function summary({ bookmarks, history }, from) {
+/** Cookies eines Profils lesen (async: der Chromium-Schlüssel kommt von Windows) */
+async function readCookies(p, opts = {}) {
+  try {
+    if (p.kind === 'chromium') return await CI.readChromiumCookies(p, withDatabase, opts);
+    if (p.kind === 'firefox') return CI.readFirefoxCookies(p, withDatabase, opts);
+  } catch (e) {
+    if (e instanceof LockedError) throw new Error(`Schließ ${p.browser} und versuch es noch einmal.`);
+    throw new Error(`Die Cookies aus ${p.browser} konnten nicht gelesen werden (${e.message}).`);
+  }
+  return { cookies: [], protected: 0, unreadable: 0 };
+}
+
+/** „87 Lesezeichen, 1.240 Verlaufseinträge und 312 Cookies aus Chrome übernommen.“ */
+function summary({ bookmarks, history, cookies, protectedCookies }, from) {
   const n = x => x.toLocaleString('de-DE');
   const parts = [];
   if (bookmarks) parts.push(bookmarks === 1 ? 'ein Lesezeichen' : `${n(bookmarks)} Lesezeichen`);
   if (history) parts.push(history === 1 ? 'ein Verlaufseintrag' : `${n(history)} Verlaufseinträge`);
-  const what = parts.join(' und ');
-  if (!bookmarks && !history) return `Aus ${from} gab es nichts Neues zu übernehmen.`;
-  const text = `${what} aus ${from} übernommen.`;
+  if (cookies) parts.push(cookies === 1 ? 'ein Cookie' : `${n(cookies)} Cookies`);
+  const what = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' und ' + parts[parts.length - 1] : parts[0];
+  let text = !parts.length ? `Aus ${from} gab es nichts Neues zu übernehmen.` : `${what} aus ${from} übernommen.`;
+  if (protectedCookies) text += ` ${n(protectedCookies)} Cookies schützt ${from} so, dass kein anderes Programm sie lesen kann – auf diesen Seiten meldest du dich in Sakura einmal neu an.`;
   return text[0].toUpperCase() + text.slice(1);
 }
 
 module.exports = {
   findProfiles, readProfile, readChromiumBookmarks, readChromiumHistory, readFirefoxBookmarks, readFirefoxHistory,
-  parseBookmarksHtml, summary, HISTORY_DAYS, HISTORY_MAX
+  parseBookmarksHtml, summary, readCookies, withDatabase, HISTORY_DAYS, HISTORY_MAX
 };

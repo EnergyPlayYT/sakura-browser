@@ -841,12 +841,13 @@ async function renderSettings() {
   </section>
   <section class="set" id="import-section">
     <h3>Daten importieren</h3>
-    <p>Übernimm Lesezeichen und Verlauf aus einem anderen Browser. Doppelte Lesezeichen werden übersprungen.</p>
+    <p>Übernimm Lesezeichen, Verlauf und Anmeldungen aus einem anderen Browser. Doppelte Lesezeichen werden übersprungen. Schließ den anderen Browser vorher.</p>
     <label class="field">Browser
       <select id="imp-src"><option value="">Suche Browser …</option></select>
     </label>
     <label class="switch"><input type="checkbox" id="imp-bm" checked><span>Lesezeichen</span></label>
     <label class="switch"><input type="checkbox" id="imp-hist" checked><span>Verlauf der letzten 90 Tage</span></label>
+    <label class="switch"><input type="checkbox" id="imp-ck" checked><span>Cookies – damit du auf Webseiten angemeldet bleibst</span></label>
     <p id="imp-msg" hidden></p>
     <div class="row"><button class="btn primary" id="imp-go" disabled>Importieren</button><button class="btn" id="imp-html">Aus HTML-Datei importieren …</button></div>
   </section>
@@ -928,10 +929,10 @@ async function bindImport() {
   sel.disabled = !list.length;
   go.disabled = !list.length;
   go.onclick = async () => {
-    const b = $('#imp-bm').checked, h = $('#imp-hist').checked;
+    const b = $('#imp-bm').checked, h = $('#imp-hist').checked, c = $('#imp-ck').checked;
     go.disabled = true;
     show('Importiere …');
-    const r = await api.call('importRun', { id: sel.value, bookmarks: b, history: h });
+    const r = await api.call('importRun', { id: sel.value, bookmarks: b, history: h, cookies: c });
     go.disabled = false;
     show(r && (r.message || r.error), !r || !!r.error);
   };

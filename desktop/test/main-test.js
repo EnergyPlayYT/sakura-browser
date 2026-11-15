@@ -83,7 +83,11 @@ setTimeout(async()=>{
     process.env.LOCALAPPDATA=L; delete process.env.APPDATA;
     const src=await call('importSources'); assert.deepEqual(src.map(x=>x.label),['Edge']);
     const r=await call('importRun',{id:src[0].id}); assert.equal(r.message,'Ein Lesezeichen aus Edge übernommen.');
-    assert((await call('importRun',{id:'99'})).error); }
+    assert((await call('importRun',{id:'99'})).error);
+    fs.mkdirSync(path.join(d,'Network')); const {DatabaseSync}=require('node:sqlite'); const db=new DatabaseSync(path.join(d,'Network','Cookies'));
+    db.exec("CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER); INSERT INTO cookies VALUES ('.bing.com','MUID','123',x'','/',0,1,0,-1)"); db.close();
+    const rc=await call('importRun',{id:src[0].id,bookmarks:false,history:false,cookies:true}); assert.equal(rc.message,'Ein Cookie aus Edge übernommen.');
+    assert(mock.session.defaultSession.cookies.jar.some(c=>c.name==='MUID'&&c.domain==='.bing.com'&&c.url==='https://bing.com/')); }
   await new Promise(r=>setTimeout(r,40));
   // Sitzung wurde gemerkt
   await call('newPrivateWindow'); await new Promise(r=>setTimeout(r,30));

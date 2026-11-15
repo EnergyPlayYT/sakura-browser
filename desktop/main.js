@@ -16,6 +16,7 @@ const { Downloads } = require('./lib/downloads');
 const Updater = require('./lib/updater');
 const { Favicons } = require('./lib/favicons');
 const Importer = require('./lib/importer');
+const CookieImport = require('./lib/cookie-import');
 const Themes = require('./pages/themes');
 const SB = require('./lib/sponsorblock');
 const { pickTabsToSleep } = require('./lib/sleeper');
@@ -1261,13 +1262,21 @@ const uiCommands = {
     importProfiles = Importer.findProfiles(process.env);
     return importProfiles.map(p => ({ id: p.id, label: p.label, browser: p.browser }));
   },
-  importRun: (w, { id, bookmarks = true, history = true } = {}) => {
+  importRun: async (w, { id, bookmarks = true, history = true, cookies = false } = {}) => {
     const p = importProfiles.find(x => x.id === String(id));
     if (!p) return { error: 'Dieses Profil wurde nicht gefunden.' };
-    if (!bookmarks && !history) return { error: 'Wähle Lesezeichen, Verlauf oder beides.' };
+    if (!bookmarks && !history && !cookies) return { error: 'Wähle aus, was übernommen werden soll.' };
     try {
       const r = Importer.readProfile(p, { bookmarks, history });
-      const res = { bookmarks: bookmarks ? store.importBookmarks(r.bookmarks) : null, history: history ? store.importHistory(r.history) : null };
+      // Cookies zuerst lesen: ist der Browser offen, bricht alles ab, bevor etwas übernommen wurde
+      const ck = cookies ? await Importer.readCookies(p) : null;
+      const res = {
+        bookmarks: bookmarks ? store.importBookmarks(r.bookmarks) : null,
+        history: history ? store.importHistory(r.history) : null,
+        cookies: ck ? await CookieImport.applyCookies(ck.cookies, session.defaultSession.cookies) : null,
+        protectedCookies: ck ? ck.protected : 0
+      };
+      if (ck) await session.defaultSession.cookies.flushStore().catch(() => {});
       broadcastState();
       return { ok: true, ...res, message: Importer.summary(res, p.browser) };
     } catch (e) { return { error: e.message }; }

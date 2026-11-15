@@ -16,7 +16,7 @@ class BaseWindow extends EventEmitter { constructor(o){super(); this.o=o; this.b
   getContentBounds(){const b=this.b||{x:100,y:100,width:1200,height:800};return {x:b.x,y:b.y,width:b.width||1200,height:b.height||800}} getBounds(){return this.getContentBounds()} setBounds(b){this.b=b} isMaximized(){return false} unmaximize(){} isFocused(){return false} isDestroyed(){return this.destroyed} show(){} setTitle(t){this.title=t} close(){this.destroyed=true; this.emit('closed')} setFullScreen(){} isFullScreen(){return false} isMinimized(){return false} focus(){} restore(){} }
 const handlers={};
 const loadedExt=[];
-const ses={ on(){}, extensions:{loadExtension:async p=>{loadedExt.push(p);return {id:'x',path:p}},removeExtension(){}}, protocol:{handle(){}}, webRequest:{onBeforeRequest(){}}, setPermissionRequestHandler(){}, clearStorageData:async()=>{}, clearCache:async()=>{} };
+const ses={ on(){}, cookies:{ jar:[], async set(c){ if(!c.url) throw new Error('url'); this.jar.push(c); }, async flushStore(){} }, extensions:{loadExtension:async p=>{loadedExt.push(p);return {id:'x',path:p}},removeExtension(){}}, protocol:{handle(){}}, webRequest:{onBeforeRequest(){}}, setPermissionRequestHandler(){}, clearStorageData:async()=>{}, clearCache:async()=>{} };
 const app=new EventEmitter();
 Object.assign(app,{ commandLine:{appendSwitch(){}}, relaunch(){}, setName(){}, userAgentFallback:'Mozilla/5.0 Chrome/140 Electron/45.2.1 Safari/537.36 sakura-browser/1.0.0', getPath:()=>userData,
   requestSingleInstanceLock:()=>true, whenReady:()=>Promise.resolve(), quit(){} });
