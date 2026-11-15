@@ -49,7 +49,22 @@ jobs:
           git tag "v$V"
           git push origin "v$V"
           # Release einmal vorab anlegen – sonst legen parallele Uploads es doppelt an
-          gh release create "v$V" --title "Sakura $V" --generate-notes --verify-tag
+          # Verständliche Beschreibung für die Download-Seite: alle Änderungen seit der letzten Version
+          PREV=$(git describe --tags --abbrev=0 "v$V^" 2>/dev/null || true)
+          {
+            echo "## Was ist neu in Sakura $V?"
+            echo
+            git log --no-merges --format='%x1e%s%n%n%b' ${PREV:+"$PREV..v$V"} -- desktop android \
+              | awk 'BEGIN{RS="\x1e"} NF { n=split($0, L, "\n"); out="";
+                  if (L[1] ~ /^Sakura [0-9.]+$/) next;
+                  out="### " L[1] "\n";
+                  for (i=2;i<=n;i++) if (L[i] !~ /^(Co-Authored-By|Claude-Session):/) out=out L[i] "\n";
+                  print out }'
+            echo
+            echo "Installierte Sakura-Versionen aktualisieren sich von selbst. Neu installieren: **Sakura-Setup-$V.exe** unten herunterladen."
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+          gh release create "v$V" --title "Sakura $V" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
   windows:
