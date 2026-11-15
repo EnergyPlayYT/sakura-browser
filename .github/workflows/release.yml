@@ -61,6 +61,10 @@ jobs:
       - name: Abhängigkeiten installieren
         working-directory: desktop
         run: npm install
+      - name: Repo für Updates eintragen
+        working-directory: desktop
+        shell: bash
+        run: npm pkg set "repository.type=git" "repository.url=https://github.com/${GITHUB_REPOSITORY}.git"
       - name: Bauen und veröffentlichen
         working-directory: desktop
         env:
