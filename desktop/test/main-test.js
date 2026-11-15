@@ -31,7 +31,10 @@ setTimeout(async()=>{
   await call('saveScript',{name:'T',match:['github.com'],code:'window.x=1'});
   assert.equal((await call('scripts')).length,1);
   const gh = mock._all.find(w=>w.url==='https://github.com');
-  gh.emit('dom-ready'); assert(gh.executed && gh.executed[0].includes('window.x=1'));
+  gh.emit('dom-ready'); assert(gh.executed && gh.executed.some(c=>c.includes('window.x=1')));
+  assert(gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Cookie-Banner-Skript läuft');
+  await call('toggleCookieAllow'); gh.executed=[]; gh.emit('dom-ready'); assert(!gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Ausnahme gilt');
+  await call('toggleCookieAllow');
   st = await call('state'); 
   const t0 = st.tabs[0].id; await call('tabMenu', t0);
   await call('toggleMute', st.activeId); st = await call('state'); assert(st.tabs.find(t=>t.id===st.activeId).muted);

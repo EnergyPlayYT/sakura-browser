@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -339,7 +339,9 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => runUserScripts(wc));
+    wc.on('dom-ready', () => { runCookieReject(wc); runUserScripts(wc); });
+    // Zustimmungs-Banner stecken oft in eingebetteten Rahmen
+    wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) runCookieReject(wc, pid, rid); });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
       if (!isMain || code === -3 || failedUrl.startsWith('sakura:')) return; // -3 = abgebrochen
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
@@ -585,6 +587,8 @@ class SakuraWindow {
       host,
       adblock: store.prefs().adblock,
       allowed: !!(host && (store.prefs().adblockAllow || []).includes(host)),
+      cookieReject: store.prefs().cookieReject !== false,
+      cookieAllowed: !!(host && (store.prefs().cookieAllow || []).includes(host)),
       zoom: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
@@ -789,6 +793,25 @@ async function screenshot(w) {
   });
   if (r.canceled || !r.filePath) { clipboard.writeImage(img); return; }
   fs.writeFileSync(r.filePath, img.toPNG());
+}
+
+// Cookie-Banner automatisch ablehnen (assets/cookie-reject.js)
+let cookieScript = null;
+function cookieRejectOn(url) {
+  const p = store.prefs();
+  if (p.cookieReject === false) return false;
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return false; }
+  return /^https?:/.test(url) && !(p.cookieAllow || []).includes(host);
+}
+function runCookieReject(wc, pid, rid) {
+  if (wc.isDestroyed() || !cookieRejectOn(wc.getURL())) return;
+  if (cookieScript == null) { try { cookieScript = fs.readFileSync(path.join(__dirname, 'assets', 'cookie-reject.js'), 'utf8'); } catch { cookieScript = ''; } }
+  if (!cookieScript) return;
+  try {
+    const target = pid != null && webFrameMain ? webFrameMain.fromId(pid, rid) : wc;
+    if (target) target.executeJavaScript(cookieScript, false).catch(() => {});
+  } catch { /* Rahmen schon weg */ }
 }
 
 function runUserScripts(wc) {
@@ -1041,6 +1064,14 @@ const uiCommands = {
   updateInfo: () => updater.info(),
   updateCheck: () => updater.check(),
   updateInstall: () => { saveSession(); quitting = true; store.flush(); updater.installNow(); },
+  toggleCookieAllow: w => {
+    const s = w.state();
+    if (!s.host) return;
+    const list = new Set(store.prefs().cookieAllow || []);
+    if (list.has(s.host)) list.delete(s.host); else list.add(s.host);
+    store.setPrefs({ cookieAllow: [...list] });
+    w.active.view.webContents.reload();
+  },
   toggleAllow: w => {
     const s = w.state();
     if (!s.host) return;

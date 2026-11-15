@@ -298,6 +298,12 @@ async function settings() {
     <label class="f">Ausnahmen – hier nichts blockieren (eine Seite pro Zeile)<textarea id="allow" spellcheck="false">${esc((p.adblockAllow || []).join('\n'))}</textarea></label>
   </section>
   <section>
+    <h2>Cookie-Banner</h2>
+    <label class="sw"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
+    <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Eine Ausnahme setzt du über das Schild.</p>
+    <label class="f">Ausnahmen – hier nichts ablehnen (eine Seite pro Zeile)<textarea id="ck-allow" spellcheck="false">${esc((p.cookieAllow || []).join('\n'))}</textarea></label>
+  </section>
+  <section>
     <h2>Startseite</h2>
     <p>Ohne eigene Bilder zeigt die Startseite die gezeichnete Nacht mit Kirschblüten.</p>
     <label class="f">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)<textarea id="bgs" spellcheck="false">${esc((p.backgrounds || []).join('\n'))}</textarea></label>
@@ -342,6 +348,8 @@ async function settings() {
     $('#abinfo').textContent = r && r.error ? r.error : `${Number(r.blocklistSize).toLocaleString('de-DE')} Domains auf der Sperrliste.`;
   };
   $('#allow').onchange = e => api.call('setPrefs', { adblockAllow: lines(e.target.value).map(host) });
+  $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
+  $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => host(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
   $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 10) });
   api.call('updateInfo').then(u => {

@@ -384,7 +384,11 @@ function fillShield() {
   $('#shield-site').checked = !S.allowed;
   $('#shield-site').disabled = !S.adblock || !S.host;
   $('#shield-global').checked = !!S.adblock;
+  $('#shield-cookie').checked = S.cookieReject && !S.cookieAllowed;
+  $('#shield-cookie').disabled = !S.cookieReject || !S.host;
+  $('#shield-cookie').parentElement.title = S.cookieReject ? '' : 'In den Einstellungen ausgeschaltet';
 }
+$('#shield-cookie').onchange = () => api.call('toggleCookieAllow');
 $('#shield-site').onchange = () => api.call('toggleAllow');
 $('#shield-global').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
 
@@ -794,6 +798,14 @@ async function renderSettings() {
     </label>
   </section>
   <section class="set">
+    <h3>Cookie-Banner</h3>
+    <label class="switch"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
+    <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Ausnahmen setzt du über das Schild in der Adressleiste.</p>
+    <label class="field">Ausnahmen – hier nichts ablehnen (eine Seite pro Zeile)
+      <textarea id="ck-allow" spellcheck="false">${esc((p.cookieAllow || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
     <h3>Startseite</h3>
     <p>Ohne eigene Bilder zeigt die Startseite eine gezeichnete Nachtszene mit Kirschblüten.</p>
     <label class="field">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)
@@ -837,6 +849,8 @@ async function renderSettings() {
   };
   const lines = v => v.split(/\n/).map(x => x.trim()).filter(Boolean);
   $('#ab-allow').onchange = e => api.call('setPrefs', { adblockAllow: lines(e.target.value).map(hostOf) });
+  $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
+  $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
   $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 10) });
   $('#clr').onclick = async () => {

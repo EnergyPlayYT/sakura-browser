@@ -427,6 +427,24 @@ class MainActivity : ComponentActivity() {
 
     private fun applyDarkAll() = tabs.forEach { applyDark(it.web) }
 
+    // ---------- Cookie-Banner automatisch ablehnen (assets/cookie-reject.js, gleiche Datei wie am PC)
+    private val cookieScript: String by lazy {
+        try { assets.open("cookie-reject.js").bufferedReader().use { it.readText() } } catch (_: Exception) { "" }
+    }
+
+    private fun cookieAllowList(): Set<String> {
+        val a = store.prefs().optJSONArray("cookieAllow") ?: return emptySet()
+        return (0 until a.length()).map { a.optString(it) }.toSet()
+    }
+
+    private fun runCookieReject(view: WebView, url: String) {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return
+        if (!store.prefs().optBoolean("cookieReject", true) || cookieScript.isEmpty()) return
+        val host = hostOf(url) ?: return
+        if (host in cookieAllowList()) return
+        view.evaluateJavascript(cookieScript, null)
+    }
+
     // ---------- Eigene Skripte
     private fun runUserScripts(view: WebView, url: String) {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
@@ -551,6 +569,7 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onPageFinished(view: WebView, url: String) {
+            runCookieReject(view, url)
             runUserScripts(view, url)
             tab.progress = 100
             view.title?.let { if (it.isNotBlank()) tab.title = it }
@@ -779,6 +798,16 @@ class MainActivity : ComponentActivity() {
                 if (allowed) set.remove(host) else set.add(host)
                 store.setPrefs(JSONObject().put("adblockAllow", JSONArray(set.toList())))
                 blocker.syncPrefs()
+                t.web.reload()
+            }
+        }
+        // Ausnahme für Cookie-Banner auf dieser Seite
+        if (host != null && store.prefs().optBoolean("cookieReject", true)) {
+            val ckAllowed = host in cookieAllowList()
+            b.setNeutralButton(if (ckAllowed) "Cookie-Banner wieder ablehnen" else "Cookie-Banner hier zeigen") { _, _ ->
+                val set = cookieAllowList().toMutableSet()
+                if (ckAllowed) set.remove(host) else set.add(host)
+                store.setPrefs(JSONObject().put("cookieAllow", JSONArray(set.toList())))
                 t.web.reload()
             }
         }
