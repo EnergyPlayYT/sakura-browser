@@ -68,6 +68,8 @@ function render() {
   $('#zoom').textContent = S.zoom + ' %';
   $('#zoom-val').textContent = S.zoom + ' %';
   $('#scripts-ind').hidden = !S.scripts;
+  $('#gaming-ind').hidden = !S.gaming;
+  $('#gaming-ind').title = S.gaming ? `Gaming-Modus: ${S.gaming} läuft – Sakura hält sich zurück` : '';
   $('#scripts-ind').title = S.scripts === 1 ? 'Ein eigenes Skript läuft auf dieser Seite' : `${S.scripts} eigene Skripte laufen auf dieser Seite`;
   renderExtActions();
   renderUpdateBtn();
@@ -800,6 +802,11 @@ async function renderSettings() {
       <select id="sl-cpu">${[[0, 'Keine'],[10, '10 %'],[25, '25 %'],[50, '50 %']].map(([v, l]) => `<option value="${v}"${Number(p.cpuLimit || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
     </label>
     <p>Wird eine Grenze überschritten, schlafen die am längsten unbenutzten Hintergrund-Tabs. Tabs mit Ton schlafen nie.</p>
+    <label class="switch"><input type="checkbox" id="gm-on"${p.gaming !== false ? ' checked' : ''}><span>Gaming-Modus: Läuft ein Spiel, bremst Sakura sich selbst</span></label>
+    <label class="switch"><input type="checkbox" id="gm-sleep"${p.gamingSleep !== false ? ' checked' : ''}><span>Beim Spielstart Hintergrund-Tabs schlafen legen</span></label>
+    <label class="field">Weitere Spiele (Programmname, eins pro Zeile, z. B. meinspiel.exe)
+      <textarea id="gm-extra" spellcheck="false">${esc((p.gamingExtra || []).join('\n'))}</textarea>
+    </label>
   </section>
   <section class="set">
     <h3>Werbeblocker</h3>
@@ -866,6 +873,9 @@ async function renderSettings() {
   $('#restart').onclick = () => api.call('relaunch');
   $('#restore').onchange = e => api.call('setPrefs', { restoreSession: e.target.checked });
   $('#dlask').onchange = e => api.call('setPrefs', { downloadAsk: e.target.checked });
+  $('#gm-on').onchange = e => api.call('setPrefs', { gaming: e.target.checked });
+  $('#gm-sleep').onchange = e => api.call('setPrefs', { gamingSleep: e.target.checked });
+  $('#gm-extra').onchange = e => api.call('setPrefs', { gamingExtra: lines(e.target.value).map(x => x.replace(/^.*[\\/]/, '')).slice(0, 50) });
   for (const [id, key] of [['#sl-after', 'sleepAfter'], ['#sl-ram', 'ramLimit'], ['#sl-cpu', 'cpuLimit']]) $(id).onchange = e => api.call('setPrefs', { [key]: Number(e.target.value) });
   $('#ab-on').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
   $('#ab-ext').onchange = async e => {
@@ -967,6 +977,7 @@ async function renderPerformance() {
       <div class="perf-card"><small>Sakura</small><strong>${fmtMB(d.sakura.mem)}</strong><span>CPU ${fmtPct(d.sakura.cpu)}</span></div>
       <div class="perf-card"><small>Dein PC</small><strong>${fmtPct(used / d.system.memTotal * 100)} RAM</strong><span>CPU ${fmtPct(d.system.cpu)}</span></div>
       <div class="perf-card wide"><small>Internet</small><span>${net}</span></div>
+      ${d.gaming.supported ? `<div class="perf-card wide${d.gaming.active ? ' gaming' : ''}"><small>Gaming-Modus</small><span>${!d.gaming.on ? 'Ausgeschaltet' : d.gaming.active ? `<b>Aktiv</b> – ${esc(d.gaming.game)} läuft, Sakura hält sich zurück` : 'Bereit – startet von selbst, wenn du ein Spiel öffnest'}</span></div>` : ''}
     </div>
     <div class="row perf-actions"><button class="btn" id="perf-sleep-all"${awake ? '' : ' disabled'}>Alle Hintergrund-Tabs schlafen legen</button></div>
     <p class="perf-hint">Ein schlafender Tab braucht fast keinen Speicher. Beim Anklicken lädt er neu.</p>
@@ -989,6 +1000,7 @@ async function renderPerformance() {
   };
   perfTimer = setTimeout(renderPerformance, 2000);
 }
+$('#gaming-ind').onclick = () => openPanel('performance');
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.shiftKey) { e.preventDefault(); openPanel('performance'); } });
 
 function timeAgo(ts) {

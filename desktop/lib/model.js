@@ -32,6 +32,9 @@ const DEFAULT_PREFS = {
   sleepAfter: 30,     // Hintergrund-Tabs nach so vielen Minuten schlafen legen (0 = nie)
   ramLimit: 0,        // RAM-Grenze für Sakura in MB (0 = keine)
   cpuLimit: 0,        // CPU-Grenze pro Hintergrund-Tab in % (0 = keine)
+  gaming: true,       // Gaming-Modus: Spiele erkennen, Sakura bremst sich
+  gamingSleep: true,  // beim Spielstart Hintergrund-Tabs schlafen legen
+  gamingExtra: [],    // weitere Spiele (Programmnamen)
   theme: 'sakura', // Design (pages/themes.js)
   accent: '',      // eigene Akzentfarbe (#RRGGBB) oder leer = Farbe des Designs
   updatedAt: 0

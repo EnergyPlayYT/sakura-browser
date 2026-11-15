@@ -20,6 +20,7 @@ const CookieImport = require('./lib/cookie-import');
 const Themes = require('./pages/themes');
 const SB = require('./lib/sponsorblock');
 const { pickTabsToSleep } = require('./lib/sleeper');
+const Gaming = require('./lib/gaming');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -46,7 +47,7 @@ const store = new Store(app.getPath('userData'));
 const startTheme = store.prefs().siteTheme;
 if (startTheme === 'force') app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
-let blocker, sync, extensions, downloads, updater, favicons;
+let blocker, sync, extensions, downloads, updater, favicons, gameWatch;
 const windows = new Set();
 let tabCounter = 0;
 let privateCounter = 0;
@@ -630,6 +631,7 @@ class SakuraWindow {
       zoom: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
+      gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
       update: updater ? { state: updater.state.state, version: updater.state.version, percent: updater.state.percent } : null,
       scripts: realUrl ? M.scriptsFor(store.data.scripts, realUrl).length : 0,
       bar: barVisible() ? store.barBookmarks().slice(0, 100).map(b => ({ id: b.id, title: b.title, url: b.url, favicon: b.favicon || null })) : null
@@ -927,6 +929,7 @@ async function perfInfo(viewer) {
     sakura: { cpu: metrics.reduce((a, m) => a + cpu(m), 0), mem: metrics.reduce((a, m) => a + kb(m), 0) * 1024, processes: metrics.length },
     system: { cpu: systemCpu(), memTotal: os.totalmem(), memFree: os.freemem() },
     online: typeof net.isOnline === 'function' ? net.isOnline() : true,
+    gaming: { supported: process.platform === 'win32', on: store.prefs().gaming !== false, active: !!(gameWatch && gameWatch.active), game: gameWatch ? gameWatch.game : null },
     ping: await measurePing()
   };
 }
@@ -1418,6 +1421,17 @@ app.whenReady().then(async () => {
 
   if (sync.configured) setTimeout(() => sync.syncNow(), 1500);
   setInterval(() => autoSleepTick().catch(() => {}), 30000);
+
+  // Gaming-Modus: läuft ein Spiel, arbeitet Sakura mit niedrigerer Priorität
+  gameWatch = new Gaming.GameWatch({
+    getPrefs: () => store.prefs(),
+    setPriority: low => Gaming.setProcessPriority([process.pid, ...(app.getAppMetrics ? app.getAppMetrics().map(m => m.pid) : [])], low)
+  });
+  gameWatch.on('change', ({ started }) => {
+    if (started && store.prefs().gamingSleep !== false) for (const w of windows) for (const t of [...w.tabs]) w.sleepTab(t.id);
+    broadcastState();
+  });
+  if (process.platform === 'win32') gameWatch.start();
   // Einmal pro Woche Erweiterungen aktualisieren
   if (Date.now() - (store.data.extensionsCheckedAt || 0) > 7 * 864e5) {
     setTimeout(() => extensions.checkUpdates().catch(() => {}), 30000);

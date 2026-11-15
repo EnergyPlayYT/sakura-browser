@@ -404,3 +404,5 @@ body.light #backdrop:not(.clear) { background: rgba(40, 30, 50, .18); }
 .perf-row .nums small { display: block; color: var(--usuzumi); font-size: 11.5px; }
 .perf-row.sleeping { opacity: .55; }
 .perf-row.active .txt div { color: var(--sakura); }
+#gaming-ind { color: var(--sakura); }
+.perf-card.gaming { box-shadow: inset 0 0 0 1.5px var(--sakura); }

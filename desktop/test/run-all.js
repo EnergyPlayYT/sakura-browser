@@ -2,7 +2,7 @@
 // Die Tests laufen ohne Electron – ein Nachbau (electron-mock.js) ersetzt es.
 const { execFileSync } = require('child_process');
 const order = ['test', 'ab', 'crx-test', 'ext-test', 'dl-test', 'upd-test', 'fav-test', 'main-test', 'restore-test',
-  'group-test', 'group-restore', 'bg-test', 'bar-test', 'drag-test', 'import-test', 'theme-test', 'cookie-test', 'youtube-test', 'sleep-test', 'cookie-import-test'];
+  'group-test', 'group-restore', 'bg-test', 'bar-test', 'drag-test', 'import-test', 'theme-test', 'cookie-test', 'youtube-test', 'sleep-test', 'cookie-import-test', 'gaming-test'];
 let failed = 0;
 for (const name of order) {
   try {
