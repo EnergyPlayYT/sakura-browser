@@ -445,6 +445,27 @@ class MainActivity : ComponentActivity() {
         view.evaluateJavascript(cookieScript, null)
     }
 
+    // ---------- YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js + youtube.css, wie am PC)
+    private val ytScript: String by lazy {
+        try { assets.open("youtube.js").bufferedReader().use { it.readText() } } catch (_: Exception) { "" }
+    }
+    private val ytCss: String by lazy {
+        try { assets.open("youtube.css").bufferedReader().use { it.readText() } } catch (_: Exception) { "" }
+    }
+
+    private fun runYouTube(view: WebView, url: String) {
+        val host = hostOf(url) ?: return
+        if (!url.startsWith("https://") || !(host == "youtube.com" || host.endsWith(".youtube.com"))) return
+        val p = store.prefs()
+        if (!p.optBoolean("youtube", true) || ytScript.isEmpty()) return
+        val cfg = JSONObject().put("quality", p.optString("ytQuality", "hd1080")).put("sponsorblock", p.optBoolean("ytSponsor", true))
+        val css = JSONObject.quote(ytCss)
+        view.evaluateJavascript(
+            "(function(){if(!document.getElementById('sakura-yt-css')){var s=document.createElement('style');s.id='sakura-yt-css';" +
+                "s.textContent=$css;(document.head||document.documentElement).appendChild(s);}})();\n" +
+                "window.__sakuraYTConfig = $cfg;\n$ytScript", null)
+    }
+
     // ---------- Eigene Skripte
     private fun runUserScripts(view: WebView, url: String) {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
@@ -570,6 +591,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onPageFinished(view: WebView, url: String) {
             runCookieReject(view, url)
+            runYouTube(view, url)
             runUserScripts(view, url)
             tab.progress = 100
             view.title?.let { if (it.isNotBlank()) tab.title = it }

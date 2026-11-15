@@ -13,7 +13,8 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
   preload-page.js   Brücke für sakura://-Seiten + „Zu Sakura hinzufügen“-Knopf im Chrome Web Store
   ui/               Browser-Oberfläche: Tabs, Adressleiste, Favoritenleiste, Menüs, Seitenleisten-Panels
   pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt
-  lib/              model.js (Datenmodell + Zusammenführen), store.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
+  assets/           blocklist.txt, cookie-reject.js (Cookie-Banner), youtube.js/.css (Werbung, SponsorBlock, Qualität) – auch Android
+  lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), sponsorblock.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
                     crypto.js, adblock.js, extensions.js + crx.js (Chrome-Erweiterungen), downloads.js,
                     updater.js (electron-updater), favicons.js
   test/             Tests ohne Electron (electron-mock.js ersetzt es) → `npm test` im Ordner desktop
@@ -25,7 +26,7 @@ firebase/           firestore.rules
 
 ## Regeln
 
-- **Gemeinsame Dateien synchron halten:** Nach jeder Änderung an `desktop/pages/newtab.html`, `error.html`, `themes.js` (Designs), `desktop/assets/blocklist.txt` oder `desktop/assets/cookie-reject.js` die Datei nach `android/app/src/main/assets/` kopieren (`theme-test` prüft newtab.html und themes.js).
+- **Gemeinsame Dateien synchron halten:** Nach jeder Änderung an `desktop/pages/newtab.html`, `error.html`, `themes.js` (Designs), `desktop/assets/blocklist.txt`, `cookie-reject.js`, `youtube.js` oder `youtube.css` die Datei nach `android/app/src/main/assets/` kopieren (`theme-test` prüft newtab.html und themes.js).
 - **Synchronisierte Daten** (Lesezeichen, Kacheln, Verlauf, Skripte, Geräte, Einstellungen) müssen auf PC (`lib/model.js`) und Android (`SyncModel.kt`) gleich zusammengeführt werden. Neue synchronisierte Felder in beiden ergänzen. Die Verschlüsselung (`crypto.js` / `SyncCrypto.kt`) nicht ändern, sonst können sich Geräte nicht mehr lesen.
 - **Sicherheit:** Seiten-Inhalte niemals mit Node-Rechten ausführen. Neue Befehle für sakura://-Seiten nur in `pageCommands` (prüft die Herkunft). Webinhalte, Dateinamen, Titel immer mit `esc()` ausgeben. Die Oberfläche hat eine CSP ohne Inline-Skripte/-Handler.
 - **Design:** Farben nie fest eintragen, sondern über die CSS-Variablen aus `pages/themes.js` (Nutzer können Designs und Akzentfarbe wählen). Standard: Dunkles Nachtindigo (`--yoru #1C1A33`), Kirschblüte als Akzent (`--sakura #F2B3C5`), Rot für Siegel/Privat (`--beni #D9566F`), Mincho-Schrift für Überschriften. Keine Emojis in der Oberfläche. Texte kurz, im Du, aktiv („Lesezeichen gespeichert“).

@@ -8,6 +8,13 @@ if (location.protocol === 'sakura:') {
   });
 }
 
+// YouTube: Sponsor-Abschnitte (SponsorBlock) holt der Hauptprozess – nur die Abfrage, sonst nichts
+if (/(^|\.)youtube\.com$/.test(location.hostname) && location.protocol === 'https:') {
+  contextBridge.exposeInMainWorld('sakuraYT', {
+    segments: id => ipcRenderer.invoke('yt-segments', String(id || '').slice(0, 20))
+  });
+}
+
 // Chrome Web Store: „Zu Chrome hinzufügen“ wird zu „Zu Sakura hinzufügen“
 if (location.hostname === 'chromewebstore.google.com') {
   const ID_RE = /\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/;

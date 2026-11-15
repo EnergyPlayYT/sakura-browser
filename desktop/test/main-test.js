@@ -33,7 +33,14 @@ setTimeout(async()=>{
   const gh = mock._all.find(w=>w.url==='https://github.com');
   gh.emit('dom-ready'); assert(gh.executed && gh.executed.some(c=>c.includes('window.x=1')));
   assert(gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Cookie-Banner-Skript läuft');
-  await call('toggleCookieAllow'); gh.executed=[]; gh.emit('dom-ready'); assert(!gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Ausnahme gilt');
+  await call('toggleCookieAllow');
+  // YouTube-Skript nur auf youtube.com, Sponsor-Abfrage nur von dort
+  await call('newTab','https://www.youtube.com/watch?v=dQw4w9WgXcQ'); await new Promise(r=>setTimeout(r,30));
+  const yt = mock._all.find(w=>w.url.startsWith('https://www.youtube.com'));
+  yt.emit('dom-ready'); assert(yt.executed.some(c=>c.includes('__sakuraYTConfig = {"quality":"hd1080","sponsorblock":true}')) && yt.css && yt.css[0].includes('ytd-ad-slot-renderer'));
+  assert(!gh.executed.some(c=>c.includes('__sakuraYTConfig')), 'nicht auf anderen Seiten');
+  assert.deepEqual(await mock._handlers['yt-segments']({senderFrame:{url:'https://evil.com/'}},'dQw4w9WgXcQ'), []);
+  await call('setPrefs',{youtube:false}); yt.executed=[]; yt.emit('dom-ready'); assert(!yt.executed.some(c=>c.includes('__sakuraYTConfig'))); await call('setPrefs',{youtube:true}); gh.executed=[]; gh.emit('dom-ready'); assert(!gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Ausnahme gilt');
   await call('toggleCookieAllow');
   st = await call('state'); 
   const t0 = st.tabs[0].id; await call('tabMenu', t0);

@@ -25,6 +25,9 @@ const DEFAULT_PREFS = {
   downloadAsk: false,
   cookieReject: true, // Cookie-Banner automatisch ablehnen
   cookieAllow: [],    // Seiten, auf denen Banner nicht abgelehnt werden
+  youtube: true,      // YouTube: Werbung überspringen
+  ytSponsor: true,    // Sponsor-Abschnitte überspringen (SponsorBlock)
+  ytQuality: 'hd1080',
   theme: 'sakura', // Design (pages/themes.js)
   accent: '',      // eigene Akzentfarbe (#RRGGBB) oder leer = Farbe des Designs
   updatedAt: 0

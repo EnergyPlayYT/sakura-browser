@@ -16,6 +16,7 @@ const Updater = require('./lib/updater');
 const { Favicons } = require('./lib/favicons');
 const Importer = require('./lib/importer');
 const Themes = require('./pages/themes');
+const SB = require('./lib/sponsorblock');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -339,7 +340,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { runCookieReject(wc); runUserScripts(wc); });
+    wc.on('dom-ready', () => { runCookieReject(wc); runYouTube(wc); runUserScripts(wc); });
     // Zustimmungs-Banner stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) runCookieReject(wc, pid, rid); });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -814,6 +815,22 @@ function runCookieReject(wc, pid, rid) {
   } catch { /* Rahmen schon weg */ }
 }
 
+// YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js)
+let ytScript = null, ytCss = null;
+function runYouTube(wc) {
+  const url = wc.getURL();
+  if (store.prefs().youtube === false || !SB.isYouTube(url)) return;
+  if (ytScript == null) {
+    try { ytScript = fs.readFileSync(path.join(__dirname, 'assets', 'youtube.js'), 'utf8'); } catch { ytScript = ''; }
+    try { ytCss = fs.readFileSync(path.join(__dirname, 'assets', 'youtube.css'), 'utf8'); } catch { ytCss = ''; }
+  }
+  if (!ytScript) return;
+  const p = store.prefs();
+  const cfg = JSON.stringify({ quality: p.ytQuality || 'hd1080', sponsorblock: p.ytSponsor !== false });
+  if (ytCss) wc.insertCSS(ytCss).catch(() => {});
+  wc.executeJavaScript(`window.__sakuraYTConfig = ${cfg};\n${ytScript}`, false).catch(() => {});
+}
+
 function runUserScripts(wc) {
   const url = wc.getURL();
   if (!/^https?:/i.test(url)) return;
@@ -1244,6 +1261,12 @@ app.whenReady().then(async () => {
       if (info) await confirmRemoveExtension(w, info);
     }
     return status();
+  });
+  // Sponsor-Abschnitte für YouTube (preload-page.js → window.sakuraYT)
+  const sponsorBlock = new SB.SponsorBlock((u, o) => net.fetch(u, o));
+  ipcMain.handle('yt-segments', async (e, id) => {
+    if (!SB.isYouTube(e.senderFrame ? e.senderFrame.url : '') || store.prefs().youtube === false || store.prefs().ytSponsor === false) return [];
+    return sponsorBlock.segments(id);
   });
   ipcMain.handle('page', async (e, cmd, arg) => {
     const fn = pageCommands[cmd];
