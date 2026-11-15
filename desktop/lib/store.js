@@ -92,6 +92,26 @@ class Store extends EventEmitter {
     });
     this.changed('bookmarks');
   }
+  /** Übernimmt viele Lesezeichen auf einmal (Import). Leisten-Lesezeichen zuerst, doppelte Adressen werden übersprungen. */
+  importBookmarks(items) {
+    const have = new Set(this.data.bookmarks.filter(b => !b.deleted).map(b => b.url));
+    const list = [...items.filter(i => i.bar), ...items.filter(i => !i.bar)];
+    let order = Math.max(-1, ...this.barBookmarks().map(b => b.order)) + 1;
+    const now = Date.now();
+    let added = 0;
+    for (const it of list) {
+      const url = String(it.url || '').trim();
+      if (!/^https?:\/\//i.test(url) || url.length > 4000 || have.has(url)) continue;
+      have.add(url);
+      this.data.bookmarks.push({
+        id: M.newId(), url, title: String(it.title || url).slice(0, 300), order: order++,
+        createdAt: now - added, updatedAt: now
+      });
+      added++;
+    }
+    if (added) this.changed('bookmarks');
+    return added;
+  }
   toggleBookmark(url, title, favicon) {
     const b = this.findBookmark(url);
     if (b) this.removeBookmark(b.id); else this.addBookmark(url, title, favicon);
@@ -139,6 +159,32 @@ class Store extends EventEmitter {
       this.data.history = M.trimHistory(this.data.history, this.data.historyClearedAt, M.HISTORY_LIMIT_LOCAL);
     }
     this.changed('history');
+  }
+  /** Übernimmt Verlauf aus einem anderen Browser. Vorhandene Einträge behalten den neueren Besuch. */
+  importHistory(items) {
+    const byId = new Map(this.data.history.map(h => [h.id, h]));
+    const cleared = this.data.historyClearedAt || 0;
+    let count = 0;
+    for (const it of items) {
+      const url = String(it.url || '');
+      const at = Number(it.visitedAt) || 0;
+      if (!/^https?:\/\//i.test(url) || url.length > 4000 || at <= cleared || at > Date.now() + 864e5) continue;
+      const h = byId.get(url);
+      if (h) {
+        if (h.deleted || at > (h.visitedAt || 0)) {
+          Object.assign(h, { visitedAt: Math.max(at, h.deleted ? 0 : h.visitedAt || 0), updatedAt: Date.now(), deleted: false });
+          if (it.title && (!h.title || h.title === url)) h.title = String(it.title).slice(0, 300);
+        }
+      } else {
+        const e = { id: url, url, title: String(it.title || url).slice(0, 300), visitedAt: at, updatedAt: at };
+        this.data.history.push(e);
+        byId.set(url, e);
+      }
+      count++;
+    }
+    this.data.history = M.trimHistory(this.data.history, cleared, M.HISTORY_LIMIT_LOCAL);
+    if (count) this.changed('history');
+    return count;
   }
   updateTitle(url, title) {
     const h = this.data.history.find(x => x.id === url);

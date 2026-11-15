@@ -1,4 +1,4 @@
-const Module=require('module'); const assert=require('assert');
+const Module=require('module'); const assert=require('assert'); const fs=require('fs'),path=require('path');
 const mock=require('./electron-mock');
 const orig=Module._load; Module._load=function(r,...a){ return r==='electron'?mock:orig.call(this,r,...a); };
 require(require('path').join(__dirname,'..')+'/main.js');
@@ -47,9 +47,15 @@ setTimeout(async()=>{
   const r = await call('setPrefs',{siteTheme:'force'}); assert.equal(r.restart,true);
   await call('setPrefs',{siteTheme:'system'});
   assert(await call('devices'));
+  // Import: nachgebautes Edge-Profil
+  { const L=fs.mkdtempSync(path.join(require('os').tmpdir(),'la')), d=path.join(L,'Microsoft','Edge','User Data','Default');
+    fs.mkdirSync(d,{recursive:true}); fs.writeFileSync(path.join(d,'Bookmarks'),JSON.stringify({roots:{bookmark_bar:{children:[{type:'url',name:'Bing',url:'https://www.bing.com/'}]}}}));
+    process.env.LOCALAPPDATA=L; delete process.env.APPDATA;
+    const src=await call('importSources'); assert.deepEqual(src.map(x=>x.label),['Edge']);
+    const r=await call('importRun',{id:src[0].id}); assert.equal(r.message,'Ein Lesezeichen aus Edge übernommen.');
+    assert((await call('importRun',{id:'99'})).error); }
   await new Promise(r=>setTimeout(r,40));
   // Sitzung wurde gemerkt
-  const fs=require('fs'),path=require('path');
   await call('newPrivateWindow'); await new Promise(r=>setTimeout(r,30));
   const pui = mock._all.filter(w=>w.opts && w.opts.webPreferences && w.opts.webPreferences.preload && w.opts.webPreferences.preload.endsWith('preload-ui.js'));
   await new Promise(r=>setTimeout(r,30));

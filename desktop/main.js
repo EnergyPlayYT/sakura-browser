@@ -14,6 +14,7 @@ const { Extensions } = require('./lib/extensions');
 const { Downloads } = require('./lib/downloads');
 const Updater = require('./lib/updater');
 const { Favicons } = require('./lib/favicons');
+const Importer = require('./lib/importer');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -47,6 +48,7 @@ let privateCounter = 0;
 let quitting = false;
 const preparedSessions = new WeakSet();
 const closedTabs = [];
+let importProfiles = []; // zuletzt gefundene Browserprofile (für den Import)
 
 // Google & Co. blockieren Electron-Kennungen beim Anmelden → wie normales Chrome auftreten
 app.userAgentFallback = app.userAgentFallback
@@ -1059,7 +1061,40 @@ const uiCommands = {
   syncChangePassword: (w, password) => sync.changePassword(password).then(() => sync.info()).catch(e => ({ ...sync.info(), message: e.message, failed: true })),
   syncNow: () => sync.syncNow(),
   openUrlInNewTab: (w, url) => w.newTab(url),
-  openDataFolder: () => shell.openPath(app.getPath('userData'))
+  openDataFolder: () => shell.openPath(app.getPath('userData')),
+  // Import aus anderen Browsern – die Oberfläche bekommt nur Nummern, nie Pfade
+  openImport: w => w.ui.webContents.send('open-import'),
+  importSources: () => {
+    importProfiles = Importer.findProfiles(process.env);
+    return importProfiles.map(p => ({ id: p.id, label: p.label, browser: p.browser }));
+  },
+  importRun: (w, { id, bookmarks = true, history = true } = {}) => {
+    const p = importProfiles.find(x => x.id === String(id));
+    if (!p) return { error: 'Dieses Profil wurde nicht gefunden.' };
+    if (!bookmarks && !history) return { error: 'Wähle Lesezeichen, Verlauf oder beides.' };
+    try {
+      const r = Importer.readProfile(p, { bookmarks, history });
+      const res = { bookmarks: bookmarks ? store.importBookmarks(r.bookmarks) : null, history: history ? store.importHistory(r.history) : null };
+      broadcastState();
+      return { ok: true, ...res, message: Importer.summary(res, p.browser) };
+    } catch (e) { return { error: e.message }; }
+  },
+  importHtml: async w => {
+    const r = await dialog.showOpenDialog(w.win, {
+      title: 'Lesezeichen-Datei wählen', properties: ['openFile'],
+      filters: [{ name: 'Lesezeichen (HTML)', extensions: ['html', 'htm'] }]
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+      const st = fs.statSync(r.filePaths[0]);
+      if (st.size > 50 * 1024 * 1024) return { error: 'Die Datei ist zu groß.' };
+      const items = Importer.parseBookmarksHtml(fs.readFileSync(r.filePaths[0], 'utf8'));
+      if (!items.length) return { error: 'In dieser Datei wurden keine Lesezeichen gefunden.' };
+      const n = store.importBookmarks(items);
+      broadcastState();
+      return { ok: true, bookmarks: n, message: Importer.summary({ bookmarks: n }, 'der Datei') };
+    } catch (e) { return { error: 'Die Datei konnte nicht gelesen werden.' }; }
+  }
 };
 
 // Befehle der Startseite (nur von sakura:// erlaubt)

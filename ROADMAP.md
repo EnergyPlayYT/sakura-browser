@@ -4,7 +4,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 
 ## Etappe 1 – Import, Designs, Cookie-Banner, YouTube
 
-- [ ] **Import aus anderen Browsern** (Windows): Einstellungen → „Daten importieren“ und Menüpunkt „Lesezeichen und Verlauf importieren …“.
+- [x] **Import aus anderen Browsern** (Windows): Einstellungen → „Daten importieren“ und Menüpunkt „Lesezeichen und Verlauf importieren …“.
   - Profile automatisch finden: Chrome, Edge, Brave, Vivaldi (`%LOCALAPPDATA%\…\User Data\<Profil>`, Namen aus `Local State` → `profile.info_cache`), Opera und Opera GX (`%APPDATA%\Opera Software\Opera Stable` bzw. `Opera GX Stable`), Firefox (`%APPDATA%\Mozilla\Firefox\profiles.ini` → `places.sqlite`).
   - Lesezeichen: Chromium-Datei `Bookmarks` (JSON; `roots.bookmark_bar` → Favoritenleiste, Rest danach), Firefox `moz_bookmarks` + `moz_places` (Ordner `toolbar_____` → Favoritenleiste). Ordner gibt es in Sakura noch nicht → flach übernehmen. Doppelte Adressen überspringen.
   - Verlauf: Chromium `History` (Tabelle `urls`, Zeit = Mikrosekunden seit 1601), Firefox `moz_places.last_visit_date` (Mikrosekunden seit 1970). Nur die letzten 90 Tage, höchstens 3000 Einträge.

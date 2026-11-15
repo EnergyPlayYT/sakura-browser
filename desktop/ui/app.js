@@ -779,6 +779,17 @@ async function renderSettings() {
       <input id="bgmin" type="number" min="1" max="1440" value="${p.bgMinutes || 10}">
     </label>
   </section>
+  <section class="set" id="import-section">
+    <h3>Daten importieren</h3>
+    <p>Übernimm Lesezeichen und Verlauf aus einem anderen Browser. Doppelte Lesezeichen werden übersprungen.</p>
+    <label class="field">Browser
+      <select id="imp-src"><option value="">Suche Browser …</option></select>
+    </label>
+    <label class="switch"><input type="checkbox" id="imp-bm" checked><span>Lesezeichen</span></label>
+    <label class="switch"><input type="checkbox" id="imp-hist" checked><span>Verlauf der letzten 90 Tage</span></label>
+    <p id="imp-msg" hidden></p>
+    <div class="row"><button class="btn primary" id="imp-go" disabled>Importieren</button><button class="btn" id="imp-html">Aus HTML-Datei importieren …</button></div>
+  </section>
   <section class="set" id="sync-section">${syncHtml(si)}</section>
   <section class="set" id="data-section">
     <h3>Daten</h3>
@@ -810,7 +821,37 @@ async function renderSettings() {
   };
   $('#datadir').onclick = () => api.call('openDataFolder');
   bindSync();
+  bindImport();
 }
+
+async function bindImport() {
+  const sel = $('#imp-src'), go = $('#imp-go'), msg = $('#imp-msg');
+  const show = (text, bad) => { msg.textContent = text; msg.className = bad ? 'msg-error' : 'msg-ok'; msg.hidden = !text; };
+  const list = (await api.call('importSources')) || [];
+  if (!sel.isConnected) return;
+  sel.innerHTML = list.length
+    ? list.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('')
+    : '<option value="">Kein anderer Browser gefunden</option>';
+  sel.disabled = !list.length;
+  go.disabled = !list.length;
+  go.onclick = async () => {
+    const b = $('#imp-bm').checked, h = $('#imp-hist').checked;
+    go.disabled = true;
+    show('Importiere …');
+    const r = await api.call('importRun', { id: sel.value, bookmarks: b, history: h });
+    go.disabled = false;
+    show(r && (r.message || r.error), !r || !!r.error);
+  };
+  $('#imp-html').onclick = async () => {
+    const r = await api.call('importHtml');
+    if (r) show(r.message || r.error, !!r.error);
+  };
+}
+api.on('open-import', () => {
+  openPanel('settings');
+  const go = () => { const s = $('#import-section'); if (s) s.scrollIntoView(); else setTimeout(go, 30); };
+  setTimeout(go, 30);
+});
 
 function timeAgo(ts) {
   if (!ts) return 'noch nie';

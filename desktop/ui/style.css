@@ -279,7 +279,8 @@ body.private #panel { background: #1C1630; }
 .status.error i { background: var(--beni); }
 .status.syncing i { background: var(--sakura); animation: pulse 1s ease-in-out infinite alternate; }
 @keyframes pulse { to { opacity: .3; } }
-.msg-error { color: #FFB4C0; margin: 0 0 10px; }
+.msg-error, .set p.msg-error { color: #FFB4C0; margin: 0 0 10px; }
+.msg-ok, .set p.msg-ok { color: var(--sakura); margin: 0 0 10px; }
 details summary { cursor: pointer; color: var(--sakura); margin: 6px 0; }
 details ol { padding-left: 20px; color: var(--usuzumi); line-height: 1.6; margin: 6px 0 12px; }
 details code { color: var(--washi); background: rgba(0, 0, 0, .2); padding: 1px 5px; border-radius: 4px; }
