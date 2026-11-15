@@ -378,3 +378,29 @@ details code { color: var(--washi); background: rgba(0, 0, 0, .2); padding: 1px 
 /* Helles Design: Schatten und Abdunklung sanfter */
 body.light .pop, body.light #suggest { box-shadow: 0 0 0 1px var(--line), 0 14px 32px rgba(40, 30, 50, .18); }
 body.light #backdrop:not(.clear) { background: rgba(40, 30, 50, .18); }
+
+/* ---------------- Leistung ---------------- */
+.tab.sleeping .fav, .tab.sleeping .title { opacity: .5; }
+.perf-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 12px; }
+.perf-card { padding: 10px 12px; border-radius: 10px; background: rgba(var(--washi-rgb), .05); box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 2px; }
+.perf-card.wide { grid-column: 1 / -1; }
+.perf-card small { color: var(--usuzumi); font-size: 11.5px; }
+.perf-card strong { font: 400 20px var(--mincho); }
+.perf-card span { color: var(--usuzumi); }
+.perf-card b { font-weight: 600; color: var(--washi); }
+.perf-card b.good { color: #9FD8B0; } .perf-card b.mid { color: #E9C46A; } .perf-card b.bad { color: var(--err); }
+.perf-actions { margin-bottom: 4px; }
+.perf-hint { color: var(--usuzumi); font-size: 12px; margin: 6px 0 10px; }
+.perf-row { display: flex; align-items: center; gap: 10px; padding: 7px 6px; border-radius: 8px; }
+.perf-row:hover { background: rgba(var(--washi-rgb), .05); }
+.perf-row .fav { width: 22px; height: 22px; flex: none; border-radius: 5px; display: grid; place-items: center; overflow: hidden; }
+.perf-row .fav img, .perf-row .fav i { width: 18px; height: 18px; }
+.perf-row .txt { flex: 1; min-width: 0; }
+.perf-row .txt div, .perf-row .txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.perf-row .txt small { color: var(--usuzumi); font-size: 11.5px; }
+.perf-row .bar { display: block; height: 3px; margin-top: 4px; border-radius: 2px; background: rgba(var(--washi-rgb), .08); overflow: hidden; }
+.perf-row .bar i { display: block; height: 100%; background: var(--sakura); border-radius: 2px; }
+.perf-row .nums { text-align: right; font-variant-numeric: tabular-nums; min-width: 70px; }
+.perf-row .nums small { display: block; color: var(--usuzumi); font-size: 11.5px; }
+.perf-row.sleeping { opacity: .55; }
+.perf-row.active .txt div { color: var(--sakura); }

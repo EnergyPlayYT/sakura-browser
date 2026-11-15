@@ -4,6 +4,7 @@ const {
   dialog, webContents, shell, nativeTheme, screen, webFrameMain
 } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const Store = require('./lib/store');
@@ -277,6 +278,18 @@ class SakuraWindow {
     }
   }
 
+  /** Tab schlafen legen: Seite entladen (spart RAM und CPU), beim Anklicken lädt sie neu */
+  sleepTab(id) {
+    const t = this.tabs.find(x => x.id === id);
+    if (!t || t.id === this.activeId || t.pending) return false;
+    const url = t.url;
+    if (!/^https?:/i.test(url)) return false;
+    t.pending = url; t.sleeping = true; t.audible = false; t.loading = false;
+    t.view.webContents.loadURL('about:blank').catch(() => {});
+    this.sendState();
+    return true;
+  }
+
   get active() { return this.tabs.find(t => t.id === this.activeId); }
   get pinnedCount() { return this.tabs.filter(t => t.pinned).length; }
   topHeight() {
@@ -329,11 +342,13 @@ class SakuraWindow {
     });
     const upd = () => tab.w.sendState();
     wc.on('page-title-updated', (e, t) => {
+      if (tab.sleeping) return; // schlafender Tab zeigt leere Seite – Titel behalten
       tab.title = t;
       if (!tab.w.isPrivate) store.updateTitle(wc.getURL(), t);
       upd();
     });
     wc.on('page-favicon-updated', (e, icons) => {
+      if (tab.sleeping) return;
       tab.favicon = icons[0] || null;
       if (!tab.w.isPrivate && tab.favicon) favicons.remember(wc.getURL(), tab.favicon);
       upd();
@@ -344,6 +359,7 @@ class SakuraWindow {
       if (d.isMainFrame && !d.isSameDocument) { blocker.reset(wc.id); setBg(d.url); }
     });
     wc.on('did-navigate', (e, u) => {
+      if (tab.sleeping) return;
       tab.url = u; tab.favicon = null;
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
@@ -381,7 +397,7 @@ class SakuraWindow {
     if (!t) return;
     this.activeId = id;
     if (t.group && this.groups.get(t.group) && this.groups.get(t.group).collapsed) this.groups.get(t.group).collapsed = false;
-    if (t.pending) { const u = t.pending; t.pending = null; t.view.webContents.loadURL(u).catch(() => {}); }
+    if (t.pending) { const u = t.pending; t.pending = null; t.sleeping = false; t.view.webContents.loadURL(u).catch(() => {}); }
     this.layout();
     if (!t.url.startsWith('sakura://newtab')) t.view.webContents.focus();
     this.sendState();
@@ -590,7 +606,8 @@ class SakuraWindow {
       tabs: this.tabs.map(t => ({
         id: t.id, title: t.title || this.displayUrl(t.url) || 'Neuer Tab', favicon: t.favicon,
         loading: t.loading, audible: t.audible, muted: t.muted, pinned: t.pinned, group: t.group,
-        newtab: (t.pending || t.url).startsWith('sakura://newtab')
+        newtab: (t.pending || t.url).startsWith('sakura://newtab'),
+        sleeping: !!t.pending && t.id !== this.activeId
       })),
       url: realUrl,
       secure: realUrl.startsWith('https://'),
@@ -693,6 +710,7 @@ class SakuraWindow {
       { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) },
       { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
+      { label: 'Tab schlafen legen', enabled: t.id !== this.activeId && !t.pending && /^https?:/i.test(t.url), click: () => this.sleepTab(id) },
       { type: 'separator' },
       { label: 'Zu neuer Gruppe hinzufügen', click: () => this.newGroup(id) },
       ...(this.groups.size ? [{
@@ -854,6 +872,63 @@ function runUserScripts(wc) {
   }
 }
 
+// ---------------------------------------------------------------- Leistung
+let lastCpuTimes = null, ping = { at: 0, ms: null };
+/** CPU-Auslastung des ganzen PCs seit dem letzten Aufruf (0–100) */
+function systemCpu() {
+  const now = os.cpus().reduce((a, c) => { for (const k in c.times) a[k === 'idle' ? 'idle' : 'busy'] += c.times[k]; return a; }, { idle: 0, busy: 0 });
+  const prev = lastCpuTimes;
+  lastCpuTimes = now;
+  if (!prev) return null;
+  const busy = now.busy - prev.busy, total = busy + now.idle - prev.idle;
+  return total > 0 ? Math.round(busy / total * 100) : null;
+}
+/** Ping: Antwortzeit einer winzigen Google-Adresse (echtes ICMP-Ping braucht Admin-Rechte) */
+async function measurePing() {
+  if (Date.now() - ping.at < 4000) return ping.ms;
+  ping.at = Date.now();
+  const t0 = Date.now();
+  try {
+    const r = await net.fetch('https://www.gstatic.com/generate_204', { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(4000) });
+    ping.ms = r.status < 500 ? Date.now() - t0 : null;
+  } catch { ping.ms = null; }
+  return ping.ms;
+}
+async function perfInfo(viewer) {
+  const metrics = typeof app.getAppMetrics === 'function' ? app.getAppMetrics() : [];
+  const byPid = new Map(metrics.map(m => [m.pid, m]));
+  const tabs = [];
+  for (const w of windows) for (const t of w.tabs) {
+    let pid = null;
+    try { if (!t.pending && t.view.webContents.getOSProcessId) pid = t.view.webContents.getOSProcessId(); } catch {}
+    tabs.push({ t, w, pid });
+  }
+  const share = {};
+  for (const x of tabs) if (x.pid) share[x.pid] = (share[x.pid] || 0) + 1;
+  const kb = m => (m && m.memory ? m.memory.workingSetSize : 0);
+  const cpu = m => (m && m.cpu ? m.cpu.percentCPUUsage : 0);
+  const rows = tabs.map(({ t, w, pid }) => {
+    const m = pid && byPid.get(pid), n = pid ? share[pid] : 1;
+    const hide = w.isPrivate && !(viewer && viewer.isPrivate); // private Tabs nicht in normalen Fenstern verraten
+    return {
+      id: t.id, title: hide ? 'Privater Tab' : t.title || w.displayUrl(t.pending || t.url) || 'Neuer Tab', url: hide ? '' : w.displayUrl(t.pending || t.url),
+      active: w.activeId === t.id, sleeping: !!t.pending, private: w.isPrivate, audible: t.audible,
+      cpu: m ? cpu(m) / n : 0, mem: m ? kb(m) * 1024 / n : 0, shared: n > 1
+    };
+  });
+  return {
+    tabs: rows,
+    sakura: { cpu: metrics.reduce((a, m) => a + cpu(m), 0), mem: metrics.reduce((a, m) => a + kb(m), 0) * 1024, processes: metrics.length },
+    system: { cpu: systemCpu(), memTotal: os.totalmem(), memFree: os.freemem() },
+    online: typeof net.isOnline === 'function' ? net.isOnline() : true,
+    ping: await measurePing()
+  };
+}
+function findTab(id) {
+  for (const w of windows) { const t = w.tabs.find(x => x.id === id); if (t) return { w, t }; }
+  return null;
+}
+
 // ---------------------------------------------------------------- Sitzung merken
 let lastSession = '';
 function saveSession() {
@@ -954,6 +1029,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (c && i.shift && k === 'm') w.toggleMute(w.activeId);
     else if (k === 'f11') w.win.setFullScreen(!w.win.isFullScreen());
     else if (k === 'f12' || (c && i.shift && k === 'i')) act && act.toggleDevTools();
+    else if (k === 'escape' && i.shift) w.ui.webContents.send('open-panel', 'performance');
     else if (k === 'escape' && w.findOpen) w.closeFind();
     else hit = false;
     if (hit) e.preventDefault();
@@ -1133,6 +1209,11 @@ const uiCommands = {
     catch (e) { dialog.showMessageBox(w.win, { type: 'error', message: 'Die Erweiterung konnte nicht geladen werden.', detail: e.message }); return null; }
   },
   openWebstore: w => w.newTab(WEBSTORE),
+  // Leistung
+  perf: w => perfInfo(w),
+  sleepTab: (w, id) => { const f = findTab(id); return f ? f.w.sleepTab(id) : false; },
+  sleepBackground: () => { let n = 0; for (const x of windows) for (const t of [...x.tabs]) if (x.sleepTab(t.id)) n++; return n; },
+  focusTab: (w, id) => { const f = findTab(id); if (f) { f.w.activate(id); f.w.win.focus(); } },
   // Downloads
   downloads: () => downloads.list(),
   dlOpen: (w, id) => downloads.open(id),

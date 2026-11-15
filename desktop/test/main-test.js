@@ -62,6 +62,18 @@ setTimeout(async()=>{
   await call('setPrefs',{theme:'<x>',accent:'rot'}); assert.equal((await call('prefs')).theme,'neon');
   await call('setPrefs',{theme:'sakura',accent:''});
   assert(await call('devices'));
+  // Leistung: Tabs schlafen legen
+  { st = await call('state'); const bg = st.tabs.find(t=>t.id!==st.activeId);
+    const perf = await call('perf'); assert(perf.tabs.length===st.tabs.length && 'ping' in perf && perf.system.memTotal>0);
+    assert.equal(await call('sleepTab', st.activeId), false, 'aktiver Tab schläft nicht');
+    const awake = perf.tabs.filter(t=>!t.active && !t.sleeping && /^https?:/.test(t.url));
+    if (awake.length) {
+      assert.equal(await call('sleepTab', awake[0].id), true); await new Promise(r=>setTimeout(r,30));
+      st = await call('state'); const t = st.tabs.find(x=>x.id===awake[0].id); assert(t.sleeping, 'Tab schläft');
+      assert.notEqual(t.title, 'T about:blank', 'Titel bleibt'); await call('activate', t.id); await new Promise(r=>setTimeout(r,30));
+      st = await call('state'); assert(!st.tabs.find(x=>x.id===t.id).sleeping); assert.equal(st.url, awake[0].url, 'lädt beim Anklicken wieder');
+    } else assert.fail('kein Hintergrund-Tab zum Testen');
+  }
   // Import: nachgebautes Edge-Profil
   { const L=fs.mkdtempSync(path.join(require('os').tmpdir(),'la')), d=path.join(L,'Microsoft','Edge','User Data','Default');
     fs.mkdirSync(d,{recursive:true}); fs.writeFileSync(path.join(d,'Bookmarks'),JSON.stringify({roots:{bookmark_bar:{children:[{type:'url',name:'Bing',url:'https://www.bing.com/'}]}}}));

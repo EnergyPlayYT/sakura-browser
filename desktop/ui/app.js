@@ -210,12 +210,12 @@ function renderTabs() {
     if (g && g.collapsed) return;
     const el = document.createElement('div');
     const next = S.tabs[i + 1];
-    el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
+    el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', t.id === S.activeId);
-    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '');
+    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '');
     el.draggable = true;
     el.dataset.id = t.id;
     let fav;
@@ -473,8 +473,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (!TITLES[kind]) return;
   if (kind === 'extensions' && S.private) kind = 'settings';
@@ -931,6 +931,50 @@ api.on('open-import', () => {
   const go = () => { const s = $('#import-section'); if (s) s.scrollIntoView(); else setTimeout(go, 30); };
   setTimeout(go, 30);
 });
+
+// ------------------------------------------------------------ Leistung
+const fmtMB = b => b >= 1024 ** 3 ? (b / 1024 ** 3).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' GB' : Math.round(b / 1024 ** 2).toLocaleString('de-DE') + ' MB';
+const fmtPct = v => v == null ? '–' : Math.round(v).toLocaleString('de-DE') + ' %';
+let perfTimer = null;
+async function renderPerformance() {
+  clearTimeout(perfTimer);
+  if (panelKind !== 'performance') return;
+  const d = await api.call('perf');
+  if (panelKind !== 'performance' || !d) return;
+  const body = $('#panel-body');
+  const used = d.system.memTotal - d.system.memFree;
+  const maxMem = Math.max(1, ...d.tabs.map(t => t.mem));
+  const net = !d.online ? '<b class="bad">Keine Verbindung</b>' : d.ping == null ? 'Verbunden, Ping nicht messbar' : `Verbunden, Ping <b class="${d.ping > 150 ? 'bad' : d.ping > 60 ? 'mid' : 'good'}">${d.ping} ms</b>`;
+  const awake = d.tabs.filter(t => !t.sleeping && !t.active && /^https?:/.test(t.url)).length;
+  const scroll = body.scrollTop;
+  body.innerHTML = `
+    <div class="perf-cards">
+      <div class="perf-card"><small>Sakura</small><strong>${fmtMB(d.sakura.mem)}</strong><span>CPU ${fmtPct(d.sakura.cpu)}</span></div>
+      <div class="perf-card"><small>Dein PC</small><strong>${fmtPct(used / d.system.memTotal * 100)} RAM</strong><span>CPU ${fmtPct(d.system.cpu)}</span></div>
+      <div class="perf-card wide"><small>Internet</small><span>${net}</span></div>
+    </div>
+    <div class="row perf-actions"><button class="btn" id="perf-sleep-all"${awake ? '' : ' disabled'}>Alle Hintergrund-Tabs schlafen legen</button></div>
+    <p class="perf-hint">Ein schlafender Tab braucht fast keinen Speicher. Beim Anklicken lädt er neu.</p>
+    ${d.tabs.map(t => `
+      <div class="perf-row${t.sleeping ? ' sleeping' : ''}${t.active ? ' active' : ''}" data-id="${t.id}">
+        <span class="fav">${t.url ? iconImg(t.url, t.title) : `<i class="ficon-l">${esc(letterOf(t.title))}</i>`}</span>
+        <div class="txt" data-tab="${t.id}"><div>${esc(t.title)}</div>
+          <small>${t.sleeping ? 'Schläft' : t.active ? 'Aktiver Tab' : t.audible ? 'Spielt Ton ab' : esc(hostOf(t.url) || '')}</small>
+          ${t.sleeping ? '' : `<span class="bar"><i style="width:${Math.max(2, t.mem / maxMem * 100).toFixed(0)}%"></i></span>`}</div>
+        <div class="nums">${t.sleeping ? '' : `${t.shared ? 'ca. ' : ''}${fmtMB(t.mem)}<small>CPU ${fmtPct(t.cpu)}</small>`}</div>
+        <button class="icon small" data-sleep="${t.id}" title="Schlafen legen"${t.sleeping || t.active || !/^https?:/.test(t.url) ? ' disabled' : ''}><svg><use href="#i-moon"/></svg></button>
+      </div>`).join('')}`;
+  body.scrollTop = scroll;
+  body.onclick = async e => {
+    const s = e.target.closest('[data-sleep]');
+    if (s) { await api.call('sleepTab', Number(s.dataset.sleep)); renderPerformance(); return; }
+    if (e.target.closest('#perf-sleep-all')) { await api.call('sleepBackground'); renderPerformance(); return; }
+    const t = e.target.closest('[data-tab]');
+    if (t) { api.call('focusTab', Number(t.dataset.tab)); closeOverlay(); }
+  };
+  perfTimer = setTimeout(renderPerformance, 2000);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.shiftKey) { e.preventDefault(); openPanel('performance'); } });
 
 function timeAgo(ts) {
   if (!ts) return 'noch nie';

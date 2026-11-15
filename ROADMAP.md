@@ -18,7 +18,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [ ] Danach: Version veröffentlichen, Lauf prüfen, Ali in einfachen Worten berichten.
 
 ## Etappe 2 – Leistung und Gaming
-- [ ] Leistungs-Panel: CPU/RAM pro Tab (`app.getAppMetrics()`), Internet, Ping; Tab „schlafen legen“.
+- [x] Leistungs-Panel: CPU/RAM pro Tab (`app.getAppMetrics()`), Internet, Ping; Tab „schlafen legen“.
 - [ ] Grenzen für RAM/CPU; Hintergrund-Tabs automatisch schlafen legen.
 - [ ] Gaming-Modus: erkennt laufende Spiele (Prozessliste) und senkt Sakuras Priorität.
 - [ ] Schwebendes Video über allem (always-on-top, optional durchklickbar), Medientasten.
