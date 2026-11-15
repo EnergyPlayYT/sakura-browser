@@ -1,0 +1,18 @@
+# Schlägt neue Electron-Hauptversionen als Pull Request vor (Patch-Updates erledigt security-update.yml automatisch)
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: electron
+      - dependency-name: electron-builder
+      - dependency-name: electron-updater
+    ignore:
+      - dependency-name: electron
+        update-types: ["version-update:semver-patch", "version-update:semver-minor"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

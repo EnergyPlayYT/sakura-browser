@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/yoru">
+
+    <LinearLayout
+        android:id="@+id/column"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:background="@color/yoru"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <FrameLayout
+                android:id="@+id/btnShield"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/ripple"
+                android:contentDescription="Werbeblocker">
+                <ImageView
+                    android:id="@+id/shieldIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_shield" />
+                <TextView
+                    android:id="@+id/shieldBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="16dp"
+                    android:layout_gravity="end|bottom"
+                    android:layout_marginEnd="3dp"
+                    android:layout_marginBottom="5dp"
+                    android:background="@drawable/badge_bg"
+                    android:gravity="center"
+                    android:minWidth="16dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:textColor="@color/fukai"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/addressBox"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:layout_weight="1"
+                android:background="@drawable/address_bg"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp">
+
+                <EditText
+                    android:id="@+id/address"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Suchen oder Adresse eingeben"
+                    android:imeOptions="actionGo|flagNoExtractUi"
+                    android:importantForAutofill="no"
+                    android:inputType="textUri"
+                    android:selectAllOnFocus="true"
+                    android:singleLine="true"
+                    android:textColor="@color/washi"
+                    android:textColorHint="@color/usuzumi"
+                    android:textCursorDrawable="@null"
+                    android:textSize="15sp" />
+
+                <ImageButton
+                    android:id="@+id/btnStar"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/ripple"
+                    android:contentDescription="Lesezeichen"
+                    android:src="@drawable/ic_star" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnReload"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/ripple"
+                android:contentDescription="Neu laden"
+                android:src="@drawable/ic_reload" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:max="100"
+            android:progressDrawable="@drawable/progress"
+            android:visibility="invisible" />
+
+        <FrameLayout
+            android:id="@+id/content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:id="@+id/findBar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@color/kasumi"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp"
+            android:visibility="gone">
+            <EditText
+                android:id="@+id/findInput"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/address_bg"
+                android:hint="Auf der Seite suchen"
+                android:imeOptions="actionSearch|flagNoExtractUi"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:singleLine="true"
+                android:textColor="@color/washi"
+                android:textColorHint="@color/usuzumi"
+                android:textSize="15sp" />
+            <TextView
+                android:id="@+id/findCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:gravity="center"
+                android:textColor="@color/usuzumi"
+                android:textSize="13sp" />
+            <ImageButton android:id="@+id/findPrev" android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/ripple" android:contentDescription="Vorheriger Treffer" android:src="@drawable/ic_up" />
+            <ImageButton android:id="@+id/findNext" android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/ripple" android:contentDescription="Nächster Treffer" android:src="@drawable/ic_down" />
+            <ImageButton android:id="@+id/findClose" android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/ripple" android:contentDescription="Suche schließen" android:src="@drawable/ic_close" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:background="@color/yoru"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton android:id="@+id/btnBack" style="@style/BarButton" android:contentDescription="Zurück" android:src="@drawable/ic_back" />
+            <ImageButton android:id="@+id/btnForward" style="@style/BarButton" android:contentDescription="Vorwärts" android:src="@drawable/ic_forward" />
+            <ImageButton android:id="@+id/btnHome" style="@style/BarButton" android:contentDescription="Startseite" android:src="@drawable/ic_home" />
+            <FrameLayout android:id="@+id/btnTabs" style="@style/BarButton" android:contentDescription="Tabs">
+                <TextView
+                    android:id="@+id/tabCount"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/tabs_bg"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@color/washi"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+            <ImageButton android:id="@+id/btnMenu" style="@style/BarButton" android:contentDescription="Menü" android:src="@drawable/ic_menu" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/fullscreen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone" />
+</FrameLayout>

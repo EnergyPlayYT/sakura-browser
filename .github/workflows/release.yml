@@ -1,0 +1,112 @@
+# Baut Sakura für Windows und Android und veröffentlicht es als GitHub-Release.
+# Installierte Sakura-Versionen holen sich dieses Release automatisch.
+name: Sakura veröffentlichen
+
+on:
+  workflow_dispatch:          # „Run workflow“ in GitHub drücken
+  workflow_call:              # wird vom wöchentlichen Sicherheitsupdate aufgerufen
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'android/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Versionsnummer festlegen
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: v
+        name: Version erhöhen, falls es sie schon gibt
+        run: |
+          git pull --ff-only origin main || true
+          cd desktop
+          V=$(node -p "require('./package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            npm version patch --no-git-tag-version >/dev/null
+            V=$(node -p "require('./package.json').version")
+            git config user.name "sakura-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Sakura $V"
+            git push origin HEAD:main
+          fi
+          git tag "v$V"
+          git push origin "v$V"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows bauen
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Abhängigkeiten installieren
+        working-directory: desktop
+        run: npm install
+      - name: Bauen und veröffentlichen
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win nsis portable --publish always
+
+  android:
+    name: Android bauen
+    needs: [version, windows]
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - name: Hinweis, falls der Signaturschlüssel fehlt
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::Kein Android-Signaturschlüssel hinterlegt (Secret ANDROID_KEYSTORE_BASE64). Die Android-App wird übersprungen – siehe LIESMICH.md."
+      - uses: actions/setup-java@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          gradle-version: '8.11.1'
+      - name: APK bauen
+        if: env.HAS_KEY == 'true'
+        working-directory: android
+        env:
+          SAKURA_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          SAKURA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SAKURA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SAKURA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$SAKURA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sakura.jks"
+          export SAKURA_KEYSTORE="$RUNNER_TEMP/sakura.jks"
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/Sakura-${{ needs.version.outputs.version }}.apk"
+      - name: APK zum Release hinzufügen
+        if: env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=v${{ needs.version.outputs.version }}
+          gh release view "$V" >/dev/null 2>&1 || gh release create "$V" --title "Sakura ${{ needs.version.outputs.version }}" --notes "Neue Sakura-Version"
+          gh release upload "$V" "$RUNNER_TEMP/Sakura-${{ needs.version.outputs.version }}.apk" --clobber

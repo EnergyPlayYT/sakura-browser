@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'">
+<title>Sakura</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5L12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4-3.9-3.8 5.4-.8z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5l7 2.6v5.4c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6.1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="18" r="1.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M7.5 7.5l9 9M16.5 7.5l-9 9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="6" y="10.5" width="12" height="9" rx="1.5"/><path d="M8.8 10.5V8a3.2 3.2 0 0 1 6.4 0v2.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l4.5 4.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 8v4.3l2.8 1.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 14.5l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M5 9.5h3l4-3.5v12l-4-3.5H5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M5 19l1-4L16 5l3 3L9 18z"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M5 8.5h3.2a2 2 0 1 1 3.6 0H15v3.3a2 2 0 1 1 0 3.6V19H11.8a2 2 0 1 0-3.6 0H5z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M7.5 10.5L12 15l4.5-4.5M5.5 19.5h13"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M9 7.5L4.5 12 9 16.5M15 7.5l4.5 4.5-4.5 4.5"/></symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24"><path d="M5 9.5h3l4-3.5v12l-4-3.5H5z"/><path d="M15.5 9.5l4 5M19.5 9.5l-4 5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7.5V18h16V9.5h-8L10 7.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6.5v11M15 6.5v11"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 6l10 6-10 6z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5.5 7.5h13M10 7.5V5.5h4v2M7.5 7.5l.8 11h7.4l.8-11"/></symbol>
+</svg>
+
+<header id="tabbar">
+  <div class="seal" title="Sakura">桜</div>
+  <div id="tabs" role="tablist"></div>
+  <button id="newtab" class="icon" title="Neuer Tab (Strg+T)"><svg><use href="#i-plus"/></svg></button>
+  <div class="drag-fill"></div>
+  <span id="private-tag" hidden>Privat</span>
+</header>
+
+<nav id="toolbar">
+  <button id="back" class="icon" title="Zurück (Alt+←)"><svg><use href="#i-back"/></svg></button>
+  <button id="forward" class="icon" title="Vorwärts (Alt+→)"><svg><use href="#i-fwd"/></svg></button>
+  <button id="reload" class="icon" title="Neu laden (F5)"><svg><use href="#i-reload"/></svg></button>
+  <button id="home" class="icon" title="Startseite"><svg><use href="#i-home"/></svg></button>
+
+  <form id="omnibox" autocomplete="off">
+    <span id="secure" class="lead"><svg><use href="#i-search"/></svg></span>
+    <input id="address" spellcheck="false" placeholder="Suchen oder Adresse eingeben">
+    <span id="scripts-ind" hidden title="Eigene Skripte laufen auf dieser Seite"><svg><use href="#i-code"/></svg></span>
+    <span id="zoom" hidden></span>
+    <button type="button" id="star" class="icon small" title="Lesezeichen setzen (Strg+D)"><svg><use href="#i-star"/></svg></button>
+  </form>
+
+  <button id="update-btn" class="pill" hidden title="Sakura wird neu gestartet und aktualisiert. Deine Tabs bleiben erhalten.">Aktualisieren</button>
+  <div id="ext-actions"></div>
+  <button id="ext-btn" class="icon" title="Erweiterungen"><svg><use href="#i-puzzle"/></svg></button>
+  <button id="dl-btn" class="icon" title="Downloads (Strg+J)" hidden><svg class="ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg><svg><use href="#i-download"/></svg></button>
+  <button id="shield" class="icon" title="Werbeblocker"><svg><use href="#i-shield"/></svg><b id="blocked"></b></button>
+  <button id="menu-btn" class="icon" title="Menü"><svg><use href="#i-menu"/></svg></button>
+</nav>
+
+<div id="findbar" hidden>
+  <input id="find-input" placeholder="Auf der Seite suchen" spellcheck="false">
+  <span id="find-count"></span>
+  <button id="find-prev" class="icon small" title="Vorheriger Treffer"><svg><use href="#i-up"/></svg></button>
+  <button id="find-next" class="icon small" title="Nächster Treffer"><svg><use href="#i-down"/></svg></button>
+  <button id="find-close" class="icon small" title="Schließen (Esc)"><svg><use href="#i-x"/></svg></button>
+</div>
+
+<!-- Alles darunter erscheint nur, wenn ein Overlay offen ist -->
+<div id="backdrop" hidden></div>
+
+<ul id="suggest" hidden role="listbox"></ul>
+
+<div id="menu" class="pop" hidden role="menu">
+  <button data-cmd="newTab">Neuer Tab<kbd>Strg+T</kbd></button>
+  <button data-cmd="newWindow">Neues Fenster<kbd>Strg+N</kbd></button>
+  <button data-cmd="newPrivateWindow">Neues privates Fenster<kbd>Strg+Umschalt+N</kbd></button>
+  <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
+  <hr>
+  <button data-panel="bookmarks">Lesezeichen<kbd>Strg+Umschalt+O</kbd></button>
+  <button data-panel="history">Verlauf und andere Geräte<kbd>Strg+H</kbd></button>
+  <button data-panel="downloads">Downloads<kbd>Strg+J</kbd></button>
+  <button data-panel="extensions">Erweiterungen</button>
+  <button data-panel="scripts">Eigene Skripte</button>
+  <hr>
+  <div class="zoomrow">Zoom
+    <span><button data-zoom="-0.5" class="icon small">−</button><output id="zoom-val">100 %</output><button data-zoom="0.5" class="icon small">+</button></span>
+  </div>
+  <button data-cmd="openFind">Auf der Seite suchen<kbd>Strg+F</kbd></button>
+  <button data-cmd="translate">Seite übersetzen</button>
+  <button data-cmd="savePdf">Als PDF speichern …<kbd>Strg+S</kbd></button>
+  <button data-cmd="screenshot">Bildschirmfoto speichern …</button>
+  <button data-cmd="print">Drucken …<kbd>Strg+P</kbd></button>
+  <button data-cmd="devtools">Entwicklertools<kbd>F12</kbd></button>
+  <hr>
+  <button data-panel="settings">Einstellungen und Synchronisation</button>
+  <button data-panel="about" id="menu-about">Über Sakura und Updates</button>
+</div>
+
+<div id="group-pop" class="pop" hidden>
+  <input id="group-name" placeholder="Gruppe benennen" maxlength="40" spellcheck="false" aria-label="Name der Gruppe">
+  <div id="group-colors" role="radiogroup" aria-label="Farbe"></div>
+  <hr>
+  <button data-g="newtab">Neuer Tab in dieser Gruppe</button>
+  <button data-g="ungroup">Gruppierung aufheben</button>
+  <button data-g="close">Gruppe schließen</button>
+</div>
+
+<div id="shield-pop" class="pop" hidden>
+  <h3>Werbeblocker</h3>
+  <p id="shield-text"></p>
+  <label class="switch"><input type="checkbox" id="shield-site"><span>Auf dieser Seite blockieren</span></label>
+  <label class="switch"><input type="checkbox" id="shield-global"><span>Werbeblocker eingeschaltet</span></label>
+</div>
+
+<aside id="panel" hidden>
+  <header>
+    <h2 id="panel-title"></h2>
+    <button id="panel-close" class="icon" title="Schließen"><svg><use href="#i-x"/></svg></button>
+  </header>
+  <div id="panel-body"></div>
+</aside>
+
+<script src="app.js"></script>
+</body>
+</html>

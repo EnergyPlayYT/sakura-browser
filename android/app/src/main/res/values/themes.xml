@@ -1,0 +1,25 @@
+<resources>
+    <style name="Theme.Sakura" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/kasumi</item>
+        <item name="android:colorAccent">@color/sakura</item>
+        <item name="android:colorBackground">@color/yoru</item>
+        <item name="android:windowBackground">@color/yoru</item>
+        <item name="android:textColorPrimary">@color/washi</item>
+        <item name="android:textColorSecondary">@color/usuzumi</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:alertDialogTheme">@style/Dialog.Sakura</item>
+    </style>
+    <style name="Dialog.Sakura" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/sakura</item>
+        <item name="android:colorBackground">#2C2950</item>
+        <item name="android:textColorPrimary">@color/washi</item>
+    </style>
+    <style name="BarButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/ripple</item>
+        <item name="android:scaleType">center</item>
+    </style>
+</resources>

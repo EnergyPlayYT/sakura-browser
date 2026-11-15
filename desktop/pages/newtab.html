@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neuer Tab</title>
+<style>
+  :root {
+    --yoru: #1C1A33; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
+    --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", "Noto Serif", Georgia, serif;
+    --gothic: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", Roboto, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--yoru); color: var(--washi); font: 15px/1.5 var(--gothic); overflow: hidden; }
+  #scene, #photo, #shade { position: fixed; inset: 0; width: 100%; height: 100%; }
+  #photo { background: center / cover no-repeat; opacity: 0; transition: opacity 1.2s ease; }
+  #photo.on { opacity: 1; }
+  #shade { background: linear-gradient(90deg, rgba(20, 18, 40, .82) 0%, rgba(20, 18, 40, .45) 55%, rgba(20, 18, 40, .15) 100%); opacity: 0; transition: opacity 1.2s; }
+  #photo.on + #shade { opacity: 1; }
+  canvas#petals { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  main { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 0 6vh max(7vw, 28px); max-width: 860px; }
+  #greet { font: 400 19px var(--mincho); color: var(--sakura); letter-spacing: .12em; margin: 0 0 2px 4px; }
+  #clock { font: 300 clamp(84px, 14vw, 168px)/0.95 var(--mincho); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 0; }
+  #clock .sep { color: var(--sakura); opacity: .85; padding: 0 .02em; }
+  #date { font: 400 20px var(--mincho); color: var(--usuzumi); margin: 10px 0 34px 6px; }
+
+  form { position: relative; width: min(560px, 100% - 28px); }
+  #q {
+    width: 100%; height: 52px; padding: 0 20px 0 50px; border: 0; outline: 0; border-radius: 14px; font: 16px var(--gothic);
+    color: var(--washi); background: rgba(22, 20, 42, .72); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(238, 231, 226, .14);
+  }
+  #q::placeholder { color: var(--usuzumi); }
+  #q:focus { box-shadow: inset 0 0 0 1.5px var(--sakura), 0 10px 40px rgba(8, 6, 18, .4); }
+  form svg { position: absolute; z-index: 1; pointer-events: none; left: 17px; top: 16px; width: 20px; height: 20px; fill: none; stroke: var(--usuzumi); stroke-width: 1.7; stroke-linecap: round; }
+
+  #tiles { display: grid; grid-template-columns: repeat(auto-fill, 88px); gap: 14px 10px; width: min(560px, 100% - 28px); margin-top: 34px; }
+  .tile { position: relative; display: grid; justify-items: center; gap: 8px; padding: 6px 0 4px; border-radius: 12px; text-decoration: none; color: var(--washi); }
+  .tile:hover, .tile:focus-visible { background: rgba(238, 231, 226, .07); outline: 0; }
+  .tile:focus-visible { box-shadow: 0 0 0 2px var(--sakura); }
+  .stamp {
+    width: 52px; height: 52px; display: grid; place-items: center; border-radius: 6px; font: 500 24px/1 var(--mincho);
+    color: var(--sakura); background: rgba(22, 20, 42, .6); box-shadow: inset 0 0 0 1.5px rgba(242, 179, 197, .55);
+  }
+  .tile:nth-child(3n+1) .stamp { transform: rotate(-3deg); }
+  .tile:nth-child(3n+2) .stamp { transform: rotate(2deg); }
+  .tile .name { font-size: 12.5px; max-width: 84px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--washi); }
+  .tile .edit {
+    position: absolute; top: 0; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 6px; padding: 0; display: grid; place-items: center;
+    background: rgba(22, 20, 42, .85); color: var(--washi); opacity: 0; font: 14px var(--gothic); cursor: pointer;
+  }
+  .tile:hover .edit, .tile .edit:focus-visible { opacity: 1; }
+  .tile.add .stamp { color: var(--usuzumi); box-shadow: inset 0 0 0 1.5px rgba(165, 158, 184, .4); font-family: var(--gothic); font-weight: 300; font-size: 28px; }
+  .tile.dragging { opacity: .4; }
+
+  #private { position: fixed; top: 20px; right: 24px; padding: 6px 14px; border-radius: 99px; font: 14px var(--mincho); background: rgba(217, 86, 111, .22); box-shadow: inset 0 0 0 1px rgba(217, 86, 111, .6); }
+
+  dialog { border: 0; border-radius: 16px; padding: 22px 22px 18px; width: min(380px, 92vw); background: #2C2950; color: var(--washi); box-shadow: 0 0 0 1px rgba(238, 231, 226, .1), 0 30px 60px rgba(4, 2, 12, .6); }
+  dialog::backdrop { background: rgba(8, 6, 18, .5); }
+  dialog h2 { margin: 0 0 14px; font: 400 22px var(--mincho); }
+  dialog label { display: grid; gap: 4px; margin-bottom: 12px; color: var(--usuzumi); font-size: 13px; }
+  dialog input { height: 38px; padding: 0 12px; border: 0; outline: 0; border-radius: 9px; background: var(--fukai); color: var(--washi); font: 15px var(--gothic); box-shadow: inset 0 0 0 1px rgba(238, 231, 226, .1); }
+  dialog input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+  dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+  dialog .row .left { margin-right: auto; }
+  dialog button { height: 36px; padding: 0 16px; border: 0; border-radius: 9px; font: 14px var(--gothic); background: rgba(238, 231, 226, .1); color: var(--washi); cursor: pointer; }
+  dialog button.primary { background: var(--sakura); color: var(--fukai); font-weight: 600; }
+  dialog button.danger { color: #FFB4C0; background: transparent; padding: 0 6px; }
+  #err { color: #FFB4C0; font-size: 13px; margin: -4px 0 8px; }
+
+  @media (max-width: 640px) {
+    main { padding: 0 20px 10vh; justify-content: flex-end; }
+    #clock { font-size: 92px; }
+    #date { margin-bottom: 22px; font-size: 18px; }
+    #tiles { grid-template-columns: repeat(4, 1fr); gap: 10px 4px; margin-top: 24px; width: 100%; }
+    form { width: 100%; }
+    .tile .edit { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+<div id="photo" aria-hidden="true"></div>
+<div id="shade" aria-hidden="true"></div>
+<canvas id="petals" aria-hidden="true"></canvas>
+<span id="private" hidden>Privat – kein Verlauf</span>
+
+<main>
+  <p id="greet"></p>
+  <h1 id="clock" aria-live="off"></h1>
+  <p id="date"></p>
+  <form id="search" autocomplete="off">
+    <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
+    <input id="q" placeholder="Suchen oder Adresse eingeben" spellcheck="false" aria-label="Suchen oder Adresse eingeben">
+  </form>
+  <div id="tiles"></div>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlg-form">
+    <h2 id="dlg-title">Kachel hinzufügen</h2>
+    <label>Name<input name="title" placeholder="z. B. YouTube"></label>
+    <label>Adresse<input name="url" placeholder="youtube.com" required spellcheck="false"></label>
+    <p id="err" hidden></p>
+    <div class="row">
+      <button type="button" class="danger left" id="dlg-del">Entfernen</button>
+      <button type="button" id="dlg-cancel">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// ---------- Verbindung zum Browser (Windows: window.sakura, Android: window.SakuraAndroid)
+const api = window.sakura || (window.sakuraNative ? nativeBridge(window.sakuraNative)
+  : { call: async c => ({ shortcuts: [], prefs: {}, isPrivate: false })[c] });
+function nativeBridge(port) {
+  let n = 0; const wait = {};
+  port.onmessage = e => { const m = JSON.parse(e.data); if (wait[m.id]) { wait[m.id](m.result); delete wait[m.id]; } };
+  return { call: (cmd, arg) => new Promise(res => { const id = ++n; wait[id] = res; port.postMessage(JSON.stringify({ id, cmd, arg: arg === undefined ? null : arg })); }) };
+}
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- Uhr
+const DAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
+function tick() {
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2, '0'), m = String(d.getMinutes()).padStart(2, '0');
+  $('#clock').innerHTML = `${h}<span class="sep">:</span>${m}`;
+  const hr = d.getHours();
+  $('#greet').textContent = hr < 5 ? 'こんばんは' : hr < 11 ? 'おはよう' : hr < 18 ? 'こんにちは' : 'こんばんは';
+  $('#date').textContent = d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }) + '  ' + DAYS_JP[d.getDay()] + '曜日';
+  setTimeout(tick, 1000 - d.getMilliseconds() + 5);
+}
+tick();
+
+// ---------- Suche
+$('#search').addEventListener('submit', e => { e.preventDefault(); const v = $('#q').value.trim(); if (v) api.call('navigate', v); });
+setTimeout(() => $('#q').focus(), 60);
+
+// ---------- Kacheln
+let tiles = [];
+const letter = t => (String(t || '?').trim()[0] || '?').toUpperCase();
+function renderTiles() {
+  const box = $('#tiles');
+  box.innerHTML = tiles.map(t => `
+    <a class="tile" href="${esc(t.url)}" data-id="${esc(t.id)}" draggable="true" title="${esc(t.url)}">
+      <span class="stamp">${esc(letter(t.title))}</span><span class="name">${esc(t.title)}</span>
+      <button class="edit" type="button" aria-label="${esc(t.title)} bearbeiten">✎</button>
+    </a>`).join('') + `<a class="tile add" href="#" id="add"><span class="stamp">+</span><span class="name">Hinzufügen</span></a>`;
+}
+async function loadTiles() { tiles = (await api.call('shortcuts')) || []; renderTiles(); }
+
+$('#tiles').addEventListener('click', e => {
+  const edit = e.target.closest('.edit');
+  const tile = e.target.closest('.tile');
+  if (!tile) return;
+  if (tile.id === 'add') { e.preventDefault(); openDialog(null); return; }
+  if (edit) { e.preventDefault(); openDialog(tiles.find(t => t.id === tile.dataset.id)); }
+});
+// Rechtsklick oder langes Drücken (Android) → bearbeiten
+$('#tiles').addEventListener('contextmenu', e => {
+  const tile = e.target.closest('.tile:not(.add)');
+  if (!tile) return;
+  e.preventDefault();
+  openDialog(tiles.find(t => t.id === tile.dataset.id));
+});
+// Sortieren per Ziehen
+let dragId = null;
+$('#tiles').addEventListener('dragstart', e => { const t = e.target.closest('.tile'); if (t && t.dataset.id) { dragId = t.dataset.id; t.classList.add('dragging'); } });
+$('#tiles').addEventListener('dragend', e => { const t = e.target.closest('.tile'); if (t) t.classList.remove('dragging'); });
+$('#tiles').addEventListener('dragover', e => e.preventDefault());
+$('#tiles').addEventListener('drop', async e => {
+  e.preventDefault();
+  const t = e.target.closest('.tile');
+  if (!dragId || !t || !t.dataset.id || t.dataset.id === dragId) return;
+  const ids = tiles.map(x => x.id).filter(id => id !== dragId);
+  ids.splice(ids.indexOf(t.dataset.id), 0, dragId);
+  tiles = (await api.call('orderShortcuts', ids)) || tiles;
+  renderTiles();
+  dragId = null;
+});
+
+const dlg = $('#dlg'), form = $('#dlg-form');
+let editing = null;
+function openDialog(t) {
+  editing = t;
+  $('#dlg-title').textContent = t ? 'Kachel bearbeiten' : 'Kachel hinzufügen';
+  form.elements.title.value = t ? t.title : '';
+  form.elements.url.value = t ? t.url : '';
+  $('#dlg-del').hidden = !t;
+  $('#err').hidden = true;
+  dlg.showModal();
+  (t ? form.elements.title : form.elements.url).focus();
+}
+$('#dlg-cancel').onclick = () => dlg.close();
+$('#dlg-del').onclick = async () => { tiles = await api.call('deleteShortcut', editing.id); renderTiles(); dlg.close(); };
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = await api.call('saveShortcut', { id: editing && editing.id, title: form.elements.title.value, url: form.elements.url.value });
+  if (r && r.error) { $('#err').textContent = r.error; $('#err').hidden = false; return; }
+  tiles = r; renderTiles(); dlg.close();
+});
+
+// ---------- Hintergrund: gezeichnete Nacht mit Mond und Kirschzweig
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function drawScene() {
+  const c = $('#scene'), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = innerWidth, H = innerHeight;
+  c.width = W * dpr; c.height = H * dpr;
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#16142C'); sky.addColorStop(.55, '#25214A'); sky.addColorStop(1, '#3A2B55');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  const r = rng(20261115);
+  // Sterne
+  for (let i = 0; i < 140; i++) {
+    g.globalAlpha = .15 + r() * .5;
+    g.fillStyle = '#EEE7E2';
+    g.fillRect(r() * W, r() * H * .7, r() < .9 ? 1 : 1.6, r() < .9 ? 1 : 1.6);
+  }
+  g.globalAlpha = 1;
+  // Mond
+  const mx = W * .74, my = H * .3, mr = Math.max(46, Math.min(W, H) * .085);
+  const glow = g.createRadialGradient(mx, my, mr * .8, mx, my, mr * 4.5);
+  glow.addColorStop(0, 'rgba(242,224,214,.22)'); glow.addColorStop(1, 'rgba(242,224,214,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#F1E6DC'; g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(200,180,175,.25)';
+  for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(mx + (r() - .5) * mr, my + (r() - .5) * mr, mr * (.08 + r() * .12), 0, Math.PI * 2); g.fill(); }
+  // Hügel / Dunst
+  g.fillStyle = 'rgba(16,14,34,.85)';
+  g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W; x += 20) g.lineTo(x, H * .86 - Math.sin(x / W * 3.2 + 1) * H * .04 - Math.sin(x / 90) * 6);
+  g.lineTo(W, H); g.fill();
+
+  // Zweig von rechts oben
+  const blossoms = [];
+  function branch(x, y, ang, len, w, depth) {
+    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+    const cx = (x + x2) / 2 + (r() - .5) * len * .35, cy = (y + y2) / 2 + (r() - .5) * len * .35;
+    g.strokeStyle = '#0E0C1D'; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(cx, cy, x2, y2); g.stroke();
+    if (depth <= 2 || r() < .35) blossoms.push([x2, y2, depth]);
+    if (depth <= 0) return;
+    const n = depth > 3 ? 2 : 2 + (r() < .4 ? 1 : 0);
+    for (let i = 0; i < n; i++) branch(x2, y2, ang + (r() - .5) * 1.3 + (i === 0 ? .15 : -.25), len * (.62 + r() * .18), w * .62, depth - 1);
+  }
+  const s = Math.min(W, H) / 900;
+  branch(W + 20, H * .02, Math.PI * .86, 260 * s, 16 * s, 6);
+  branch(W + 30, H * .2, Math.PI * .93, 180 * s, 10 * s, 5);
+  for (const [x, y, d] of blossoms) {
+    const count = d <= 1 ? 6 : 3;
+    for (let i = 0; i < count; i++) {
+      const bx = x + (r() - .5) * 26 * s, by = y + (r() - .5) * 22 * s, br = (3 + r() * 4.5) * Math.max(.7, s);
+      g.fillStyle = r() < .5 ? 'rgba(242,179,197,.92)' : r() < .6 ? 'rgba(250,214,222,.9)' : 'rgba(217,120,150,.85)';
+      flower(g, bx, by, br, r() * 6);
+    }
+  }
+}
+function flower(g, x, y, rad, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot);
+  for (let i = 0; i < 5; i++) {
+    g.rotate(Math.PI * 2 / 5);
+    g.beginPath(); g.ellipse(0, -rad * .62, rad * .42, rad * .62, 0, 0, Math.PI * 2); g.fill();
+  }
+  g.fillStyle = 'rgba(160,60,90,.9)'; g.beginPath(); g.arc(0, 0, rad * .18, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
+// ---------- fallende Blütenblätter (ruhig, bei „Bewegung reduzieren“ aus)
+function petals() {
+  const c = $('#petals'), g = c.getContext('2d');
+  let W, H, list = [];
+  const size = () => { const dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; c.width = W * dpr; c.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  size(); addEventListener('resize', size);
+  const make = y => ({ x: Math.random() * W * 1.2, y: y ?? -20, s: 4 + Math.random() * 5, vx: -.25 - Math.random() * .5, vy: .35 + Math.random() * .55, a: Math.random() * 6, va: (Math.random() - .5) * .04, w: Math.random() * 6 });
+  for (let i = 0; i < 16; i++) list.push(make(Math.random() * H));
+  let last = performance.now();
+  (function frame(t) {
+    const dt = Math.min(3, (t - last) / 16.7); last = t;
+    g.clearRect(0, 0, W, H);
+    for (const p of list) {
+      p.w += .02 * dt; p.a += p.va * dt;
+      p.x += (p.vx + Math.sin(p.w) * .35) * dt; p.y += p.vy * dt;
+      if (p.y > H + 20 || p.x < -30) Object.assign(p, make());
+      g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.scale(1, .55 + Math.sin(p.w * 2) * .35);
+      g.fillStyle = 'rgba(242,179,197,.8)';
+      g.beginPath(); g.moveTo(0, -p.s); g.quadraticCurveTo(p.s, 0, 0, p.s); g.quadraticCurveTo(-p.s, 0, 0, -p.s); g.fill();
+      g.restore();
+    }
+    if (!document.hidden) requestAnimationFrame(frame); else document.addEventListener('visibilitychange', () => { last = performance.now(); requestAnimationFrame(frame); }, { once: true });
+  })(last);
+}
+
+// ---------- eigene Hintergrundbilder
+let bgTimer = null;
+function startPhotos(prefs) {
+  clearInterval(bgTimer);
+  const list = (prefs && prefs.backgrounds) || [];
+  const el = $('#photo');
+  if (!list.length) { el.classList.remove('on'); return; }
+  let i = Math.floor(Date.now() / ((prefs.bgMinutes || 10) * 60000)) % list.length;
+  const show = () => {
+    const img = new Image();
+    img.onload = () => { el.style.backgroundImage = `url("${list[i].replace(/"/g, '%22')}")`; el.classList.add('on'); };
+    img.src = list[i];
+  };
+  show();
+  bgTimer = setInterval(() => { i = (i + 1) % list.length; show(); }, (prefs.bgMinutes || 10) * 60000);
+}
+
+// ---------- Start
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(drawScene, 120); });
+drawScene();
+if (!reduce) petals();
+(async () => {
+  await loadTiles();
+  startPhotos(await api.call('prefs'));
+  if (await api.call('isPrivate')) $('#private').hidden = false;
+})();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadTiles(); });
+window.sakuraRefresh = loadTiles; // Android ruft das nach einer Synchronisation auf
+</script>
+</body>
+</html>

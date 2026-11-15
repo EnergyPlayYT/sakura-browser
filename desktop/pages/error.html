@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seite nicht erreichbar</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1C1A33; color: #EEE7E2; font: 15px/1.6 "Segoe UI", Roboto, system-ui, sans-serif; }
+  main { max-width: 560px; padding: 18vh 32px 0; margin: 0 auto; }
+  .seal { width: 44px; height: 44px; display: grid; place-items: center; background: #D9566F; color: #FBEFEF; font: 600 26px "Yu Mincho", "Noto Serif JP", serif; border-radius: 4px; transform: rotate(-4deg); margin-bottom: 28px; }
+  h1 { font: 400 30px/1.25 "Yu Mincho", "Noto Serif JP", Georgia, serif; margin: 0 0 12px; }
+  p { color: #A59EB8; margin: 0 0 10px; word-break: break-word; }
+  code { color: #EEE7E2; }
+  button { margin-top: 18px; height: 38px; padding: 0 18px; border: 0; border-radius: 9px; background: #F2B3C5; color: #16142A; font: 600 14px inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #EEE7E2; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="seal">桜</div>
+  <h1 id="h">Diese Seite ist nicht erreichbar</h1>
+  <p id="host"></p>
+  <p id="hint"></p>
+  <button id="retry">Erneut versuchen</button>
+</main>
+<script>
+  const q = new URLSearchParams(location.search);
+  const u = q.get('u') || '', d = q.get('d') || '', code = Number(q.get('c'));
+  let host = u; try { host = new URL(u).hostname; } catch {}
+  const hints = {
+    '-105': ['Adresse nicht gefunden', `Unter „${host}“ gibt es keine Seite. Prüf die Schreibweise.`],
+    '-106': ['Keine Internetverbindung', 'Prüf WLAN oder Netzwerkkabel und versuch es dann noch einmal.'],
+    '-102': ['Verbindung abgelehnt', `${host} nimmt gerade keine Verbindungen an.`],
+    '-118': ['Zeitüberschreitung', `${host} hat zu lange nicht geantwortet.`],
+    '-7': ['Zeitüberschreitung', `${host} hat zu lange nicht geantwortet.`],
+    '-200': ['Unsicheres Zertifikat', 'Die Verbindung ist nicht vertrauenswürdig. Gib hier keine Daten ein.'],
+    '-201': ['Zertifikat abgelaufen oder Uhrzeit falsch', 'Prüf, ob Datum und Uhrzeit deines Geräts stimmen.'],
+    '-202': ['Unsicheres Zertifikat', 'Die Verbindung ist nicht vertrauenswürdig. Gib hier keine Daten ein.']
+  };
+  const h = hints[String(code)];
+  if (h) { document.getElementById('h').textContent = h[0]; document.getElementById('hint').textContent = h[1]; }
+  else document.getElementById('hint').textContent = d ? `Fehler: ${d}` : '';
+  document.getElementById('host').textContent = u;
+  document.title = h ? h[0] : 'Seite nicht erreichbar';
+  document.getElementById('retry').onclick = () => { if (/^https?:/i.test(u)) location.href = u; };
+</script>
+</body>
+</html>

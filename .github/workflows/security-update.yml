@@ -1,0 +1,61 @@
+# Jeden Montag: neueste Chromium-Sicherheitskorrekturen (Electron-Patch-Version) übernehmen
+# und, falls es welche gibt, sofort eine neue Sakura-Version veröffentlichen.
+name: Wöchentliches Sicherheitsupdate
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  update:
+    name: Electron prüfen
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: check
+        name: Neueste Version in der aktuellen Hauptversion suchen
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CUR=$(node -p "require('./package.json').devDependencies.electron.replace(/^[^0-9]*/, '')")
+          MAJOR=${CUR%%.*}
+          LATEST=$(npm view "electron@^$MAJOR" version --json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const v=JSON.parse(d);console.log(Array.isArray(v)?v[v.length-1]:v)})")
+          NEWEST_MAJOR=$(npm view electron version | cut -d. -f1)
+          echo "Aktuell: $CUR – neueste $MAJOR.x: $LATEST – neueste Hauptversion: $NEWEST_MAJOR"
+          # Electron versorgt nur die drei neuesten Hauptversionen mit Sicherheitsupdates
+          if [ $((NEWEST_MAJOR - MAJOR)) -ge 3 ]; then
+            TITLE="Electron $MAJOR bekommt keine Sicherheitsupdates mehr"
+            if ! gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number' | grep -q .; then
+              gh issue create --title "$TITLE" --body "Sakura nutzt Electron $MAJOR. Electron versorgt nur die drei neuesten Hauptversionen (aktuell bis $NEWEST_MAJOR) mit Sicherheitskorrekturen. Bitte den Dependabot-Pull-Request für Electron prüfen und übernehmen – danach baut GitHub Sakura automatisch neu."
+            fi
+          fi
+          if [ "$LATEST" != "$CUR" ]; then
+            npm pkg set "devDependencies.electron=$LATEST"
+            git config user.name "sakura-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Electron $LATEST (Sicherheitsupdate)"
+            git push origin HEAD:main
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Neue Version veröffentlichen
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
