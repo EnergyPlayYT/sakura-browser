@@ -19,7 +19,8 @@ const DEFAULT_PREFS = {
   adblockExtended: false,
   adblockAllow: [],
   backgrounds: [],
-  bgMinutes: 10,
+  bgMinutes: 1,
+  bgBuiltin: true, // mitgelieferte Hintergrundbilder zeigen
   restoreSession: true,
   siteTheme: 'system', // 'system' | 'dark' | 'force'
   downloadAsk: false,

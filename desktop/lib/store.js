@@ -21,6 +21,12 @@ class Store extends EventEmitter {
     if (!this.data.devices || typeof this.data.devices !== 'object') this.data.devices = {};
     if (!Array.isArray(this.data.extensions)) this.data.extensions = [];
     if (!Array.isArray(this.data.downloads)) this.data.downloads = [];
+    // Einmalig: Hintergrundbilder wechseln jetzt standardmäßig jede Minute statt alle 10 Minuten
+    // (ohne updatedAt zu ändern, damit neuere Einstellungen anderer Geräte nicht überschrieben werden)
+    if (!this.data.bgMinutesMigrated) {
+      if (this.data.prefs.bgMinutes === 10) this.data.prefs.bgMinutes = 1;
+      this.data.bgMinutesMigrated = true;
+    }
     this._timer = null;
   }
 

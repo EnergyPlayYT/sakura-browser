@@ -21,6 +21,12 @@ class Store(ctx: Context) {
         val p = SyncModel.defaultPrefs()
         val cur = data.getJSONObject("prefs")
         for (k in p.keys()) if (!cur.has(k)) cur.put(k, p.get(k))
+        // Einmalig: Hintergrundbilder wechseln jetzt standardmäßig jede Minute statt alle 10 Minuten
+        // (ohne updatedAt zu ändern, damit neuere Einstellungen anderer Geräte nicht überschrieben werden)
+        if (!data.optBoolean("bgMinutesMigrated")) {
+            if (cur.optInt("bgMinutes") == 10) cur.put("bgMinutes", 1)
+            data.put("bgMinutesMigrated", true)
+        }
     }
 
     fun save() {

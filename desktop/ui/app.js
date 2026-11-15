@@ -817,12 +817,13 @@ async function renderSettings() {
   </section>
   <section class="set">
     <h3>Startseite</h3>
-    <p>Ohne eigene Bilder zeigt die Startseite eine gezeichnete Nachtszene mit Kirschblüten.</p>
+    <label class="switch"><input type="checkbox" id="bg-builtin"${p.bgBuiltin !== false ? ' checked' : ''}><span>Sakura-Hintergrundbilder zeigen</span></label>
+    <p>Die Bilder wechseln automatisch mit einem weichen Übergang. Ohne Bilder zeigt die Startseite die gezeichnete Nachtszene mit Kirschblüten.</p>
     <label class="field">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)
       <textarea id="bgs" spellcheck="false" placeholder="https://…/bild.jpg">${esc((p.backgrounds || []).join('\n'))}</textarea>
     </label>
     <label class="field">Bild wechseln alle … Minuten
-      <input id="bgmin" type="number" min="1" max="1440" value="${p.bgMinutes || 10}">
+      <input id="bgmin" type="number" min="1" max="1440" value="${p.bgMinutes || 1}">
     </label>
   </section>
   <section class="set" id="import-section">
@@ -865,7 +866,8 @@ async function renderSettings() {
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
-  $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 10) });
+  $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 1) });
+  $('#bg-builtin').onchange = e => api.call('setPrefs', { bgBuiltin: e.target.checked });
   $('#clr').onclick = async () => {
     $('#clr').disabled = true;
     await api.call('clearHistory', { cookies: $('#clr-cookies').checked });

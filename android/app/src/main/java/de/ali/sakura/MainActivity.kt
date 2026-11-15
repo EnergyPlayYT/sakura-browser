@@ -722,6 +722,8 @@ class MainActivity : ComponentActivity() {
             "platform" -> send("android")
             "isPrivate" -> send(tab.isPrivate)
             "shortcuts" -> send(store.shortcuts())
+            "builtinBackgrounds" -> send(JSONArray((assets.list("backgrounds") ?: emptyArray())
+                .filter { Regex("(?i)^[\\w .()-]+\\.(jpe?g|png|webp)$").matches(it) }.sorted()))
             "saveShortcut" -> {
                 val url = SyncModel.toUrl(obj.optString("url"), "google")
                 if (url == null || !url.startsWith("http") || url.startsWith("https://www.google.com/search?q=")) {

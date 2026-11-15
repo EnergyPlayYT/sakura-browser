@@ -9,6 +9,17 @@ val sakuraVersion: String = Regex("\"version\"\\s*:\\s*\"([0-9.]+)\"")
 val sakuraVersionCode: Int = sakuraVersion.split(".").map { it.toIntOrNull() ?: 0 }
     .let { (it.getOrElse(0) { 0 } * 10000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
 
+// Hintergrundbilder der Startseite liegen nur einmal im Repo (desktop/backgrounds) –
+// beim Bauen werden sie als assets/backgrounds/ in die App kopiert.
+val sakuraBgAssets: File = layout.buildDirectory.dir("generated/sakuraBackgrounds").get().asFile
+val copyBackgrounds = tasks.register<Copy>("copySakuraBackgrounds") {
+    from(rootProject.file("../desktop/backgrounds")) {
+        include("*.jpg", "*.jpeg", "*.png", "*.webp", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP")
+    }
+    into(File(sakuraBgAssets, "backgrounds"))
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(copyBackgrounds) }
+
 android {
     namespace = "de.ali.sakura"
     compileSdk = 35
@@ -50,6 +61,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    sourceSets.getByName("main").assets.srcDir(sakuraBgAssets)
 }
 
 dependencies {

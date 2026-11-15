@@ -65,6 +65,13 @@ function applySiteTheme() {
   nativeTheme.themeSource = store.prefs().siteTheme === 'system' ? 'system' : 'dark';
 }
 
+const BG_FILE = /^[\w .()-]+\.(jpe?g|png|webp)$/i;
+/** Mitgelieferte Hintergrundbilder (Ordner backgrounds/) */
+function builtinBackgrounds() {
+  try { return fs.readdirSync(path.join(__dirname, 'backgrounds')).filter(f => BG_FILE.test(f)).sort((a, b) => a.localeCompare(b, 'de', { numeric: true })); }
+  catch { return []; }
+}
+
 // ---------------------------------------------------------------- Sitzungen
 function prepareSession(ses, isPrivate) {
   if (preparedSessions.has(ses)) return;
@@ -73,6 +80,13 @@ function prepareSession(ses, isPrivate) {
     const u = new URL(req.url);
     if (u.hostname === 'favicon') return favicons.respond(u.searchParams.get('u') || '');
     if (u.pathname === '/themes.js') return net.fetch(pathToFileURL(path.join(__dirname, 'pages', 'themes.js')).toString());
+    // Mitgelieferte Hintergrundbilder: sakura://newtab/backgrounds/<datei>
+    const bg = /^\/backgrounds\/([^/]+)$/.exec(u.pathname);
+    if (bg) {
+      const name = decodeURIComponent(bg[1]);
+      if (!BG_FILE.test(name)) return new Response('Nicht gefunden', { status: 404 });
+      return net.fetch(pathToFileURL(path.join(__dirname, 'backgrounds', name)).toString());
+    }
     const name = { newtab: 'newtab.html', error: 'error.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
@@ -1189,6 +1203,7 @@ const pageCommands = {
     if (url) wc.loadURL(url);
   },
   suggest: (wc, q) => store.suggest(q, 6),
+  builtinBackgrounds: () => builtinBackgrounds(),
   isPrivate: wc => [...windows].some(w => w.isPrivate && w.tabs.some(t => t.view.webContents === wc)),
   platform: () => 'desktop'
 };

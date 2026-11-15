@@ -312,9 +312,10 @@ async function settings() {
   </section>
   <section>
     <h2>Startseite</h2>
-    <p>Ohne eigene Bilder zeigt die Startseite die gezeichnete Nacht mit Kirschblüten.</p>
+    <label class="sw"><input type="checkbox" id="bg-builtin"${p.bgBuiltin !== false ? ' checked' : ''}><span>Sakura-Hintergrundbilder zeigen</span></label>
+    <p>Die Bilder wechseln automatisch mit einem weichen Übergang. Ohne Bilder zeigt die Startseite die gezeichnete Nacht mit Kirschblüten.</p>
     <label class="f">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)<textarea id="bgs" spellcheck="false">${esc((p.backgrounds || []).join('\n'))}</textarea></label>
-    <label class="f">Bild wechseln alle … Minuten<input id="bgmin" type="number" min="1" value="${p.bgMinutes || 10}"></label>
+    <label class="f">Bild wechseln alle … Minuten<input id="bgmin" type="number" min="1" value="${p.bgMinutes || 1}"></label>
   </section>
   <section>
     <h2>Privatmodus</h2>
@@ -361,7 +362,8 @@ async function settings() {
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => host(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
-  $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 10) });
+  $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 1) });
+  $('#bg-builtin').onchange = e => api.call('setPrefs', { bgBuiltin: e.target.checked });
   api.call('updateInfo').then(u => {
     if (!u) return;
     $('#ver').textContent = `Version ${u.current}` + (u.webview ? ` – Webseiten-Engine (Android System WebView) ${u.webview}, wird vom Play Store aktuell gehalten.` : '');

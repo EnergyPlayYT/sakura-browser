@@ -29,7 +29,8 @@
       "lib/**",
       "ui/**",
       "pages/**",
-      "assets/**"
+      "assets/**",
+      "backgrounds/**"
     ],
     "win": {
       "icon": "assets/icon.png",

@@ -26,6 +26,7 @@ setTimeout(async()=>{
   const page=(c,a)=>mock._handlers.page({sender:tabWc,senderFrame:{url:'sakura://newtab/'}},c,a);
   let sc = await page('saveShortcut',{title:'',url:'netflix.com'}); assert(sc.some(s=>s.title==='netflix.com'));
   const bad = await page('saveShortcut',{title:'x',url:'kein link'}); assert(bad.error);
+  assert(Array.isArray(await page('builtinBackgrounds')), 'Liste der mitgelieferten Hintergrundbilder');
   const denied = await mock._handlers.page({sender:tabWc,senderFrame:{url:'https://evil.com'}},'shortcuts'); assert.equal(denied,null);
   // Neue Funktionen
   await call('saveScript',{name:'T',match:['github.com'],code:'window.x=1'});
