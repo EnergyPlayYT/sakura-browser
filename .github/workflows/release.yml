@@ -31,6 +31,8 @@ jobs:
           fetch-depth: 0
       - id: v
         name: Version erhöhen, falls es sie schon gibt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git pull --ff-only origin main || true
           cd desktop
@@ -45,6 +47,8 @@ jobs:
           fi
           git tag "v$V"
           git push origin "v$V"
+          # Release einmal vorab anlegen – sonst legen parallele Uploads es doppelt an
+          gh release create "v$V" --title "Sakura $V" --generate-notes --verify-tag
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
   windows:
