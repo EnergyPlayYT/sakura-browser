@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen, webFrameMain
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -45,7 +45,8 @@ const PANEL_URLS = /^(?:chrome|sakura|about):\/?\/?(extensions|downloads|history
 // Die Daten werden schon vor dem Start gelesen, weil „Webseiten immer dunkel“ ein Startschalter ist
 const store = new Store(app.getPath('userData'));
 const startTheme = store.prefs().siteTheme;
-if (startTheme === 'force') app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+// Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
+app.commandLine.appendSwitch('enable-features', ['HardwareMediaKeyHandling', ...(startTheme === 'force' ? ['WebContentsForceDark'] : [])].join(','));
 
 let blocker, sync, extensions, downloads, updater, favicons, gameWatch;
 const windows = new Set();
@@ -169,6 +170,7 @@ class SakuraWindow {
     this.win.on('leave-full-screen', () => { this.htmlFullscreen = false; this.layout(); });
     this.win.on('closed', () => {
       this.closePopup();
+      if (floating && floating.tab.w === this) dropFloat();
       for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       windows.delete(this);
@@ -226,7 +228,7 @@ class SakuraWindow {
   /** Tab wurde losgelassen: bei point (Bildschirmkoordinaten) prüfen, wohin er gehört */
   dropTab(id, point) {
     const t = this.tabs.find(x => x.id === id);
-    if (!t) return 'none';
+    if (!t || t.floating) return 'none';
     const inStrip = (w, p) => {
       const b = w.win.getContentBounds();
       return p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y - 8 && p.y <= b.y + TABBAR_H + 16;
@@ -307,6 +309,7 @@ class SakuraWindow {
     this.ui.setVisible(!this.htmlFullscreen);
     this.ui.setBounds({ x: 0, y: 0, width: w, height: this.overlay ? h : top });
     for (const t of this.tabs) {
+      if (t.floating) continue; // steckt gerade im schwebenden Fenster
       const on = t.id === this.activeId;
       t.view.setVisible(on);
       if (on) t.view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) });
@@ -399,6 +402,7 @@ class SakuraWindow {
   activate(id) {
     const t = this.tabs.find(x => x.id === id);
     if (!t) return;
+    if (t.floating) { unfloat(); return; } // Klick auf den Tab holt das Video zurück
     const prev = this.active;
     if (prev) prev.lastActive = Date.now(); // zuletzt benutzt = als er verlassen wurde
     t.lastActive = Date.now();
@@ -414,6 +418,7 @@ class SakuraWindow {
   closeTab(id) {
     const i = this.tabs.findIndex(t => t.id === id);
     if (i < 0) return;
+    if (this.tabs[i].floating) dropFloat();
     const [t] = this.tabs.splice(i, 1);
     if (!this.isPrivate && !t.url.startsWith('sakura:')) closedTabs.push(t.url);
     this.win.contentView.removeChildView(t.view);
@@ -614,6 +619,7 @@ class SakuraWindow {
         id: t.id, title: t.title || this.displayUrl(t.url) || 'Neuer Tab', favicon: t.favicon,
         loading: t.loading, audible: t.audible, muted: t.muted, pinned: t.pinned, group: t.group,
         newtab: (t.pending || t.url).startsWith('sakura://newtab'),
+        floating: !!t.floating,
         sleeping: !!t.pending && t.id !== this.activeId
       })),
       url: realUrl,
@@ -718,6 +724,7 @@ class SakuraWindow {
       { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) },
       { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
+      { label: t.floating ? 'Video zurück in den Tab' : 'Video schweben lassen', accelerator: 'CmdOrCtrl+Alt+P', click: () => t.floating ? unfloat() : floatVideo(this, id) },
       { label: 'Tab schlafen legen', enabled: t.id !== this.activeId && !t.pending && /^https?:/i.test(t.url), click: () => this.sleepTab(id) },
       { type: 'separator' },
       { label: 'Zu neuer Gruppe hinzufügen', click: () => this.newGroup(id) },
@@ -740,6 +747,7 @@ class SakuraWindow {
   }
 
   pageMenu(tab, p) {
+    if (tab.floating) return floatMenu();
     const wc = tab.view.webContents;
     const items = [];
     if (p.linkURL) {
@@ -878,6 +886,128 @@ function runUserScripts(wc) {
     const label = JSON.stringify('[Sakura-Skript] ' + (s.name || ''));
     wc.executeJavaScript(`(function(){try{\n${s.code}\n}catch(e){console.error(${label}, e)}})();`, false).catch(() => {});
   }
+}
+
+// ---------------------------------------------------------------- Schwebendes Video
+// Der Tab wandert in ein kleines Fenster, das über allem bleibt (auch über Spielen). Auf der Seite ist dann
+// nur noch das Video zu sehen. Schließen holt den Tab ohne Neuladen zurück.
+const FLOAT_CSS = `html, body { background: #000 !important; overflow: hidden !important; }
+body * { visibility: hidden !important; }
+[data-sakura-float] { visibility: visible !important; position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
+  max-width: none !important; max-height: none !important; margin: 0 !important; transform: none !important; z-index: 2147483647 !important;
+  object-fit: contain !important; background: #000 !important; }`;
+// Größtes (bevorzugt laufendes) Video markieren und ihm eigene Steuerelemente geben
+const FLOAT_PICK = `(function () {
+  const vs = [...document.querySelectorAll('video')].filter(v => v.readyState > 0 || v.currentSrc);
+  const score = v => (v.paused ? 0 : 1e9) + v.clientWidth * v.clientHeight;
+  vs.sort((a, b) => score(b) - score(a));
+  const v = vs[0];
+  if (!v) return false;
+  v.setAttribute('data-sakura-float', '');
+  if (!v.controls) { v.controls = true; v.setAttribute('data-sakura-controls', ''); }
+  return true;
+})()`;
+const FLOAT_UNDO = `(function () {
+  for (const v of document.querySelectorAll('[data-sakura-float]')) {
+    v.removeAttribute('data-sakura-float');
+    if (v.hasAttribute('data-sakura-controls')) { v.controls = false; v.removeAttribute('data-sakura-controls'); }
+  }
+})()`;
+const FLOAT_KEY = 'CommandOrControl+Alt+K';
+let floating = null; // { tab, win, cssKey, through }
+
+async function floatVideo(w, tabId) {
+  const t = tabId ? w.tabs.find(x => x.id === tabId) : w.active;
+  if (!t || t.pending || t.floating) return { error: 'Kein Tab' };
+  if (floating) await unfloat();
+  const wc = t.view.webContents;
+  let ok = false;
+  try { ok = await wc.executeJavaScript(FLOAT_PICK, true); } catch {}
+  if (!ok) {
+    dialog.showMessageBox(w.win, { type: 'info', message: 'Auf dieser Seite läuft kein Video.', detail: 'Starte ein Video und versuch es noch einmal.' });
+    return { error: 'Kein Video' };
+  }
+  const cssKey = await wc.insertCSS(FLOAT_CSS).catch(() => null);
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const fw = new BaseWindow({
+    width: 480, height: 290, x: area.x + area.width - 504, y: area.y + area.height - 314, minWidth: 200, minHeight: 120,
+    alwaysOnTop: true, minimizable: false, maximizable: false, fullscreenable: false, autoHideMenuBar: true,
+    title: 'Schwebendes Video – Sakura', backgroundColor: '#000000', icon: ICON
+  });
+  try { fw.setAlwaysOnTop(true, 'screen-saver'); fw.setVisibleOnAllWorkspaces(true); } catch {}
+  w.win.contentView.removeChildView(t.view);
+  fw.contentView.addChildView(t.view);
+  t.floating = true;
+  floating = { tab: t, win: fw, cssKey, through: false };
+  const fit = () => {
+    if (fw.isDestroyed()) return;
+    const b = fw.getContentBounds();
+    t.view.setVisible(true);
+    t.view.setBounds({ x: 0, y: 0, width: b.width, height: b.height });
+  };
+  fw.on('resize', fit);
+  fit();
+  fw.on('closed', () => { if (floating && floating.win === fw) unfloat(true); });
+  try { globalShortcut.register(FLOAT_KEY, toggleFloatThrough); } catch {}
+  // Im Hauptfenster einen anderen Tab zeigen
+  if (w.activeId === t.id) {
+    const other = w.tabs.find(x => x !== t && !x.floating);
+    if (other) w.activate(other.id); else w.newTab(NEWTAB);
+  }
+  w.sendState();
+  return { ok: true };
+}
+
+/** Video zurück in den Tab holen. closed = das schwebende Fenster ist schon zu */
+async function unfloat(closed = false) {
+  const f = floating;
+  if (!f) return;
+  floating = null;
+  try { globalShortcut.unregister(FLOAT_KEY); } catch {}
+  const t = f.tab, wc = t.view.webContents;
+  t.floating = false;
+  if (!f.win.isDestroyed()) f.win.contentView.removeChildView(t.view);
+  if (!closed && !f.win.isDestroyed()) f.win.close();
+  if (wc.isDestroyed()) return;
+  if (f.cssKey) wc.removeInsertedCSS(f.cssKey).catch(() => {});
+  wc.executeJavaScript(FLOAT_UNDO).catch(() => {});
+  const w = t.w;
+  if (w.win.isDestroyed() || !w.tabs.includes(t)) return;
+  w.win.contentView.addChildView(t.view, 0);
+  w.activate(t.id);
+  w.win.focus();
+}
+
+/** Tab wird geschlossen, während er schwebt: Fenster einfach zumachen */
+function dropFloat() {
+  const f = floating;
+  if (!f) return;
+  floating = null;
+  f.tab.floating = false;
+  try { globalShortcut.unregister(FLOAT_KEY); } catch {}
+  if (!f.win.isDestroyed()) { f.win.contentView.removeChildView(f.tab.view); f.win.close(); }
+}
+
+/** Durchklicken an/aus: Fenster wird halb durchsichtig, Klicks gehen an das darunter (z. B. ein Spiel) */
+function toggleFloatThrough() {
+  const f = floating;
+  if (!f || f.win.isDestroyed()) return;
+  f.through = !f.through;
+  try {
+    f.win.setIgnoreMouseEvents(f.through);
+    f.win.setOpacity(f.through ? 0.7 : 1);
+    f.win.setTitle(f.through ? 'Schwebendes Video – durchklickbar (Strg+Alt+K)' : 'Schwebendes Video – Sakura');
+  } catch {}
+}
+
+function floatMenu() {
+  const f = floating;
+  if (!f) return;
+  Menu.buildFromTemplate([
+    { label: 'Zurück in den Tab', click: () => unfloat() },
+    { label: 'Durchklickbar machen', type: 'checkbox', checked: f.through, accelerator: 'CmdOrCtrl+Alt+K', click: () => toggleFloatThrough() },
+    { label: 'Deckkraft', submenu: [100, 85, 70, 50].map(v => ({ label: v + ' %', click: () => { if (!f.win.isDestroyed()) f.win.setOpacity(v / 100); } })) }
+  ]).popup();
 }
 
 // ---------------------------------------------------------------- Leistung
@@ -1045,6 +1175,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (c && i.shift && k === 'b') toggleBar();
     else if (c && k === 'j') w.ui.webContents.send('open-panel', 'downloads');
     else if (c && k === 'f') w.openFind();
+    else if (c && i.alt && k === 'p') floating ? unfloat() : floatVideo(w);
     else if (c && k === 'p') act && act.print();
     else if (c && k === 's') savePdf(w);
     else if (c && (k === '+' || k === '=')) w.zoom(0.5);
@@ -1112,7 +1243,7 @@ const uiCommands = {
   tabDragEnd: (w, id) => w.dropTab(id, screen.getCursorScreenPoint()),
   tabToNewWindow: (w, id) => {
     const t = w.tabs.find(x => x.id === id);
-    if (!t || w.tabs.length < 2) return;
+    if (!t || t.floating || w.tabs.length < 2) return;
     const wb = w.win.getBounds();
     const moved = w.releaseTab(id);
     if (moved) new SakuraWindow({ isPrivate: w.isPrivate, ses: w.ses, adopt: moved, bounds: { x: wb.x + 40, y: wb.y + 40, width: wb.width, height: wb.height } });
@@ -1235,6 +1366,10 @@ const uiCommands = {
     catch (e) { dialog.showMessageBox(w.win, { type: 'error', message: 'Die Erweiterung konnte nicht geladen werden.', detail: e.message }); return null; }
   },
   openWebstore: w => w.newTab(WEBSTORE),
+  // Schwebendes Video
+  floatVideo: w => floatVideo(w),
+  unfloat: () => unfloat(),
+  floatThrough: () => toggleFloatThrough(),
   // Leistung
   perf: w => perfInfo(w),
   sleepTab: (w, id) => { const f = findTab(id); return f ? f.w.sleepTab(id) : false; },
@@ -1438,6 +1573,7 @@ app.whenReady().then(async () => {
   }
 });
 
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 app.on('before-quit', () => {
   saveSession();
   quitting = true;

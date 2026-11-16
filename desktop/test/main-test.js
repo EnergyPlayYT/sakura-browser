@@ -62,6 +62,20 @@ setTimeout(async()=>{
   await call('setPrefs',{theme:'<x>',accent:'rot'}); assert.equal((await call('prefs')).theme,'neon');
   await call('setPrefs',{theme:'sakura',accent:''});
   assert(await call('devices'));
+  // Schwebendes Video
+  { st = await call('state'); const act = st.activeId; const awc = mock._all.find(x=>x.view && ui && x.url===st.url && !x.destroyed);
+    const win0 = mock._all.length; awc.jsResult = true;
+    const r = await call('floatVideo'); assert.deepEqual(r, {ok:true});
+    st = await call('state'); assert(st.tabs.find(t=>t.id===act).floating, 'Tab schwebt'); assert.notEqual(st.activeId, act, 'Hauptfenster zeigt anderen Tab');
+    assert(mock.globalShortcut.keys.has('CommandOrControl+Alt+K'));
+    assert(awc.css.some(c=>c.includes('data-sakura-float')));
+    await call('floatThrough');
+    await call('activate', act); await new Promise(r=>setTimeout(r,5));
+    st = await call('state'); assert(!st.tabs.find(t=>t.id===act).floating); assert.equal(st.activeId, act, 'Video zurück im Tab');
+    assert(!mock.globalShortcut.keys.has('CommandOrControl+Alt+K'));
+    assert(awc.executed.some(c=>c.includes('removeAttribute(\'data-sakura-float\')')));
+    awc.jsResult = undefined;
+  }
   // Leistung: Tabs schlafen legen
   { st = await call('state'); const bg = st.tabs.find(t=>t.id!==st.activeId);
     const perf = await call('perf'); assert(perf.tabs.length===st.tabs.length && 'ping' in perf && perf.system.memTotal>0);

@@ -22,7 +22,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Leistungs-Panel: CPU/RAM pro Tab (`app.getAppMetrics()`), Internet, Ping; Tab „schlafen legen“.
 - [x] Grenzen für RAM/CPU; Hintergrund-Tabs automatisch schlafen legen.
 - [x] Gaming-Modus: erkennt laufende Spiele (Prozessliste) und senkt Sakuras Priorität.
-- [ ] Schwebendes Video über allem (always-on-top, optional durchklickbar), Medientasten.
+- [x] Schwebendes Video über allem (always-on-top, optional durchklickbar), Medientasten.
 
 ## Etappe 3 – Video und Serien
 - [ ] Weiterschauen, wo man war (auf jeder Seite), Intro überspringen, nächste Folge automatisch.

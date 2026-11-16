@@ -212,12 +212,12 @@ function renderTabs() {
     if (g && g.collapsed) return;
     const el = document.createElement('div');
     const next = S.tabs[i + 1];
-    el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
+    el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', t.id === S.activeId);
-    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '');
+    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '');
     el.draggable = true;
     el.dataset.id = t.id;
     let fav;

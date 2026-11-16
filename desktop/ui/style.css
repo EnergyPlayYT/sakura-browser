@@ -406,3 +406,4 @@ body.light #backdrop:not(.clear) { background: rgba(40, 30, 50, .18); }
 .perf-row.active .txt div { color: var(--sakura); }
 #gaming-ind { color: var(--sakura); }
 .perf-card.gaming { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+.tab.floating .title { font-style: italic; color: var(--sakura); }
