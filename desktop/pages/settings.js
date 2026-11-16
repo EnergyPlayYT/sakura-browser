@@ -93,6 +93,14 @@ async function renderSettings() {
     <p class="msg-error">Achtung: Automatisches Abholen verstößt gegen die Regeln von Twitch. Twitch kann dein Konto dafür sperren. Nutzung auf eigenes Risiko.</p>
   </section>
   <section class="set">
+    <h3>Steam</h3>
+    <label class="switch"><input type="checkbox" id="st-info"${p.steamInfo !== false ? ' checked' : ''}><span>Auf Spielseiten Spieler online, Spielzeit und Preise zeigen</span></label>
+    <label class="field">IsThereAnyDeal-Schlüssel für den Preisvergleich (optional)
+      <input id="itad" type="password" spellcheck="false" autocomplete="off" placeholder="Schlüssel einfügen">
+    </label>
+    <p id="itad-msg">Kostenlos auf isthereanydeal.com unter „Apps“ → „Register app“. Der Schlüssel bleibt nur auf diesem PC.</p>
+  </section>
+  <section class="set">
     <h3>Videos und Serien</h3>
     <label class="switch"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
     <label class="switch"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
@@ -192,6 +200,14 @@ async function renderSettings() {
   $('#yt-on').onchange = e => api.call('setPrefs', { youtube: e.target.checked });
   $('#yt-sb').onchange = e => api.call('setPrefs', { ytSponsor: e.target.checked });
   $('#yt-q').onchange = e => api.call('setPrefs', { ytQuality: e.target.value });
+  $('#st-info').onchange = e => api.call('setPrefs', { steamInfo: e.target.checked });
+  api.call('itadKey').then(k => { if (k && k.set) $('#itad').placeholder = 'Schlüssel gespeichert – zum Ändern neu einfügen'; });
+  $('#itad').onchange = async e => {
+    const r = await api.call('setItadKey', e.target.value);
+    $('#itad-msg').textContent = r.error || (r.set ? 'Schlüssel gespeichert. Der Preisvergleich erscheint auf Steam-Spielseiten.' : 'Schlüssel entfernt.');
+    $('#itad-msg').className = r.error ? 'msg-error' : 'msg-ok';
+    e.target.value = '';
+  };
   $('#tw-emotes').onchange = e => api.call('setPrefs', { twitchEmotes: e.target.checked });
   $('#tw-points').onchange = e => {
     if (e.target.checked && !confirm('Automatisches Abholen von Kanalpunkten verstößt gegen die Regeln von Twitch und kann zu einer Kontosperre führen. Trotzdem einschalten?')) { e.target.checked = false; return; }

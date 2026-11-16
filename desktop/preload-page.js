@@ -15,6 +15,11 @@ if (/(^|\.)youtube\.com$/.test(location.hostname) && location.protocol === 'http
   });
 }
 
+// Steam-Shop: Spielinfos holt der Hauptprozess
+if (location.hostname === 'store.steampowered.com' && location.protocol === 'https:') {
+  contextBridge.exposeInMainWorld('sakuraSteam', { info: appid => ipcRenderer.invoke('steam-info', String(appid || '').slice(0, 12)) });
+}
+
 // Twitch: Emote-Listen (7TV/BTTV/FFZ) holt der Hauptprozess
 if (/(^|\.)twitch\.tv$/.test(location.hostname) && location.protocol === 'https:') {
   contextBridge.exposeInMainWorld('sakuraTwitch', {

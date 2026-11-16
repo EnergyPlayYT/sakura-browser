@@ -32,6 +32,7 @@ object SyncModel {
         .put("downloadAsk", false)
         .put("cookieReject", true)
         .put("cookieAllow", JSONArray())
+        .put("steamInfo", true)
         .put("twitchEmotes", true)
         .put("twitchPoints", false)
         .put("youtube", true)

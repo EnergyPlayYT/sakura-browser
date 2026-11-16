@@ -25,6 +25,7 @@ const Popups = require('./lib/popups');
 const Passwords = require('./lib/passwords');
 const { Watcher } = require('./lib/watch');
 const { Emotes } = require('./lib/emotes');
+const { Steam } = require('./lib/steam');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -410,7 +411,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -1160,6 +1161,15 @@ function runTwitch(wc) {
   wc.executeJavaScript(`window.__sakuraTwitchConfig = ${cfg};\n${twitchScript}`, false).catch(() => {});
 }
 
+// Steam-Shop: Spieler online, Spielzeit, Preisvergleich (assets/steam.js)
+const isSteamStore = url => { try { const u = new URL(url); return u.protocol === 'https:' && u.hostname === 'store.steampowered.com'; } catch { return false; } };
+let steamScript = null;
+function runSteam(wc) {
+  if (store.prefs().steamInfo === false || !isSteamStore(wc.getURL()) || !/\/app\/\d+/.test(wc.getURL())) return;
+  if (steamScript == null) { try { steamScript = fs.readFileSync(path.join(__dirname, 'assets', 'steam.js'), 'utf8'); } catch { steamScript = ''; } }
+  if (steamScript) wc.executeJavaScript(steamScript, false).catch(() => {});
+}
+
 // YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js)
 let ytScript = null, ytCss = null;
 function runYouTube(wc) {
@@ -1741,6 +1751,13 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  itadKey: () => ({ set: !!store.data.itadKey }),
+  setItadKey: (w, key) => {
+    key = String(key || '').trim();
+    if (key && !/^[A-Za-z0-9-]{20,80}$/.test(key)) return { error: 'Das sieht nicht wie ein IsThereAnyDeal-Schlüssel aus.' };
+    store.data.itadKey = key || undefined; store.save();
+    return { ok: true, set: !!key };
+  },
   openMultistream: w => {
     const t = w.active;
     let pre = '';
@@ -1895,7 +1912,7 @@ const pageCommands = {
 const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
-  'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer'
+  'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey'
 ]);
 
 // ---------------------------------------------------------------- Start
@@ -1966,6 +1983,12 @@ app.whenReady().then(async () => {
       if (info) await confirmRemoveExtension(w, info);
     }
     return status();
+  });
+  // Steam-Infos (preload-page.js → window.sakuraSteam)
+  const steam = new Steam((u, o) => net.fetch(u, o));
+  ipcMain.handle('steam-info', async (e, appid) => {
+    if (!isSteamStore(e.senderFrame ? e.senderFrame.url : '') || store.prefs().steamInfo === false) return null;
+    return steam.info(String(appid || ''), store.data.itadKey || '');
   });
   // Emote-Listen für Twitch (preload-page.js → window.sakuraTwitch)
   const emotes = new Emotes((u, o) => net.fetch(u, o));

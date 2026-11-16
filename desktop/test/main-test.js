@@ -49,6 +49,10 @@ setTimeout(async()=>{
   gh.emit('dom-ready'); assert(gh.executed && gh.executed.some(c=>c.includes('window.x=1')));
   assert(gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Cookie-Banner-Skript läuft');
   await call('toggleCookieAllow');
+  // Steam: Schlüssel prüfen, Infos nur für den Steam-Shop
+  { assert((await call('setItadKey','kurz')).error); assert.deepEqual(await call('setItadKey','abcdef0123456789abcdef0123456789'), {ok:true, set:true});
+    assert.equal(await mock._handlers['steam-info']({senderFrame:{url:'https://evil.com/'}}, '730'), null);
+    await call('setItadKey',''); assert.equal((await call('itadKey')).set, false); }
   // Twitch-Skript nur auf twitch.tv
   { await call('newTab','https://www.twitch.tv/papaplatte'); await new Promise(r=>setTimeout(r,30));
     const tw = mock._all.find(w=>w.url==='https://www.twitch.tv/papaplatte'); tw.emit('dom-ready');
