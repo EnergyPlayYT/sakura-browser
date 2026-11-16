@@ -107,7 +107,7 @@ jobs:
       - name: Hinweis, falls der Signaturschlüssel fehlt
         if: env.HAS_KEY != 'true'
         run: echo "::warning::Kein Android-Signaturschlüssel hinterlegt (Secret ANDROID_SIGNING). Die Android-App wird übersprungen – siehe LIESMICH.md."
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: env.HAS_KEY == 'true'
         with:
           distribution: temurin
