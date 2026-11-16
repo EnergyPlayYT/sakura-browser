@@ -9,6 +9,9 @@ assert.equal(G.findGame([P('UnityCrashHandler64', 'C:\\Steam\\steamapps\\common\
 assert.equal(G.findGame([P('EpicGamesLauncher', 'C:\\Program Files\\Epic Games\\Launcher\\EpicGamesLauncher.exe')]), null, 'Launcher ist kein Spiel');
 assert.equal(G.findGame([P('meinspiel', 'C:\\x\\meinspiel.exe')], ['MeinSpiel.exe']), 'meinspiel', 'eigene Spiele');
 
+assert.equal(G.findStreamer([P('chrome', ''), P('obs64', 'C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe')]), 'obs64');
+assert.equal(G.findStreamer([P('Streamlabs OBS', '')]), 'Streamlabs OBS');
+assert.equal(G.findStreamer([P('obsidian', '')]), null, 'Obsidian ist kein OBS');
 (async () => {
   let procs = [], prio = [], prefs = { gaming: true };
   const events = [];
@@ -24,6 +27,9 @@ assert.equal(G.findGame([P('meinspiel', 'C:\\x\\meinspiel.exe')], ['MeinSpiel.ex
   await w.check(); assert.equal(prio.length, 3);
   procs = [P('cs2', '')]; prefs = { gaming: false };
   await w.check(); assert.equal(w.active, false, 'ausgeschaltet');
+  // Streamer-Modus bekommt die Prozessliste, auch wenn der Gaming-Modus aus ist
+  let seen = null; w.onProcs = l => { seen = l; }; procs = [P('obs64', '')];
+  await w.check(); assert.deepEqual(seen, procs);
   // Echte Priorität für den eigenen Prozess (unter Linux/Windows erlaubt: niedriger setzen)
   assert.equal(G.setProcessPriority([process.pid], true), 1);
   console.log('Gaming-Modus ok');

@@ -84,6 +84,10 @@ setTimeout(async()=>{
     assert.equal(opener.openHandler({url:'https://werbung.example/2', disposition:'foreground-tab', features:''}).action, 'deny'); // geht als Tab auf
     st = await call('state'); assert.equal(st.tabs.length, n0+3, 'Ausnahme: erlaubt'); await call('togglePopupAllow');
   }
+  // Streamer-Modus von Hand: Zustand für die Oberfläche
+  { assert.equal((await call('state')).streamer, null);
+    assert.equal(await call('streamerToggle'), true); st = await call('state'); assert.deepEqual(st.streamer, {app:null, manual:true});
+    assert.equal(await call('streamerToggle'), false); assert.equal((await call('prefs')).streamerMode, 'auto'); }
   // Seitenüberwachung
   { st = await call('state'); const awc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
     awc.jsResult = { title:'Kopfhörer', price: 59.9, currency:'€', available:true };

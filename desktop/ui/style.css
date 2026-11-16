@@ -457,3 +457,15 @@ input[type=range] { accent-color: var(--sakura); }
 .w-last { font-weight: 600; }
 .w-last.down, .w-last.back { color: #9FD8B0 !important; }
 .w-last.up, .w-last.gone { color: var(--err) !important; }
+
+/* ---------------- Streamer-Modus: private Daten unscharf ---------------- */
+.pill.streamer { background: var(--beni); color: #FBEFEF; margin-right: 4px; }
+body.streamer #address:not(:focus),
+body.streamer .bm span,
+body.streamer #panel .p-item .txt,
+body.streamer #panel .perf-row .txt,
+body.streamer #panel .dl .name,
+body.streamer #panel .p-item .fav,
+body.streamer .sync-code code,
+body.streamer #s-devices { filter: blur(6px) !important; }
+body.streamer #suggest { display: none !important; }

@@ -28,6 +28,13 @@ function findGame(procs, extra = []) {
   return null;
 }
 
+/** Streaming-Programm in der Prozessliste? (für den Streamer-Modus) */
+const STREAMERS = /^(obs64|obs32|obs|streamlabs obs|streamlabs desktop|xsplit\.core|twitchstudio|twitch studio|prismlivestudio|meld studio)$/i;
+function findStreamer(procs) {
+  const p = (procs || []).find(x => STREAMERS.test(base(x.name)));
+  return p ? p.name.replace(/\.exe$/i, '') : null;
+}
+
 /** Laufende Programme unter Windows (Name + Pfad) – eine kurze PowerShell-Abfrage */
 function listProcesses() {
   return new Promise(resolve => {
@@ -59,7 +66,10 @@ class GameWatch extends EventEmitter {
     this.busy = true;
     try {
       const p = this.getPrefs();
-      const game = p.gaming === false ? null : findGame(await this.lister(), p.gamingExtra || []);
+      // Die Prozessliste nutzt auch der Streamer-Modus (onProcs) – dann immer abfragen
+      const procs = p.gaming === false && !this.onProcs ? [] : await this.lister();
+      if (this.onProcs) { try { this.onProcs(procs); } catch {} }
+      const game = p.gaming === false ? null : findGame(procs, p.gamingExtra || []);
       const was = this.game;
       this.game = game;
       // Beim Spielen jedes Mal setzen: neue Tabs bekommen neue Prozesse mit normaler Priorität
@@ -77,4 +87,4 @@ function setProcessPriority(pids, low) {
   return n;
 }
 
-module.exports = { findGame, listProcesses, GameWatch, setProcessPriority, KNOWN };
+module.exports = { findGame, findStreamer, listProcesses, GameWatch, setProcessPriority, KNOWN };

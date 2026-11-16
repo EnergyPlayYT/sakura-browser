@@ -672,6 +672,7 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
+      streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
       update: updater ? { state: updater.state.state, version: updater.state.version, percent: updater.state.percent } : null,
@@ -957,6 +958,14 @@ async function offerSavePassword(sender, url, d) {
     if (r.response === 2) vault.addNever(url);
   } catch (e) { console.error('Passwort speichern:', e.message); }
   finally { pwPrompting.delete(f.t.id); }
+}
+
+// ---------------------------------------------------------------- Streamer-Modus
+let streamerApp = null; // laufendes Streaming-Programm (OBS …)
+/** Ist der Streamer-Modus gerade aktiv? Einstellung streamerMode: 'auto' (wenn OBS läuft) | 'on' | 'off' */
+function streamerActive() {
+  const m = store.prefs().streamerMode || 'auto';
+  return m === 'on' || (m === 'auto' && !!streamerApp);
 }
 
 // ---------------------------------------------------------------- Seitenüberwachung
@@ -1676,6 +1685,13 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  // Streamer-Modus
+  streamerToggle: () => {
+    const on = streamerActive();
+    store.setPrefs({ streamerMode: on ? (streamerApp ? 'off' : 'auto') : 'on' });
+    broadcastState();
+    return streamerActive();
+  },
   // Seitenüberwachung
   watchPage: async w => {
     const r = await watchActive(w);
@@ -1871,7 +1887,8 @@ app.whenReady().then(async () => {
   // Passwortmanager: Anmeldung erkannt / Konten anbieten / nach Klick ausfüllen
   ipcMain.on('pw-submit', (e, d) => offerSavePassword(e.sender, e.senderFrame ? e.senderFrame.url : '', d));
   ipcMain.handle('pw-accounts', e => {
-    if (store.prefs().passwordFill === false || !tabOfSender(e.sender)) return [];
+    // Im Streamer-Modus keine Benutzernamen unter Anmeldefeldern einblenden
+    if (store.prefs().passwordFill === false || streamerActive() || !tabOfSender(e.sender)) return [];
     return vault.available ? vault.accountsFor(e.senderFrame ? e.senderFrame.url : '') : [];
   });
   ipcMain.handle('pw-fill', (e, id) => {
@@ -1933,6 +1950,11 @@ app.whenReady().then(async () => {
     getPrefs: () => store.prefs(),
     setPriority: low => Gaming.setProcessPriority([process.pid, ...(app.getAppMetrics ? app.getAppMetrics().map(m => m.pid) : [])], low)
   });
+  // Streamer-Modus: läuft OBS & Co., werden private Daten unscharf
+  gameWatch.onProcs = procs => {
+    const name = Gaming.findStreamer(procs);
+    if (name !== streamerApp) { streamerApp = name; broadcastState(); }
+  };
   gameWatch.on('change', ({ started }) => {
     if (started && store.prefs().gamingSleep !== false) for (const w of windows) for (const t of [...w.tabs]) w.sleepTab(t.id);
     broadcastState();

@@ -32,6 +32,7 @@ const DEFAULT_PREFS = {
   sleepAfter: 30,     // Hintergrund-Tabs nach so vielen Minuten schlafen legen (0 = nie)
   ramLimit: 0,        // RAM-Grenze für Sakura in MB (0 = keine)
   cpuLimit: 0,        // CPU-Grenze pro Hintergrund-Tab in % (0 = keine)
+  streamerMode: 'auto', // Streamer-Modus: 'auto' (wenn OBS läuft) | 'on' | 'off'
   watchHours: 3,      // überwachte Seiten alle … Stunden prüfen
   containerNames: [], // Namen der Konto-Tabs (leer = „Konto 1“ …)
   passwordSave: true, // anbieten, Passwörter zu speichern

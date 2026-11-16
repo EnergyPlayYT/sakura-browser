@@ -70,6 +70,10 @@ function render() {
   $('#zoom-val').textContent = S.zoom + ' %';
   $('#scripts-ind').hidden = !S.scripts;
   $('#gaming-ind').hidden = !S.gaming;
+  document.body.classList.toggle('streamer', !!S.streamer);
+  $('#streamer-ind').hidden = !S.streamer;
+  $('#streamer-ind').title = S.streamer ? (S.streamer.app ? `${S.streamer.app} läuft – private Daten sind unscharf. Klicken zum Ausschalten.` : 'Private Daten sind unscharf. Klicken zum Ausschalten.') : '';
+  $('#menu-streamer').firstChild.textContent = S.streamer ? 'Streamer-Modus ausschalten' : 'Streamer-Modus einschalten';
   $('#media-btn').hidden = !S.media && !S.sleep;
   $('#sleep-ind').hidden = !S.sleep;
   $('#sleep-ind').textContent = S.sleep ? (S.sleep.mode === 'episode' ? 'E' : Math.max(1, Math.ceil((S.sleep.until - Date.now()) / 60000))) : '';
@@ -849,6 +853,12 @@ async function renderSettings() {
     <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
   </section>
   <section class="set">
+    <h3>Streamer-Modus</h3>
+    <label class="field">Private Daten unscharf machen (Adressleiste, Verlauf, Lesezeichen, Passwörter, Downloads)
+      <select id="st-mode">${[['auto', 'Automatisch, wenn OBS oder Streamlabs läuft'], ['on', 'Immer'], ['off', 'Nie']].map(([v, l]) => `<option value="${v}"${(p.streamerMode || 'auto') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+  </section>
+  <section class="set">
     <h3>Seitenüberwachung</h3>
     <label class="field">Überwachte Seiten prüfen alle
       <select id="w-hours">${[[1, '1 Stunde'], [3, '3 Stunden'], [6, '6 Stunden'], [12, '12 Stunden'], [24, '24 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.watchHours || 3) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
@@ -938,6 +948,7 @@ async function renderSettings() {
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   bindContainers(p);
+  $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
   $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
@@ -1211,6 +1222,7 @@ async function renderPerformance() {
   perfTimer = setTimeout(renderPerformance, 2000);
 }
 $('#gaming-ind').onclick = () => openPanel('performance');
+$('#streamer-ind').onclick = () => api.call('streamerToggle');
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.shiftKey) { e.preventDefault(); openPanel('performance'); } });
 
 function timeAgo(ts) {
