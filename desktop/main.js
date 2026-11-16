@@ -454,7 +454,7 @@ class SakuraWindow {
     if (i < 0) return;
     if (this.tabs[i].floating) dropFloat();
     const [t] = this.tabs.splice(i, 1);
-    if (!this.isPrivate && !t.url.startsWith('sakura:')) closedTabs.push(t.url);
+    if (!this.isPrivate && !t.url.startsWith('sakura:')) { closedTabs.push({ url: t.pending || t.url, title: t.title }); if (closedTabs.length > 50) closedTabs.shift(); }
     this.win.contentView.removeChildView(t.view);
     t.view.webContents.close();
     if (!this.tabs.length) { this.win.close(); return; }
@@ -1540,6 +1540,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (i.alt && k === 'arrowleft') act && act.navigationHistory.goBack();
     else if (i.alt && k === 'arrowright') act && act.navigationHistory.goForward();
     else if (c && i.shift && k === 'm') w.toggleMute(w.activeId);
+    else if (c && i.shift && k === 'a') { w.ui.webContents.focus(); w.ui.webContents.send('tab-search'); }
     else if (k === 'f11') w.win.setFullScreen(!w.win.isFullScreen());
     else if (k === 'f12' || (c && i.shift && k === 'i')) act && act.toggleDevTools();
     else if (k === 'escape' && i.shift) w.ui.webContents.send('open-panel', 'performance');
@@ -1549,9 +1550,10 @@ function attachShortcuts(wc, winOrGetter) {
   });
 }
 
-function reopenClosed(w) {
-  const u = closedTabs.pop();
-  if (u) w.newTab(u);
+function reopenClosed(w, index) {
+  const i = Number.isInteger(index) && index >= 0 && index < closedTabs.length ? index : closedTabs.length - 1;
+  const [c] = i >= 0 ? closedTabs.splice(i, 1) : [];
+  if (c) w.newTab(c.url);
 }
 
 function toggleBookmarkActive(w) {
@@ -1859,6 +1861,21 @@ const uiCommands = {
   sleepTab: (w, id) => { const f = findTab(id); return f ? f.w.sleepTab(id) : false; },
   autoSleepNow: () => autoSleepTick(),
   sleepBackground: () => { let n = 0; for (const x of windows) for (const t of [...x.tabs]) if (x.sleepTab(t.id)) n++; return n; },
+  // Tab-Suche: alle offenen Tabs aller Fenster und die zuletzt geschlossenen
+  tabSearch: w => {
+    const open = [];
+    for (const x of windows) {
+      const hide = x.isPrivate && !w.isPrivate; // private Tabs nicht in normalen Fenstern zeigen
+      if (hide) continue;
+      for (const t of x.tabs) {
+        const url = x.displayUrl(t.pending || t.url);
+        open.push({ id: t.id, title: t.title || url || 'Neuer Tab', url, here: x === w, active: x.activeId === t.id && x === w, sleeping: !!t.pending, private: x.isPrivate, audible: t.audible });
+      }
+    }
+    const closed = closedTabs.map((c, i) => ({ index: i, title: c.title || c.url, url: c.url })).reverse().slice(0, 10);
+    return { open, closed };
+  },
+  reopenClosedAt: (w, index) => reopenClosed(w, Number(index)),
   focusTab: (w, id) => { const f = findTab(id); if (f) { f.w.activate(id); f.w.win.focus(); } },
   // Downloads
   downloads: () => downloads.list(),

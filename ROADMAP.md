@@ -42,7 +42,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 
 ## Etappe 6 – Komfort beim Lesen und Surfen
 - [x] Lesemodus: Artikel ohne Werbung/Ablenkung (Mozilla Readability), Schriftgröße, Hell/Sepia/Dunkel, Vorlesen; Buch-Symbol in der Adressleiste, wenn die Seite ein Artikel ist.
-- [ ] Tab-Suche: Strg+Umschalt+A durchsucht alle offenen Tabs aller Fenster.
+- [x] Tab-Suche: Strg+Umschalt+A durchsucht alle offenen Tabs aller Fenster.
 - [ ] Lesezeichen-Ordner (PC und Android, synchronisiert); Import übernimmt Ordner.
 - [ ] Leseliste: Artikel für später merken, auch offline lesbar.
 

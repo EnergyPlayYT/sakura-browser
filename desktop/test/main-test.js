@@ -111,6 +111,14 @@ setTimeout(async()=>{
   { assert.equal((await call('state')).streamer, null);
     assert.equal(await call('streamerToggle'), true); st = await call('state'); assert.deepEqual(st.streamer, {app:null, manual:true});
     assert.equal(await call('streamerToggle'), false); assert.equal((await call('prefs')).streamerMode, 'auto'); }
+  // Tab-Suche: offene und geschlossene Tabs
+  { const r = await call('tabSearch'); st = await call('state');
+    assert.equal(r.open.length, st.tabs.length); assert(r.open.some(t=>t.active));
+    await call('newTab','https://zu.example/'); await new Promise(x=>setTimeout(x,30)); st = await call('state');
+    await call('closeTab', st.activeId); const r2 = await call('tabSearch');
+    assert.equal(r2.closed[0].url, 'https://zu.example/', 'zuletzt geschlossen zuerst');
+    await call('reopenClosedAt', r2.closed[0].index); await new Promise(x=>setTimeout(x,30));
+    assert.equal((await call('state')).url, 'https://zu.example/'); }
   // Lesemodus: Buch-Symbol bei Artikeln, Ein/Aus
   { st = await call('state'); const rwc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
     rwc.isoResult = true; rwc.emit('did-stop-loading'); await new Promise(r=>setTimeout(r,20));

@@ -101,6 +101,7 @@
   <button data-cmd="containerMenu">Neuer Konto-Tab …</button>
   <button data-cmd="newPrivateWindow">Neues privates Fenster<kbd>Strg+Umschalt+N</kbd></button>
   <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
+  <button data-tabsearch>Tabs durchsuchen<kbd>Strg+Umschalt+A</kbd></button>
   <hr>
   <button data-panel="bookmarks">Lesezeichen<kbd>Strg+Umschalt+O</kbd></button>
   <button data-cmd="toggleBar" id="menu-bar">Favoritenleiste ausblenden<kbd>Strg+Umschalt+B</kbd></button>
@@ -154,6 +155,11 @@
 </div>
 
 <div id="media-pop" class="pop" hidden></div>
+
+<div id="tabsearch" class="pop" hidden role="dialog" aria-label="Tabs durchsuchen">
+  <input id="ts-q" placeholder="Tabs durchsuchen" spellcheck="false" autocomplete="off">
+  <ul id="ts-list" role="listbox"></ul>
+</div>
 
 <aside id="panel" hidden>
   <header>
