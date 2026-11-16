@@ -1,0 +1,510 @@
+/* Sakura – Einstellungsseite (sakura://settings): Kategorien links, Suche oben, Inhalte rechts.
+ * Spricht über window.sakura.call('settings', …) mit dem Browser; erlaubt sind nur bestimmte Befehle (main.js). */
+const api = { call: (cmd, arg) => window.sakura.call('settings', { cmd, arg: arg === undefined ? null : arg }) };
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+const openPanel = kind => api.call('openPanel', kind);
+function timeAgo(ts) {
+  if (!ts) return 'noch nie';
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'gerade eben';
+  if (m < 60) return `vor ${m} Min.`;
+  return new Date(ts).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+const ENGINE_NAMES = { google: 'Google', duckduckgo: 'DuckDuckGo', ecosia: 'Ecosia', startpage: 'Startpage', bing: 'Bing' };
+async function renderSettings() {
+  const body = $('#content');
+  const p = await api.call('prefs');
+  const si = await api.call('syncInfo');
+  body.innerHTML = `
+  <section class="set">
+    <h3>Suche</h3>
+    <label class="field">Suchmaschine für die Adressleiste
+      <select id="engine">${p.engines.map(e => `<option value="${e}"${e === p.searchEngine ? ' selected' : ''}>${ENGINE_NAMES[e] || e}</option>`).join('')}</select>
+    </label>
+  </section>
+  <section class="set" id="design-section">
+    <h3>Design</h3>
+    <div class="themes" role="radiogroup" aria-label="Design">${p.themes.map(t => `
+      <button class="theme${t.id === (p.theme || 'sakura') ? ' on' : ''}" role="radio" aria-checked="${t.id === (p.theme || 'sakura')}" data-theme="${esc(t.id)}"
+        style="--t-bg:${esc(t.yoru)};--t-ac:${esc(t.accent)}"><i></i><span>${esc(t.label)}</span></button>`).join('')}
+    </div>
+    <div class="row accent-row">
+      <label class="accent">Eigene Akzentfarbe <input type="color" id="accent" value="${esc(p.accent || (p.themes.find(t => t.id === (p.theme || 'sakura')) || p.themes[0]).accent)}"></label>
+      <button class="btn" id="accent-reset"${p.accent ? '' : ' hidden'}>Farbe des Designs verwenden</button>
+    </div>
+  </section>
+  <section class="set">
+    <h3>Darstellung und Start</h3>
+    <label class="field">Webseiten
+      <select id="theme">
+        <option value="system"${p.siteTheme === 'system' ? ' selected' : ''}>Wie Windows (hell oder dunkel)</option>
+        <option value="dark"${p.siteTheme === 'dark' ? ' selected' : ''}>Dunkel, wenn die Seite es anbietet</option>
+        <option value="force"${p.siteTheme === 'force' ? ' selected' : ''}>Immer dunkel (auch Seiten ohne Dunkelmodus)</option>
+      </select>
+    </label>
+    <div id="restart-row" class="row" hidden><p style="margin:0;flex:1">Wird nach einem Neustart aktiv.</p><button class="btn primary" id="restart">Jetzt neu starten</button></div>
+    <label class="switch"><input type="checkbox" id="restore"${p.restoreSession ? ' checked' : ''}><span>Beim Start die Tabs vom letzten Mal öffnen</span></label>
+    <label class="switch"><input type="checkbox" id="dlask"${p.downloadAsk ? ' checked' : ''}><span>Vor jedem Download fragen, wo gespeichert wird</span></label>
+  </section>
+  <section class="set">
+    <h3>Leistung</h3>
+    <label class="field">Hintergrund-Tabs schlafen legen nach
+      <select id="sl-after">${[[0, 'Nie'],[10, '10 Minuten'],[30, '30 Minuten'],[60, '1 Stunde'],[120, '2 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.sleepAfter || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <label class="field">RAM-Grenze für Sakura
+      <select id="sl-ram">${[[0, 'Keine'],[1024, '1 GB'],[2048, '2 GB'],[4096, '4 GB'],[8192, '8 GB']].map(([v, l]) => `<option value="${v}"${Number(p.ramLimit || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <label class="field">CPU-Grenze pro Hintergrund-Tab
+      <select id="sl-cpu">${[[0, 'Keine'],[10, '10 %'],[25, '25 %'],[50, '50 %']].map(([v, l]) => `<option value="${v}"${Number(p.cpuLimit || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <p>Wird eine Grenze überschritten, schlafen die am längsten unbenutzten Hintergrund-Tabs. Tabs mit Ton schlafen nie.</p>
+    <label class="switch"><input type="checkbox" id="gm-on"${p.gaming !== false ? ' checked' : ''}><span>Gaming-Modus: Läuft ein Spiel, bremst Sakura sich selbst</span></label>
+    <label class="switch"><input type="checkbox" id="gm-sleep"${p.gamingSleep !== false ? ' checked' : ''}><span>Beim Spielstart Hintergrund-Tabs schlafen legen</span></label>
+    <label class="field">Weitere Spiele (Programmname, eins pro Zeile, z. B. meinspiel.exe)
+      <textarea id="gm-extra" spellcheck="false">${esc((p.gamingExtra || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
+    <h3>Werbeblocker</h3>
+    <label class="switch"><input type="checkbox" id="ab-on"${p.adblock ? ' checked' : ''}><span>Werbung und Tracker blockieren</span></label>
+    <label class="switch"><input type="checkbox" id="ab-ext"${p.adblockExtended ? ' checked' : ''}><span>Erweiterte Liste verwenden (rund 80.000 Domains, wird wöchentlich geladen)</span></label>
+    <p id="ab-info">${p.blocklistSize.toLocaleString('de-DE')} Domains auf der Sperrliste.</p>
+    <label class="field">Ausnahmen – auf diesen Seiten nichts blockieren (eine pro Zeile)
+      <textarea id="ab-allow" spellcheck="false">${esc((p.adblockAllow || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
+    <h3>YouTube</h3>
+    <label class="switch"><input type="checkbox" id="yt-on"${p.youtube !== false ? ' checked' : ''}><span>Werbung in Videos überspringen und ausblenden</span></label>
+    <label class="switch"><input type="checkbox" id="yt-sb"${p.ytSponsor !== false ? ' checked' : ''}><span>Sponsor-Abschnitte überspringen (SponsorBlock)</span></label>
+    <label class="field">Videoqualität
+      <select id="yt-q">${[['hd1080', '1080p (Full HD)'], ['hd720', '720p'], ['hd1440', '1440p'], ['hd2160', '2160p (4K)'], ['max', 'Höchste verfügbare'], ['auto', 'Wie YouTube es wählt']]
+        .map(([v, l]) => `<option value="${v}"${(p.ytQuality || 'hd1080') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <p>Sponsor-Abschnitte kommen von der freien SponsorBlock-Datenbank. Dabei wird nur ein Teil eines verschlüsselten Werts gesendet, nicht welches Video du schaust.</p>
+  </section>
+  <section class="set">
+    <h3>Videos und Serien</h3>
+    <label class="switch"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
+    <label class="switch"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
+    <label class="switch"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
+    <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
+  </section>
+  <section class="set">
+    <h3>Streamer-Modus</h3>
+    <label class="field">Private Daten unscharf machen (Adressleiste, Verlauf, Lesezeichen, Passwörter, Downloads)
+      <select id="st-mode">${[['auto', 'Automatisch, wenn OBS oder Streamlabs läuft'], ['on', 'Immer'], ['off', 'Nie']].map(([v, l]) => `<option value="${v}"${(p.streamerMode || 'auto') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+  </section>
+  <section class="set">
+    <h3>Seitenüberwachung</h3>
+    <label class="field">Überwachte Seiten prüfen alle
+      <select id="w-hours">${[[1, '1 Stunde'], [3, '3 Stunden'], [6, '6 Stunden'], [12, '12 Stunden'], [24, '24 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.watchHours || 3) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+  </section>
+  <section class="set" id="konto-section">
+    <h3>Konto-Tabs</h3>
+    <p>Bis zu fünf Konten gleichzeitig, z. B. zwei Google-Konten: Jeder Konto-Tab hat eigene Cookies und Anmeldungen. Öffnen per Rechtsklick auf einen Tab oder auf das Plus.</p>
+    <div class="konto-list"></div>
+  </section>
+  <section class="set">
+    <h3>Passwörter</h3>
+    <label class="switch"><input type="checkbox" id="pw-on"${p.passwordManager !== false ? ' checked' : ''}><span>Passwortmanager verwenden</span></label>
+    <label class="switch"><input type="checkbox" id="pw-save"${p.passwordSave !== false ? ' checked' : ''}${p.passwordManager === false ? ' disabled' : ''}><span>Anbieten, Passwörter zu speichern</span></label>
+    <label class="switch"><input type="checkbox" id="pw-fill"${p.passwordFill !== false ? ' checked' : ''}${p.passwordManager === false ? ' disabled' : ''}><span>Gespeicherte Konten beim Klick ins Anmeldefeld anbieten</span></label>
+    <div class="row"><button class="btn" id="pw-open">Passwörter verwalten</button></div>
+  </section>
+  <section class="set">
+    <h3>Popups</h3>
+    <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
+    <p>Neue Fenster dürfen sich nur nach deinem Klick auf einen Link oder Knopf öffnen. Blockierte Fenster zeigt das Schild – dort kannst du sie trotzdem öffnen.</p>
+    <label class="field">Ausnahmen – hier Popups erlauben (eine Seite pro Zeile)
+      <textarea id="pp-allow" spellcheck="false">${esc((p.popupAllow || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
+    <h3>Cookie-Banner</h3>
+    <label class="switch"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
+    <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Ausnahmen setzt du über das Schild in der Adressleiste.</p>
+    <label class="field">Ausnahmen – hier nichts ablehnen (eine Seite pro Zeile)
+      <textarea id="ck-allow" spellcheck="false">${esc((p.cookieAllow || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
+    <h3>Startseite</h3>
+    <label class="switch"><input type="checkbox" id="bg-builtin"${p.bgBuiltin !== false ? ' checked' : ''}><span>Sakura-Hintergrundbilder zeigen</span></label>
+    <p>Die Bilder wechseln automatisch mit einem weichen Übergang. Ohne Bilder zeigt die Startseite die gezeichnete Nachtszene mit Kirschblüten.</p>
+    <label class="field">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)
+      <textarea id="bgs" spellcheck="false" placeholder="https://…/bild.jpg">${esc((p.backgrounds || []).join('\n'))}</textarea>
+    </label>
+    <label class="field">Bild wechseln alle … Minuten
+      <input id="bgmin" type="number" min="1" max="1440" value="${p.bgMinutes || 1}">
+    </label>
+  </section>
+  <section class="set" id="import-section">
+    <h3>Daten importieren</h3>
+    <p>Übernimm Lesezeichen, Verlauf und Anmeldungen aus einem anderen Browser. Doppelte Lesezeichen werden übersprungen. Schließ den anderen Browser vorher.</p>
+    <label class="field">Browser
+      <select id="imp-src"><option value="">Suche Browser …</option></select>
+    </label>
+    <label class="switch"><input type="checkbox" id="imp-bm" checked><span>Lesezeichen</span></label>
+    <label class="switch"><input type="checkbox" id="imp-hist" checked><span>Verlauf der letzten 90 Tage</span></label>
+    <label class="switch"><input type="checkbox" id="imp-ck" checked><span>Cookies – damit du auf Webseiten angemeldet bleibst</span></label>
+    <p id="imp-msg" hidden></p>
+    <div class="row"><button class="btn primary" id="imp-go" disabled>Importieren</button><button class="btn" id="imp-html">Aus HTML-Datei importieren …</button></div>
+  </section>
+  <section class="set" id="sync-section">${syncHtml(si)}</section>
+  <section class="set" id="data-section">
+    <h3>Daten</h3>
+    <label class="switch"><input type="checkbox" id="clr-cookies"><span>Auch Cookies und Anmeldungen löschen</span></label>
+    <div class="row"><button class="btn danger" id="clr">Verlauf und Cache löschen</button><button class="btn" id="datadir">Datenordner öffnen</button></div>
+  </section>`;
+
+  $('#engine').onchange = e => api.call('setPrefs', { searchEngine: e.target.value });
+  bindDesign(p);
+  const showRestart = r => { $('#restart-row').hidden = !(r && r.restart); };
+  showRestart({ restart: (p.siteTheme === 'force') !== (p.startTheme === 'force') });
+  $('#theme').onchange = async e => showRestart(await api.call('setPrefs', { siteTheme: e.target.value }));
+  $('#restart').onclick = () => api.call('relaunch');
+  $('#restore').onchange = e => api.call('setPrefs', { restoreSession: e.target.checked });
+  $('#dlask').onchange = e => api.call('setPrefs', { downloadAsk: e.target.checked });
+  $('#gm-on').onchange = e => api.call('setPrefs', { gaming: e.target.checked });
+  $('#gm-sleep').onchange = e => api.call('setPrefs', { gamingSleep: e.target.checked });
+  $('#gm-extra').onchange = e => api.call('setPrefs', { gamingExtra: lines(e.target.value).map(x => x.replace(/^.*[\\/]/, '')).slice(0, 50) });
+  for (const [id, key] of [['#sl-after', 'sleepAfter'], ['#sl-ram', 'ramLimit'], ['#sl-cpu', 'cpuLimit']]) $(id).onchange = e => api.call('setPrefs', { [key]: Number(e.target.value) });
+  $('#ab-on').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
+  $('#ab-ext').onchange = async e => {
+    $('#ab-info').textContent = e.target.checked ? 'Liste wird geladen …' : '';
+    const r = await api.call('setPrefs', { adblockExtended: e.target.checked });
+    $('#ab-info').textContent = r.error ? r.error : `${r.blocklistSize.toLocaleString('de-DE')} Domains auf der Sperrliste.`;
+  };
+  const lines = v => v.split(/\n/).map(x => x.trim()).filter(Boolean);
+  $('#ab-allow').onchange = e => api.call('setPrefs', { adblockAllow: lines(e.target.value).map(hostOf) });
+  $('#yt-on').onchange = e => api.call('setPrefs', { youtube: e.target.checked });
+  $('#yt-sb').onchange = e => api.call('setPrefs', { ytSponsor: e.target.checked });
+  $('#yt-q').onchange = e => api.call('setPrefs', { ytQuality: e.target.value });
+  $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
+  $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
+  $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
+  bindContainers(p);
+  $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
+  $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
+  $('#pw-on').onchange = e => {
+    api.call('setPrefs', { passwordManager: e.target.checked });
+    $('#pw-save').disabled = $('#pw-fill').disabled = !e.target.checked;
+  };
+  $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
+  $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
+  $('#pw-open').onclick = () => openPanel('passwords');
+  $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
+  $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
+  $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
+  $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
+  $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
+  $('#bgmin').onchange = e => api.call('setPrefs', { bgMinutes: Math.max(1, Number(e.target.value) || 1) });
+  $('#bg-builtin').onchange = e => api.call('setPrefs', { bgBuiltin: e.target.checked });
+  $('#clr').onclick = async () => {
+    $('#clr').disabled = true;
+    await api.call('clearHistory', { cookies: $('#clr-cookies').checked });
+    $('#clr').textContent = 'Gelöscht';
+  };
+  $('#datadir').onclick = () => api.call('openDataFolder');
+  bindSync();
+  bindImport();
+}
+
+function bindDesign(p) {
+  const box = $('#design-section');
+  const accentOf = id => (p.themes.find(t => t.id === id) || p.themes[0]).accent;
+  box.querySelectorAll('[data-theme]').forEach(b => {
+    b.onclick = async () => {
+      box.querySelectorAll('[data-theme]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+      p.theme = b.dataset.theme;
+      if (!p.accent) $('#accent').value = accentOf(p.theme);
+      await api.call('setPrefs', { theme: p.theme });
+    };
+  });
+  // „input“ feuert beim Ziehen im Farbwähler sehr oft → kurz warten
+  let t = null;
+  $('#accent').oninput = e => {
+    clearTimeout(t);
+    t = setTimeout(() => { p.accent = e.target.value; $('#accent-reset').hidden = false; api.call('setPrefs', { accent: p.accent }); }, 150);
+  };
+  $('#accent-reset').onclick = () => {
+    p.accent = '';
+    $('#accent').value = accentOf(p.theme || 'sakura');
+    $('#accent-reset').hidden = true;
+    api.call('setPrefs', { accent: '' });
+  };
+}
+
+async function bindContainers(p) {
+  const box = $('#konto-section .konto-list');
+  if (!box) return;
+  const list = (await api.call('containers')) || [];
+  box.innerHTML = list.map(c => `<div class="konto-row" style="--kc:var(--g-${esc(c.color)})"><i></i>
+      <input data-n="${c.n}" value="${esc((p.containerNames || [])[c.n - 1] || '')}" placeholder="${esc('Konto ' + c.n)}" maxlength="30" spellcheck="false" aria-label="Name von Konto ${c.n}">
+      <button class="btn" data-clear="${c.n}" title="Abmelden: Cookies und Anmeldungen dieses Kontos löschen">Daten löschen</button></div>`).join('');
+  box.querySelectorAll('input[data-n]').forEach(inp => inp.onchange = () => {
+    const names = [...box.querySelectorAll('input[data-n]')].map(x => x.value.trim().slice(0, 30));
+    api.call('setPrefs', { containerNames: names });
+  });
+  box.querySelectorAll('[data-clear]').forEach(b => b.onclick = async () => {
+    if (!confirm('Alle Cookies und Anmeldungen dieses Kontos löschen?')) return;
+    await api.call('clearContainer', Number(b.dataset.clear));
+    b.textContent = 'Gelöscht'; b.disabled = true;
+  });
+}
+
+async function bindImport() {
+  const sel = $('#imp-src'), go = $('#imp-go'), msg = $('#imp-msg');
+  const show = (text, bad) => { msg.textContent = text; msg.className = bad ? 'msg-error' : 'msg-ok'; msg.hidden = !text; };
+  const list = (await api.call('importSources')) || [];
+  if (!sel.isConnected) return;
+  sel.innerHTML = list.length
+    ? list.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('')
+    : '<option value="">Kein anderer Browser gefunden</option>';
+  sel.disabled = !list.length;
+  go.disabled = !list.length;
+  go.onclick = async () => {
+    const b = $('#imp-bm').checked, h = $('#imp-hist').checked, c = $('#imp-ck').checked;
+    go.disabled = true;
+    show('Importiere …');
+    const r = await api.call('importRun', { id: sel.value, bookmarks: b, history: h, cookies: c });
+    go.disabled = false;
+    show(r && (r.message || r.error), !r || !!r.error);
+  };
+  $('#imp-html').onclick = async () => {
+    const r = await api.call('importHtml');
+    if (r) show(r.message || r.error, !!r.error);
+  };
+}
+const SYNC_PW_HINT = 'Mit dem Sync-Passwort werden deine Daten verschlüsselt, bevor sie den PC verlassen – auch Google kann sie nicht lesen. Gib auf allen Geräten dasselbe ein. Vergisst du es, sind die Daten auf dem Server verloren; deine Geräte behalten ihre eigenen Daten.';
+
+function syncHtml(si) {
+  if (si.mode === 'code') {
+    const label = { ok: `Synchronisiert ${timeAgo(si.lastSync)}`, syncing: si.message || 'Synchronisiere …', error: si.message || 'Fehler', idle: `Zuletzt ${timeAgo(si.lastSync)}` }[si.state] || '';
+    return `<h3>Synchronisation</h3>
+      <div class="status ${esc(si.state)}"><i></i><span>${esc(label)}</span></div>
+      <p>Alle Geräte mit diesem Sync-Code gleichen sich automatisch ab: Lesezeichen, Kacheln, Verlauf, offene Tabs, Skripte und Einstellungen – Ende-zu-Ende-verschlüsselt.</p>
+      <div class="sync-code"><small>Dein Sync-Code</small><code id="s-code" class="blur" title="Klicken zum Anzeigen">${esc(si.code)}</code>
+        <button class="btn" id="s-copy">Kopieren</button></div>
+      <p>Gib diesen Code auf dem Handy in der Sakura-App unter Einstellungen → Synchronisation ein. Behandle ihn wie ein Passwort.</p>
+      <div id="s-devices"></div>
+      <p class="msg-error" id="s-err" hidden></p>
+      <div class="row"><button class="btn primary" id="sync-now">Jetzt synchronisieren</button><button class="btn" id="sync-out">Trennen</button></div>`;
+  }
+  if (!si.email && si.state === 'off') {
+    return `<h3>Synchronisation</h3>
+      <p>Verbinde deinen PC und dein Handy mit einem Sync-Code. Danach gleichen sie sich automatisch ab – ohne Konto, Ende-zu-Ende-verschlüsselt.</p>
+      ${si.message ? `<p class="msg-error">${esc(si.message)}</p>` : ''}
+      <div class="row"><button class="btn primary" id="s-newcode">Sync-Code erstellen</button></div>
+      <label class="field" style="margin-top:12px">Oder Code von einem anderen Gerät eingeben
+        <input id="s-codein" spellcheck="false" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
+      <p class="msg-error" id="s-err" hidden></p>
+      <div class="row"><button class="btn" id="s-connect">Verbinden</button></div>
+      <details><summary>Stattdessen ein eigenes Firebase-Projekt verwenden</summary>${firebaseHtml(si)}</details>`;
+  }
+  if (si.email && si.state === 'needkey') {
+    return `<h3>Synchronisation</h3>
+      <div class="status error"><i></i><span>${esc(si.message || 'Sync-Passwort fehlt – der Abgleich ist pausiert.')}</span></div>
+      <p>Angemeldet als ${esc(si.email)}. Gib dein Sync-Passwort ein, um den Abgleich zu entsperren.</p>
+      <label class="field">Sync-Passwort<input id="s-sync" type="password" autocomplete="off"></label>
+      <p class="msg-error" id="s-err" hidden></p>
+      <div class="row"><button class="btn primary" id="s-unlock">Entsperren</button><button class="btn" id="sync-out">Abmelden</button></div>
+      <details><summary>Sync-Passwort vergessen?</summary>
+        <p>Dann kannst du die Daten auf dem Server mit einem neuen Passwort neu anlegen. Sie werden durch die Daten dieses PCs ersetzt; andere Geräte entsperrst du danach mit dem neuen Passwort.</p>
+        <div class="row"><button class="btn danger" id="s-reset">Mit neuem Passwort neu anlegen</button></div>
+      </details>`;
+  }
+  if (si.email && si.state !== 'off') {
+    const label = { ok: `Synchronisiert ${timeAgo(si.lastSync)}`, syncing: si.message || 'Synchronisiere …', error: si.message || 'Fehler', idle: `Zuletzt ${timeAgo(si.lastSync)}` }[si.state] || '';
+    return `<h3>Synchronisation</h3>
+      <div class="status ${esc(si.state)}"><i></i><span>${esc(label)}</span></div>
+      <p>Angemeldet als ${esc(si.email)}. Ende-zu-Ende-verschlüsselt: Lesezeichen, Kacheln, Verlauf, offene Tabs, Skripte und Einstellungen sind nur auf deinen Geräten lesbar.</p>
+      <div class="row"><button class="btn primary" id="sync-now">Jetzt synchronisieren</button><button class="btn" id="s-change">Sync-Passwort ändern</button><button class="btn" id="sync-out">Abmelden</button></div>
+      <div id="s-change-box" hidden>
+        <label class="field" style="margin-top:12px">Neues Sync-Passwort<input id="s-new" type="password" autocomplete="new-password"></label>
+        <label class="field">Neues Sync-Passwort wiederholen<input id="s-new2" type="password" autocomplete="new-password"></label>
+        <p class="msg-error" id="s-err" hidden></p>
+        <div class="row"><button class="btn primary" id="s-change-go">Ändern</button></div>
+      </div>`;
+  }
+  return `<h3>Synchronisation</h3>${firebaseHtml(si)}`;
+}
+
+function firebaseHtml(si) {
+  return `
+    <p>Melde dich auf dem PC und in der Android-App mit demselben Konto an. Dafür brauchst du ein kostenloses Firebase-Projekt.</p>
+    <details><summary>So richtest du Firebase ein</summary><ol>
+      <li>In der Firebase-Konsole ein Projekt anlegen.</li>
+      <li>Authentication → Anmeldemethode → <code>E-Mail/Passwort</code> aktivieren.</li>
+      <li>Firestore Database erstellen und die Regeln aus <code>firebase/firestore.rules</code> einfügen.</li>
+      <li>Projekteinstellungen → Allgemein: „Web-API-Schlüssel“ und „Projekt-ID“ hier eintragen.</li>
+    </ol></details>
+    ${si.state === 'error' && si.message ? `<p class="msg-error">${esc(si.message)}</p>` : ''}
+    <label class="field">Web-API-Schlüssel<input id="s-key" spellcheck="false" value="${esc(si.apiKey || '')}"></label>
+    <label class="field">Projekt-ID<input id="s-pid" spellcheck="false" value="${esc(si.projectId || '')}"></label>
+    <label class="field">E-Mail<input id="s-mail" type="email" spellcheck="false" value="${esc(si.email || '')}"></label>
+    <label class="field">Konto-Passwort<input id="s-pw" type="password"></label>
+    <label class="field">Sync-Passwort (für die Verschlüsselung, mind. 8 Zeichen)<input id="s-sync" type="password" autocomplete="new-password"></label>
+    <p>${SYNC_PW_HINT}</p>
+    <p class="msg-error" id="s-err" hidden></p>
+    <div class="row"><button class="btn primary" id="s-login">Anmelden</button><button class="btn" id="s-create">Konto anlegen</button></div>`;
+}
+
+function bindSync() {
+  const sec = $('#sync-section');
+  const showErr = m => { const e = $('#s-err'); if (e) { e.textContent = m; e.hidden = !m; } };
+  const busy = on => { for (const b of sec.querySelectorAll('button')) b.disabled = on; };
+  const redraw = r => { sec.innerHTML = syncHtml(r); bindSync(); };
+  const now = $('#sync-now'), out = $('#sync-out');
+  if (now) now.onclick = async () => { now.disabled = true; await api.call('syncNow'); };
+  if (out) out.onclick = async () => redraw(await api.call('syncLogout'));
+  if ($('#s-change')) $('#s-change').onclick = () => { $('#s-change-box').hidden = false; $('#s-new').focus(); };
+  if ($('#s-change-go')) $('#s-change-go').onclick = async () => {
+    if ($('#s-new').value !== $('#s-new2').value) return showErr('Die beiden Passwörter stimmen nicht überein.');
+    busy(true);
+    const r = await api.call('syncChangePassword', $('#s-new').value);
+    if (r.failed) { busy(false); return showErr(r.message); }
+    redraw(r);
+  };
+  const unlock = reset => async () => {
+    const pw = $('#s-sync').value;
+    if (reset && !confirm('Die Daten auf dem Server werden durch die Daten dieses PCs ersetzt und mit dem eingegebenen Passwort neu verschlüsselt. Fortfahren?')) return;
+    if (reset && !pw) return showErr('Gib oben das neue Sync-Passwort ein.');
+    busy(true);
+    const r = await api.call('syncUnlock', { password: pw, reset });
+    if (r.failed) { busy(false); return showErr(r.message); }
+    redraw(r);
+  };
+  if ($('#s-unlock')) {
+    $('#s-unlock').onclick = unlock(false);
+    $('#s-reset').onclick = unlock(true);
+    $('#s-sync').onkeydown = e => { if (e.key === 'Enter') unlock(false)(); };
+  }
+  const go = create => async () => {
+    showErr('');
+    busy(true);
+    const r = await api.call('syncLogin', {
+      apiKey: $('#s-key').value, projectId: $('#s-pid').value, email: $('#s-mail').value,
+      password: $('#s-pw').value, syncPassword: $('#s-sync').value, create
+    });
+    if (r && r.state === 'error' && !r.email) { busy(false); return showErr(r.message); }
+    redraw(r);
+  };
+  if ($('#s-login')) { $('#s-login').onclick = go(false); $('#s-create').onclick = go(true); }
+  // Sync-Code
+  const codeDone = r => { if (r && r.failed && r.mode !== 'code') { busy(false); return showErr(r.message); } redraw(r); };
+  if ($('#s-newcode')) $('#s-newcode').onclick = async () => { showErr(''); busy(true); codeDone(await api.call('syncCreateCode')); };
+  if ($('#s-connect')) {
+    const connect = async () => { showErr(''); busy(true); codeDone(await api.call('syncConnectCode', $('#s-codein').value)); };
+    $('#s-connect').onclick = connect;
+    $('#s-codein').onkeydown = e => { if (e.key === 'Enter') connect(); };
+  }
+  if ($('#s-code')) $('#s-code').onclick = e => e.target.classList.toggle('blur');
+  if ($('#s-copy')) $('#s-copy').onclick = async () => { await api.call('copyText', $('#s-code').textContent); $('#s-copy').textContent = 'Kopiert'; };
+  if ($('#s-devices')) api.call('devices').then(list => {
+    const box = $('#s-devices');
+    if (!box || !list || !list.length) return;
+    box.innerHTML = `<p>Verbundene Geräte: ${list.map(d => `<b>${esc(d.name || 'Gerät')}</b> (${esc(timeAgo(d.updatedAt))})`).join(', ')}</p>`;
+  });
+}
+
+// ------------------------------------------------------------ Aufbau: Kategorien und Suche
+const CATS = [
+  ['sync', 'Synchronisation', ['Synchronisation']],
+  ['start', 'Startseite', ['Startseite']],
+  ['search', 'Suche', ['Suche']],
+  ['look', 'Erscheinungsbild', ['Design', 'Darstellung und Start']],
+  ['privacy', 'Datenschutz & Sicherheit', ['Werbeblocker', 'Cookie-Banner', 'Popups', 'Streamer-Modus', 'Daten']],
+  ['passwords', 'Passwörter', ['Passwörter']],
+  ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung']],
+  ['video', 'Videos und YouTube', ['YouTube', 'Videos und Serien']],
+  ['perf', 'Leistung und Gaming', ['Leistung']],
+  ['import', 'Daten importieren', ['Daten importieren']],
+  ['about', 'Über Sakura', ['Über Sakura']]
+];
+const ICONS = {
+  sync: '<path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1"/><path d="M17.5 3.5v3.6h-3.6M6.5 20.5v-3.6h3.6"/>',
+  start: '<path d="M4 11.5L12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/>',
+  search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l4.5 4.5"/>',
+  look: '<circle cx="12" cy="12" r="7.5"/><path d="M12 4.5a7.5 7.5 0 0 0 0 15z" fill="currentColor"/>',
+  privacy: '<path d="M12 3.5l7 2.6v5.4c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6.1z"/>',
+  passwords: '<circle cx="8.5" cy="12" r="3.5"/><path d="M12 12h8M17 12v3M20 12v2"/>',
+  tabs: '<rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M4 10.5h16M9 7V5h6v2"/>',
+  video: '<rect x="4" y="6" width="16" height="12" rx="2"/><path d="M10.5 9.5v5l4-2.5z"/>',
+  perf: '<path d="M5 17a8 8 0 1 1 14 0"/><path d="M12 13l3.5-4"/>',
+  import: '<path d="M12 4.5v10M7.5 10.5L12 15l4.5-4.5M5.5 19.5h13"/>',
+  about: '<circle cx="12" cy="12" r="7.5"/><path d="M12 11v5M12 8v.2"/>'
+};
+
+let current = 'sync';
+function buildNav() {
+  $('#nav').innerHTML = CATS.map(([id, label]) => `<a href="#${id}" data-cat="${id}"><svg viewBox="0 0 24 24">${ICONS[id]}</svg><span>${esc(label)}</span></a>`).join('');
+}
+function tagSections() {
+  for (const sec of document.querySelectorAll('#content section.set')) {
+    const h = sec.querySelector('h3');
+    const title = h ? h.textContent.trim() : '';
+    const cat = CATS.find(c => c[2].includes(title));
+    sec.dataset.cat = cat ? cat[0] : 'privacy';
+  }
+}
+function showCat(id) {
+  if (!CATS.some(c => c[0] === id)) id = 'sync';
+  current = id;
+  $('#q').value = '';
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.cat === id));
+  document.querySelectorAll('#content section.set').forEach(s => { s.hidden = s.dataset.cat !== id; s.classList.remove('hit'); });
+  const c = CATS.find(x => x[0] === id);
+  $('#cat-title').innerHTML = `<svg viewBox="0 0 24 24">${ICONS[id]}</svg>${esc(c[1])}`;
+  $('#none').hidden = true;
+  window.scrollTo(0, 0);
+}
+function search(q) {
+  q = q.trim().toLowerCase();
+  if (!q) return showCat(current);
+  document.querySelectorAll('#nav a').forEach(a => a.classList.remove('on'));
+  let n = 0;
+  for (const s of document.querySelectorAll('#content section.set')) {
+    const hit = s.textContent.toLowerCase().includes(q) ||
+      [...s.querySelectorAll('option, input[placeholder]')].some(o => (o.textContent || o.placeholder || '').toLowerCase().includes(q));
+    s.hidden = !hit; s.classList.toggle('hit', hit);
+    if (hit) n++;
+  }
+  $('#cat-title').textContent = `Suchergebnisse für „${q}“`;
+  $('#none').hidden = !!n;
+}
+
+async function render() {
+  await renderSettings();
+  // „Über Sakura“ als eigene Kategorie
+  const info = await api.call('updateInfo').catch(() => null);
+  $('#content').insertAdjacentHTML('beforeend', `<section class="set"><h3>Über Sakura</h3>
+    <p>Version ${esc(info && info.current || '')}. Sakura aktualisiert sich von selbst.</p>
+    <div class="row"><button class="btn" id="about-open">Updates und Infos anzeigen</button></div></section>`);
+  $('#about-open').onclick = () => openPanel('about');
+  tagSections();
+  showCat(location.hash.slice(1) || 'sync');
+}
+
+buildNav();
+$('#q').addEventListener('input', e => search(e.target.value));
+window.addEventListener('hashchange', () => showCat(location.hash.slice(1)));
+// Design der Seite = gewähltes Sakura-Design
+const applyLook = () => api.call('prefs').then(p => { if (window.SakuraThemes) SakuraThemes.apply(document.documentElement, p || {}); });
+applyLook();
+if (window.sakura.onTheme) window.sakura.onTheme(applyLook);
+render();
+// Synchronisationsstatus aktuell halten (nicht während einer Eingabe)
+setInterval(async () => {
+  const sec = $('#sync-section');
+  if (!sec || sec.hidden || document.querySelector('#s-pw, #s-sync, #s-new, #s-codein')) return;
+  const si = await api.call('syncInfo');
+  const html = syncHtml(si);
+  if (sec.dataset.last !== html) { sec.dataset.last = html; sec.innerHTML = html; bindSync(); }
+}, 3000);

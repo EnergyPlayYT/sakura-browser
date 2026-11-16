@@ -87,7 +87,9 @@ function prepareSession(ses, isPrivate) {
   ses.protocol.handle('sakura', req => {
     const u = new URL(req.url);
     if (u.hostname === 'favicon') return favicons.respond(u.searchParams.get('u') || '');
-    if (u.pathname === '/themes.js') return net.fetch(pathToFileURL(path.join(__dirname, 'pages', 'themes.js')).toString());
+    if (u.pathname === '/themes.js' || (u.hostname === 'settings' && u.pathname === '/settings.js')) {
+      return net.fetch(pathToFileURL(path.join(__dirname, 'pages', u.pathname.slice(1))).toString());
+    }
     // Mitgelieferte Hintergrundbilder: sakura://newtab/backgrounds/<datei>
     const bg = /^\/backgrounds\/([^/]+)$/.exec(u.pathname);
     if (bg) {
@@ -95,7 +97,7 @@ function prepareSession(ses, isPrivate) {
       if (!BG_FILE.test(name)) return new Response('Nicht gefunden', { status: 404 });
       return net.fetch(pathToFileURL(path.join(__dirname, 'backgrounds', name)).toString());
     }
-    const name = { newtab: 'newtab.html', error: 'error.html' }[u.hostname];
+    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
@@ -1686,6 +1688,14 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  // Einstellungen als eigene Seite
+  openSettings: (w, section) => {
+    const target = 'sakura://settings/' + (/^[a-z]+$/.test(section || '') ? '#' + section : '');
+    const t = w.tabs.find(x => String(x.pending || x.url).startsWith('sakura://settings'));
+    if (t) { w.activate(t.id); t.view.webContents.loadURL(target).catch(() => {}); }
+    else w.newTab(target, { index: w.tabs.indexOf(w.active) + 1 });
+  },
+  openPanel: (w, kind) => { if (/^[a-z]+$/.test(String(kind))) { w.ui.webContents.send('open-panel', kind); w.ui.webContents.focus(); } },
   // Streamer-Modus
   streamerToggle: () => {
     const on = streamerActive();
@@ -1807,8 +1817,19 @@ const pageCommands = {
   suggest: (wc, q) => store.suggest(q, 6),
   builtinBackgrounds: () => builtinBackgrounds(),
   isPrivate: wc => [...windows].some(w => w.isPrivate && w.tabs.some(t => t.view.webContents === wc)),
-  platform: () => 'desktop'
+  platform: () => 'desktop',
+  // Einstellungsseite sakura://settings: nur diese Befehle, nur aus dem obersten Rahmen der Seite selbst
+  settings: (wc, { cmd, arg } = {}, from = {}) => {
+    if (!from.top || !/^sakura:\/\/settings\//.test(from.url || '') || !SETTINGS_COMMANDS.has(cmd)) return null;
+    const w = [...windows].find(x => x.tabs.some(t => t.view.webContents === wc));
+    return w ? uiCommands[cmd](w, arg) : null;
+  }
 };
+const SETTINGS_COMMANDS = new Set([
+  'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
+  'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
+  'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer'
+]);
 
 // ---------------------------------------------------------------- Start
 const gotLock = app.requestSingleInstanceLock();
@@ -1919,7 +1940,7 @@ app.whenReady().then(async () => {
     const fn = pageCommands[cmd];
     const url = e.senderFrame ? e.senderFrame.url : '';
     if (!fn || !url.startsWith('sakura://')) return null;
-    return fn(e.sender, arg);
+    return fn(e.sender, arg, { url, top: !e.senderFrame || !e.senderFrame.parent });
   });
 
   vault = new Passwords.Vault({ dir: userDir, safeStorage });

@@ -12,7 +12,8 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
   preload-ui.js     Brücke für die Browser-Oberfläche (window.chrome2.call / .on)
   preload-page.js   Brücke für sakura://-Seiten + „Zu Sakura hinzufügen“-Knopf im Chrome Web Store
   ui/               Browser-Oberfläche: Tabs, Adressleiste, Favoritenleiste, Menüs, Seitenleisten-Panels
-  pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt
+  pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt;
+                    sakura://settings (settings.html/.js, Einstellungsseite – nur PC, Befehle über pageCommands.settings mit fester Liste)
   assets/           blocklist.txt, cookie-reject.js (Cookie-Banner), youtube.js/.css (Werbung, SponsorBlock, Qualität), video.js (Weiterschauen, Intro, nächste Folge), media.js (Kino-Modus, Helligkeit, Ton, Sleep-Timer) – auch Android
   lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), passwords.js (Passwortmanager, safeStorage), sponsorblock.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
                     crypto.js, adblock.js, extensions.js + crx.js (Chrome-Erweiterungen), downloads.js,

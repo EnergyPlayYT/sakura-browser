@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Einstellungen</title>
+<style>
+  :root {
+    --yoru: #1C1A33; --kasumi: #28254A; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
+    --pop: #2C2950; --panel: #221F3E; --err: #FFB4C0; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197;
+    --line: rgba(var(--washi-rgb), .1);
+    --g-sakura: #F2B3C5; --g-momiji: #E5677F; --g-yamabuki: #E9C46A; --g-matcha: #9CCB8F; --g-sora: #8CB8E8; --g-fuji: #B9A3E3; --g-sumi: #A59EB8;
+    --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", "Noto Serif CJK JP", Georgia, serif;
+    --gothic: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--yoru); color: var(--washi); font: 14px/1.45 var(--gothic); }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--sakura); outline-offset: 1px; }
+  [hidden] { display: none !important; }
+
+  .wrap { display: grid; grid-template-columns: 260px minmax(0, 720px); gap: 40px; max-width: 1080px; margin: 0 auto; padding: 40px 32px 80px; }
+  aside { position: sticky; top: 40px; align-self: start; }
+  aside h1 { display: flex; align-items: center; gap: 12px; margin: 0 0 18px 8px; font: 400 26px var(--mincho); }
+  .seal { width: 30px; height: 30px; display: grid; place-items: center; background: var(--beni); color: #FBEFEF; font: 600 18px/1 var(--mincho); border-radius: 4px; transform: rotate(-4deg); }
+  #nav { display: grid; gap: 2px; }
+  #nav a { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-radius: 10px; color: var(--washi); text-decoration: none; }
+  #nav a:hover { background: rgba(var(--washi-rgb), .06); }
+  #nav a.on { background: var(--sakura); color: var(--fukai); font-weight: 600; }
+  #nav a:nth-child(10) { margin-top: 10px; position: relative; }
+  #nav a:nth-child(10)::before { content: ""; position: absolute; left: 8px; right: 8px; top: -6px; border-top: 1px solid var(--line); }
+
+  .search { position: relative; margin-bottom: 22px; }
+  .search svg { position: absolute; left: 14px; top: 11px; color: var(--usuzumi); }
+  #q { width: 100%; height: 40px; padding: 0 14px 0 42px; border: 0; outline: 0; border-radius: 12px; background: var(--fukai); color: var(--washi); font: inherit;
+    box-shadow: inset 0 0 0 1px var(--line); }
+  #q:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+  #cat-title { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font: 400 24px var(--mincho); }
+  #cat-title svg { width: 22px; height: 22px; }
+  #none { color: var(--usuzumi); }
+
+  /* Karten wie Abschnitte */
+  #content .set { background: rgba(var(--washi-rgb), .035); border: 0; border-radius: 16px; padding: 20px 22px 14px; margin: 0 0 18px;
+    box-shadow: inset 0 0 0 1px var(--line); }
+  #content .set:first-child { padding-top: 20px; }
+  #content .set h3 { font-size: 19px; margin-bottom: 10px; }
+  #content .set.hit h3 { color: var(--sakura); }
+  #content .themes { grid-template-columns: repeat(3, 1fr); }
+  #content code { font-family: Consolas, "Cascadia Mono", monospace; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } aside { position: static; } #nav { grid-template-columns: repeat(2, 1fr); } }
+
+  /* gemeinsame Bausteine aus der Browser-Oberfläche */
+.switch { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.switch input { appearance: none; width: 34px; height: 20px; border-radius: 10px; background: rgba(var(--washi-rgb), .18); position: relative; flex: none; margin: 0; transition: background .15s; }
+.switch input::after { content: ""; position: absolute; width: 14px; height: 14px; top: 3px; left: 3px; border-radius: 50%; background: var(--washi); transition: transform .15s; }
+.switch input:checked { background: var(--sakura); }
+.switch input:checked::after { transform: translateX(14px); background: var(--fukai); }
+.btn { height: 32px; padding: 0 14px; border-radius: 8px; background: rgba(var(--washi-rgb), .09); }
+.btn:hover { background: rgba(var(--washi-rgb), .15); }
+.btn.primary { background: var(--sakura); color: var(--fukai); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.danger { color: var(--err); }
+.btn:disabled { opacity: .5; }
+.set { padding: 14px 8px; border-top: 1px solid var(--line); }
+.set:first-child { border-top: 0; padding-top: 4px; }
+.set h3 { margin: 0 0 8px; font: 400 18px var(--mincho); }
+.set p { margin: 4px 0 10px; color: var(--usuzumi); line-height: 1.5; }
+.set label.field { display: grid; gap: 4px; margin: 0 0 10px; color: var(--usuzumi); }
+.set label.field input, .set select, .set textarea {
+  height: 32px; padding: 0 10px; border: 0; outline: 0; border-radius: 8px; background: var(--fukai); color: var(--washi);
+  font: inherit; box-shadow: inset 0 0 0 1px var(--line); width: 100%;
+}
+.set textarea { height: 84px; padding: 8px 10px; resize: vertical; }
+.set select:focus, .set label.field input:focus, .set textarea:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+.set .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.status { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 9px; background: rgba(0, 0, 0, .16); margin: 0 0 12px; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--usuzumi); flex: none; }
+.status.ok i { background: #9FD8B0; }
+.status.error i { background: var(--beni); }
+.status.syncing i { background: var(--sakura); animation: pulse 1s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: .3; } }
+.msg-error, .set p.msg-error { color: var(--err); margin: 0 0 10px; }
+.msg-ok, .set p.msg-ok { color: var(--sakura); margin: 0 0 10px; }
+details summary { cursor: pointer; color: var(--sakura); margin: 6px 0; }
+details ol { padding-left: 20px; color: var(--usuzumi); line-height: 1.6; margin: 6px 0 12px; }
+details code { color: var(--washi); background: rgba(0, 0, 0, .2); padding: 1px 5px; border-radius: 4px; }
+  --g-sakura: #F2B3C5; --g-momiji: #E5677F; --g-yamabuki: #E9C46A; --g-matcha: #9CCB8F;
+  --g-sora: #8CB8E8; --g-fuji: #B9A3E3; --g-sumi: #A59EB8;
+.themes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 6px 0 10px; }
+.theme { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; text-align: left; box-shadow: inset 0 0 0 1px var(--line); }
+.theme:hover { background: rgba(var(--washi-rgb), .06); }
+.theme.on { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+.theme i { width: 22px; height: 22px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--t-bg) 50%, var(--t-ac) 50%); box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .25); }
+.theme span { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.accent-row { align-items: center; justify-content: space-between; }
+.accent { display: flex; align-items: center; gap: 10px; color: var(--usuzumi); }
+.accent input { width: 40px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+input[type=range] { accent-color: var(--sakura); }
+.sync-code { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: rgba(var(--washi-rgb), .05); box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 8px; }
+.sync-code small { width: 100%; color: var(--usuzumi); }
+.sync-code code { flex: 1; font: 600 16px/1.4 Consolas, "Cascadia Mono", monospace; letter-spacing: .06em; color: var(--sakura); user-select: all; cursor: pointer; transition: filter .2s; background: none; padding: 0; }
+.sync-code code.blur { filter: blur(6px); }
+.konto-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.konto-row i { width: 12px; height: 12px; border-radius: 50%; background: var(--kc); flex: none; }
+.konto-row input { flex: 1; min-width: 0; height: 30px; border: 0; outline: 0; border-radius: 8px; padding: 0 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--line); user-select: text; }
+.konto-row input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <h1><span class="seal">桜</span>Einstellungen</h1>
+    <nav id="nav" aria-label="Kategorien"></nav>
+  </aside>
+  <main>
+    <div class="search"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l4.5 4.5"/></svg>
+      <input id="q" placeholder="In Einstellungen suchen" spellcheck="false" aria-label="In Einstellungen suchen"></div>
+    <h2 id="cat-title"></h2>
+    <p id="none" hidden>Keine passende Einstellung gefunden.</p>
+    <div id="content"></div>
+  </main>
+</div>
+<script src="themes.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>
