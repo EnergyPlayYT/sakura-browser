@@ -395,13 +395,13 @@ class SakuraWindow {
       upd();
     });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
-    wc.on('did-stop-loading', () => { tab.loading = false; upd(); });
+    wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); });
     wc.on('did-start-navigation', (d) => {
       if (d.isMainFrame && !d.isSameDocument) { blocker.reset(wc.id); setBg(d.url); tab.popups = []; }
     });
     wc.on('did-navigate', (e, u) => {
       if (tab.sleeping) return;
-      tab.url = u; tab.favicon = null;
+      tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false;
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
     });
@@ -676,6 +676,7 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
+      readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
@@ -1055,6 +1056,53 @@ async function watchActive(w) {
     const what = entry.price != null ? `Aktueller Preis: ${require('./lib/watch').fmtPrice(entry.price, entry.currency)}.` : entry.available === false ? 'Gerade nicht verfügbar.' : 'Gerade verfügbar.';
     return { ok: true, message: `Sakura überwacht jetzt „${entry.title}“. ${what} Du bekommst eine Nachricht, wenn sich der Preis ändert oder es wieder verfügbar ist.` };
   } catch (e) { return { error: e.message }; }
+}
+
+// ---------------------------------------------------------------- Lesemodus (Mozilla Readability)
+// Läuft in einer abgeschotteten Welt der Seite (READER_WORLD): Die Webseite kann nicht hineinpfuschen,
+// und fremder Inhalt kommt nie in eine sakura://-Seite mit Sonderrechten.
+const READER_WORLD = 1001;
+const readerSrc = {};
+function readerFile(key) {
+  if (readerSrc[key] != null) return readerSrc[key];
+  try {
+    if (key === 'readability') {
+      const src = fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8');
+      readerSrc[key] = `(function(){\n${src}\n;window.__sakuraReadability = Readability;})();`;
+    } else if (key === 'readerable') {
+      const src = fs.readFileSync(require.resolve('@mozilla/readability/Readability-readerable.js'), 'utf8');
+      readerSrc[key] = `(function(){\n${src}\n;try { return isProbablyReaderable(document, { minContentLength: 180, minScore: 30 }); } catch (e) { return false; }})()`;
+    } else readerSrc[key] = fs.readFileSync(path.join(__dirname, 'assets', key), 'utf8');
+  } catch { readerSrc[key] = ''; }
+  return readerSrc[key];
+}
+async function checkReadable(tab) {
+  const wc = tab.view.webContents;
+  if (wc.isDestroyed() || tab.reader || !/^https?:/i.test(wc.getURL()) || !wc.executeJavaScriptInIsolatedWorld) return;
+  const code = readerFile('readerable');
+  if (!code) return;
+  try {
+    const ok = !!(await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code }]));
+    if (ok !== !!tab.readable) { tab.readable = ok; tab.w.sendState(); }
+  } catch {}
+}
+async function toggleReader(w) {
+  const t = w.active;
+  if (!t) return false;
+  const wc = t.view.webContents;
+  if (t.reader) { t.reader = false; wc.reload(); w.sendState(); return false; }
+  const lib = readerFile('readability'), view = readerFile('reader.js'), css = readerFile('reader.css');
+  if (!lib || !view || !wc.executeJavaScriptInIsolatedWorld) return false;
+  const p = store.prefs();
+  const prefs = JSON.stringify({ size: Math.max(14, Math.min(32, Number(p.readerSize) || 20)), theme: ['hell', 'sepia', 'dunkel'].includes(p.readerTheme) ? p.readerTheme : 'sepia' });
+  try {
+    if (css) await wc.insertCSS(css);
+    const ok = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: lib }, { code: `window.__sakuraReaderPrefs = ${prefs};` }, { code: view }], true);
+    t.reader = ok === true || ok === 'schon';
+  } catch { t.reader = false; }
+  if (!t.reader) dialog.showMessageBox(w.win, { type: 'info', message: 'Diese Seite lässt sich nicht im Lesemodus anzeigen.', detail: 'Der Lesemodus funktioniert bei Artikeln und Berichten mit genug Text.' });
+  w.sendState();
+  return t.reader;
 }
 
 // ---------------------------------------------------------------- Popup-Blocker
@@ -1483,6 +1531,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (c && k === 'j') w.ui.webContents.send('open-panel', 'downloads');
     else if (c && k === 'f') w.openFind();
     else if (c && i.alt && k === 'p') floating ? unfloat() : floatVideo(w);
+    else if (k === 'f9') toggleReader(w);
     else if (c && k === 'p') act && act.print();
     else if (c && k === 's') savePdf(w);
     else if (c && (k === '+' || k === '=')) w.zoom(0.5);
@@ -1764,6 +1813,7 @@ const uiCommands = {
     try { const u = new URL(t.url); if (/(^|\.)twitch\.tv$/.test(u.hostname)) pre = (u.pathname.split('/').filter(Boolean)[0] || '').toLowerCase(); } catch {}
     w.newTab('sakura://multistream/' + (/^[a-z0-9_]{2,25}$/.test(pre) ? '#' + pre : ''), { index: w.tabs.indexOf(t) + 1 });
   },
+  reader: w => toggleReader(w),
   // Einstellungen als eigene Seite
   openSettings: (w, section) => {
     const target = 'sakura://settings/' + (/^[a-z]+$/.test(section || '') ? '#' + section : '');
@@ -2001,6 +2051,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('yt-segments', async (e, id) => {
     if (!SB.isYouTube(e.senderFrame ? e.senderFrame.url : '') || store.prefs().youtube === false || store.prefs().ytSponsor === false) return [];
     return sponsorBlock.segments(id);
+  });
+  // Lesemodus: Schriftgröße und Farben merken (die Seite meldet sie über preload-page.js)
+  ipcMain.on('reader-prefs', (e, d) => {
+    let v = null;
+    try { v = JSON.parse(String(d || '')); } catch { return; }
+    if (!v || typeof v !== 'object') return;
+    const patch = {};
+    if (Number(v.size) >= 14 && Number(v.size) <= 32) patch.readerSize = Math.round(Number(v.size));
+    if (['hell', 'sepia', 'dunkel'].includes(v.theme)) patch.readerTheme = v.theme;
+    if (Object.keys(patch).length) store.setPrefs(patch);
   });
   // Passwortmanager: Anmeldung erkannt / Konten anbieten / nach Klick ausfüllen
   ipcMain.on('pw-submit', (e, d) => offerSavePassword(e.sender, e.senderFrame ? e.senderFrame.url : '', d));

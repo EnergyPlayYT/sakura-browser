@@ -69,6 +69,9 @@ function render() {
   $('#zoom').textContent = S.zoom + ' %';
   $('#zoom-val').textContent = S.zoom + ' %';
   $('#scripts-ind').hidden = !S.scripts;
+  $('#reader-btn').hidden = !S.readable;
+  $('#reader-btn').classList.toggle('on', !!S.reader);
+  $('#reader-btn').title = S.reader ? 'Lesemodus beenden (F9)' : 'Lesemodus (F9)';
   $('#gaming-ind').hidden = !S.gaming;
   document.body.classList.toggle('streamer', !!S.streamer);
   $('#streamer-ind').hidden = !S.streamer;
@@ -966,6 +969,7 @@ async function renderPerformance() {
   perfTimer = setTimeout(renderPerformance, 2000);
 }
 $('#gaming-ind').onclick = () => openPanel('performance');
+$('#reader-btn').onclick = () => api.call('reader');
 $('#streamer-ind').onclick = () => api.call('streamerToggle');
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.shiftKey) { e.preventDefault(); openPanel('performance'); } });
 

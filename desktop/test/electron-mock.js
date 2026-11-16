@@ -8,7 +8,7 @@ class WC extends EventEmitter {
   loadURL(u){ this.url=u; setImmediate(()=>{ this.emit('did-start-loading'); this.emit('did-navigate',{},u); this.emit('page-title-updated',{},'T '+u); this.emit('did-stop-loading');}); return Promise.resolve(); }
   loadFile(){ setImmediate(()=>this.emit('did-finish-load')); }
   getURL(){return this.url} getTitle(){return this.title} isDestroyed(){return this.destroyed} close(){this.destroyed=true}
-  focus(){} send(c,d){this.sent.push([c,d])} isAudioMuted(){return !!this.muted} setAudioMuted(m){this.muted=m} executeJavaScript(c){this.executed=(this.executed||[]).concat(c);return Promise.resolve(this.jsResult)} removeInsertedCSS(){return Promise.resolve()} insertCSS(c){this.css=(this.css||[]).concat(c);return Promise.resolve()} isDevToolsOpened(){return false} setWindowOpenHandler(f){this.openHandler=f}
+  focus(){} send(c,d){this.sent.push([c,d])} isAudioMuted(){return !!this.muted} setAudioMuted(m){this.muted=m} executeJavaScript(c){this.executed=(this.executed||[]).concat(c);return Promise.resolve(this.jsResult)} removeInsertedCSS(){return Promise.resolve()} executeJavaScriptInIsolatedWorld(id,scripts){this.isolated=(this.isolated||[]).concat(scripts.map(x=>x.code));return Promise.resolve(this.isoResult)} insertCSS(c){this.css=(this.css||[]).concat(c);return Promise.resolve()} isDevToolsOpened(){return false} setWindowOpenHandler(f){this.openHandler=f}
   getZoomLevel(){return this.zoom} setZoomLevel(z){this.zoom=z} stopFindInPage(){} findInPage(){} reload(){} stop(){} print(){} toggleDevTools(){}
 }
 class WebContentsView { constructor(o){this.webContents=new WC(); this.webContents.view=this; this.opts=o;} setBackgroundColor(c){this.bg=c} setBounds(b){this.bounds=b} setVisible(v){this.visible=v} }

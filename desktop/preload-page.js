@@ -27,6 +27,11 @@ if (/(^|\.)twitch\.tv$/.test(location.hostname) && location.protocol === 'https:
   });
 }
 
+// Lesemodus: geänderte Schriftgröße/Farben an Sakura melden
+if (/^https?:$/.test(location.protocol)) {
+  document.addEventListener('sakura-reader-prefs', e => { if (typeof e.detail === 'string' && e.detail.length < 200) ipcRenderer.send('reader-prefs', e.detail); });
+}
+
 // Videos: Sakura merkt sich, wo du warst – die Seite kann nur ihre eigene Stelle lesen und schreiben
 if (/^https?:$/.test(location.protocol)) {
   contextBridge.exposeInMainWorld('sakuraVideo', {

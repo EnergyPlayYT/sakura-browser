@@ -26,6 +26,8 @@ const DEFAULT_PREFS = {
   downloadAsk: false,
   cookieReject: true, // Cookie-Banner automatisch ablehnen
   cookieAllow: [],    // Seiten, auf denen Banner nicht abgelehnt werden
+  readerSize: 20,      // Lesemodus: Schriftgröße
+  readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel
   steamInfo: true,     // Spielinfos im Steam-Shop
   twitchEmotes: true,  // 7TV/BTTV/FFZ-Emotes im Twitch-Chat
   twitchPoints: false, // Kanalpunkte-Bonus automatisch abholen (gegen Twitchs Regeln – nur auf Wunsch)

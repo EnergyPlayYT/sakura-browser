@@ -469,3 +469,5 @@ body.streamer #panel .p-item .fav,
 body.streamer .sync-code code,
 body.streamer #s-devices { filter: blur(6px) !important; }
 body.streamer #suggest { display: none !important; }
+#reader-btn { color: var(--usuzumi); }
+#reader-btn.on { color: var(--sakura); }

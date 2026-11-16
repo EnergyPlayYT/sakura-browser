@@ -111,6 +111,15 @@ setTimeout(async()=>{
   { assert.equal((await call('state')).streamer, null);
     assert.equal(await call('streamerToggle'), true); st = await call('state'); assert.deepEqual(st.streamer, {app:null, manual:true});
     assert.equal(await call('streamerToggle'), false); assert.equal((await call('prefs')).streamerMode, 'auto'); }
+  // Lesemodus: Buch-Symbol bei Artikeln, Ein/Aus
+  { st = await call('state'); const rwc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
+    rwc.isoResult = true; rwc.emit('did-stop-loading'); await new Promise(r=>setTimeout(r,20));
+    st = await call('state'); assert.equal(st.readable, true, 'Artikel erkannt → Buch-Symbol');
+    assert.equal(await call('reader'), true); st = await call('state'); assert.equal(st.reader, true);
+    assert(rwc.isolated.some(c=>c.includes('__sakuraReadability')) && rwc.css.some(c=>c.includes('data-sakura-reader')));
+    assert.equal(await call('reader'), false, 'zweites Mal: beenden'); rwc.isoResult = undefined;
+    mock._handlers['on:reader-prefs']({}, JSON.stringify({size:26, theme:'dunkel'})); mock._handlers['on:reader-prefs']({}, '{"size":999,"theme":"<x>"}');
+    const pr = await call('prefs'); assert.equal(pr.readerSize, 26); assert.equal(pr.readerTheme, 'dunkel'); }
   // Seitenüberwachung
   { st = await call('state'); const awc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
     awc.jsResult = { title:'Kopfhörer', price: 59.9, currency:'€', available:true };

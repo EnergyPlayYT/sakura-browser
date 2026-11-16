@@ -33,6 +33,7 @@
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7.5V18h16V9.5h-8L10 7.5z"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6.5v11M15 6.5v11"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 6l10 6-10 6z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5c-2-1.5-5-2-7.5-1.5v13c2.5-.5 5.5 0 7.5 1.5 2-1.5 5-2 7.5-1.5V5c-2.5-.5-5.5 0-7.5 1.5z"/><path d="M12 6.5V19.5"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8.5" cy="12" r="3.5"/><path d="M12 12h8M17 12v3M20 12v2"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="10" height="11" rx="1.5"/><path d="M15.5 8.5V5.5a1 1 0 0 0-1-1h-8a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h2"/></symbol>
@@ -59,6 +60,7 @@
   <form id="omnibox" autocomplete="off">
     <span id="secure" class="lead"><svg><use href="#i-search"/></svg></span>
     <input id="address" spellcheck="false" placeholder="Suchen oder Adresse eingeben">
+    <button type="button" id="reader-btn" class="icon small" hidden title="Lesemodus (F9)"><svg><use href="#i-book"/></svg></button>
     <span id="scripts-ind" hidden title="Eigene Skripte laufen auf dieser Seite"><svg><use href="#i-code"/></svg></span>
     <span id="zoom" hidden></span>
     <button type="button" id="star" class="icon small" title="Lesezeichen setzen (Strg+D)"><svg><use href="#i-star"/></svg></button>
@@ -118,6 +120,7 @@
   <button data-panel-pop="media">Video und Ton …</button>
   <button data-cmd="openMultistream">Twitch-Multistream …</button>
   <button data-cmd="floatVideo">Video schweben lassen<kbd>Strg+Alt+P</kbd></button>
+  <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
   <button data-cmd="translate">Seite übersetzen</button>
   <button data-cmd="watchPage">Seite überwachen</button>
   <button data-cmd="streamerToggle" id="menu-streamer">Streamer-Modus einschalten</button>
