@@ -15,6 +15,14 @@ if (/(^|\.)youtube\.com$/.test(location.hostname) && location.protocol === 'http
   });
 }
 
+// Videos: Sakura merkt sich, wo du warst – die Seite kann nur ihre eigene Stelle lesen und schreiben
+if (/^https?:$/.test(location.protocol)) {
+  contextBridge.exposeInMainWorld('sakuraVideo', {
+    get: () => ipcRenderer.invoke('video-pos', 'get'),
+    set: (t, d) => ipcRenderer.invoke('video-pos', 'set', { t: t == null ? null : Number(t), d: Number(d) || 0 })
+  });
+}
+
 // Chrome Web Store: „Zu Chrome hinzufügen“ wird zu „Zu Sakura hinzufügen“
 if (location.hostname === 'chromewebstore.google.com') {
   const ID_RE = /\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/;

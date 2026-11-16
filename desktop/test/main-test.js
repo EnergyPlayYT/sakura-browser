@@ -62,6 +62,13 @@ setTimeout(async()=>{
   await call('setPrefs',{theme:'<x>',accent:'rot'}); assert.equal((await call('prefs')).theme,'neon');
   await call('setPrefs',{theme:'sakura',accent:''});
   assert(await call('devices'));
+  // Videostellen: Schlüssel ist die eigene Adresse (ohne Zeitangabe), privat wird nichts gemerkt
+  { const vp = mock._handlers['video-pos']; const ghTab = mock._all.find(w=>w.url==='https://github.com');
+    await vp({sender:ghTab, senderFrame:{url:'https://github.com/?t=99#x'}}, 'set', {t:321, d:1200});
+    assert.deepEqual(await vp({sender:ghTab, senderFrame:{url:'https://github.com/'}}, 'get'), {t:321, d:1200});
+    assert.equal(await vp({sender:ghTab, senderFrame:{url:'https://andere.de/'}}, 'get'), null);
+    assert.equal(await vp({sender:{}, senderFrame:{url:'https://github.com/'}}, 'get'), null, 'fremder Absender');
+    ghTab.executed=[]; ghTab.emit('dom-ready'); assert(ghTab.executed.some(c=>c.includes('__sakuraVideoConfig = {"resume":true,"intro":true,"next":true}')), 'Video-Skript läuft'); }
   // Schwebendes Video
   { st = await call('state'); const act = st.activeId; const awc = mock._all.find(x=>x.view && ui && x.url===st.url && !x.destroyed);
     const win0 = mock._all.length; awc.jsResult = true;

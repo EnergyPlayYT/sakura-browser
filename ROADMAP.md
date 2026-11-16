@@ -25,7 +25,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Schwebendes Video über allem (always-on-top, optional durchklickbar), Medientasten.
 
 ## Etappe 3 – Video und Serien
-- [ ] Weiterschauen, wo man war (auf jeder Seite), Intro überspringen, nächste Folge automatisch.
+- [x] Weiterschauen, wo man war (auf jeder Seite), Intro überspringen, nächste Folge automatisch.
 - [ ] Sleep-Timer (30 Min. / Ende der Folge), Kino-Modus, Helligkeit, Bass/Dialog-Verstärker, Equalizer pro Seite.
 - [ ] Popup-Blocker gegen Werbefenster und Klickfallen.
 

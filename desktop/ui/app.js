@@ -828,6 +828,13 @@ async function renderSettings() {
     <p>Sponsor-Abschnitte kommen von der freien SponsorBlock-Datenbank. Dabei wird nur ein Teil eines verschlüsselten Werts gesendet, nicht welches Video du schaust.</p>
   </section>
   <section class="set">
+    <h3>Videos und Serien</h3>
+    <label class="switch"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
+    <label class="switch"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
+    <label class="switch"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
+    <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
+  </section>
+  <section class="set">
     <h3>Cookie-Banner</h3>
     <label class="switch"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
     <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Ausnahmen setzt du über das Schild in der Adressleiste.</p>
@@ -888,6 +895,9 @@ async function renderSettings() {
   $('#yt-on').onchange = e => api.call('setPrefs', { youtube: e.target.checked });
   $('#yt-sb').onchange = e => api.call('setPrefs', { ytSponsor: e.target.checked });
   $('#yt-q').onchange = e => api.call('setPrefs', { ytQuality: e.target.value });
+  $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
+  $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
+  $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });

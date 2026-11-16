@@ -377,9 +377,9 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { runCookieReject(wc); runYouTube(wc); runUserScripts(wc); });
-    // Zustimmungs-Banner stecken oft in eingebetteten Rahmen
-    wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) runCookieReject(wc, pid, rid); });
+    wc.on('dom-ready', () => { runCookieReject(wc); runYouTube(wc); runVideoHelper(wc); runUserScripts(wc); });
+    // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
+    wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
       if (!isMain || code === -3 || failedUrl.startsWith('sakura:')) return; // -3 = abgebrochen
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
@@ -861,6 +861,31 @@ function runCookieReject(wc, pid, rid) {
     const target = pid != null && webFrameMain ? webFrameMain.fromId(pid, rid) : wc;
     if (target) target.executeJavaScript(cookieScript, false).catch(() => {});
   } catch { /* Rahmen schon weg */ }
+}
+
+// Videos und Serien: weiterschauen, Intro überspringen, nächste Folge (assets/video.js)
+let videoScript = null;
+function runVideoHelper(wc, pid, rid) {
+  const p = store.prefs();
+  if (wc.isDestroyed() || (p.videoResume === false && p.skipIntro === false && p.autoNext === false)) return;
+  if (!/^https?:/i.test(wc.getURL())) return;
+  if (videoScript == null) { try { videoScript = fs.readFileSync(path.join(__dirname, 'assets', 'video.js'), 'utf8'); } catch { videoScript = ''; } }
+  if (!videoScript) return;
+  const cfg = JSON.stringify({ resume: p.videoResume !== false, intro: p.skipIntro !== false, next: p.autoNext !== false });
+  try {
+    const target = pid != null && webFrameMain ? webFrameMain.fromId(pid, rid) : wc;
+    if (target) target.executeJavaScript(`window.__sakuraVideoConfig = ${cfg};\n${videoScript}`, false).catch(() => {});
+  } catch { /* Rahmen schon weg */ }
+}
+/** Schlüssel für die gemerkte Videostelle: Adresse ohne Sprungmarke und ohne Zeit-Angaben */
+function videoKey(url) {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol)) return null;
+    u.hash = '';
+    for (const k of ['t', 'start', 'time_continue', 'si', 'pp']) u.searchParams.delete(k);
+    return u.toString();
+  } catch { return null; }
 }
 
 // YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js)
@@ -1533,6 +1558,15 @@ app.whenReady().then(async () => {
   ipcMain.handle('yt-segments', async (e, id) => {
     if (!SB.isYouTube(e.senderFrame ? e.senderFrame.url : '') || store.prefs().youtube === false || store.prefs().ytSponsor === false) return [];
     return sponsorBlock.segments(id);
+  });
+  // Videostellen: jede Seite kann nur ihre eigene Adresse lesen und schreiben; privat wird nichts gemerkt
+  ipcMain.handle('video-pos', async (e, cmd, arg) => {
+    const key = videoKey(e.senderFrame ? e.senderFrame.url : '');
+    const w = [...windows].find(x => x.tabs.some(t => t.view.webContents === e.sender));
+    if (!key || !w || w.isPrivate || store.prefs().videoResume === false) return null;
+    if (cmd === 'get') return store.videoPos(key);
+    if (cmd === 'set') store.setVideoPos(key, arg && arg.t, arg && arg.d);
+    return null;
   });
   ipcMain.handle('page', async (e, cmd, arg) => {
     const fn = pageCommands[cmd];

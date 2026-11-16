@@ -466,6 +466,24 @@ class MainActivity : ComponentActivity() {
                 "window.__sakuraYTConfig = $cfg;\n$ytScript", null)
     }
 
+    // ---------- Videos und Serien: weiterschauen, Intro überspringen, nächste Folge (assets/video.js, wie am PC)
+    private val videoScript: String by lazy {
+        try { assets.open("video.js").bufferedReader().use { it.readText() } } catch (_: Exception) { "" }
+    }
+
+    private fun runVideoHelper(view: WebView, url: String) {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return
+        val p = store.prefs()
+        val resume = p.optBoolean("videoResume", true)
+        val intro = p.optBoolean("skipIntro", true)
+        val next = p.optBoolean("autoNext", true)
+        if ((!resume && !intro && !next) || videoScript.isEmpty()) return
+        // Private Tabs merken sich keine Stellen
+        val priv = tabs.firstOrNull { it.web === view }?.isPrivate == true
+        val cfg = JSONObject().put("resume", resume && !priv).put("intro", intro).put("next", next)
+        view.evaluateJavascript("window.__sakuraVideoConfig = $cfg;\n$videoScript", null)
+    }
+
     // ---------- Eigene Skripte
     private fun runUserScripts(view: WebView, url: String) {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
@@ -592,6 +610,7 @@ class MainActivity : ComponentActivity() {
         override fun onPageFinished(view: WebView, url: String) {
             runCookieReject(view, url)
             runYouTube(view, url)
+            runVideoHelper(view, url)
             runUserScripts(view, url)
             tab.progress = 100
             view.title?.let { if (it.isNotBlank()) tab.title = it }

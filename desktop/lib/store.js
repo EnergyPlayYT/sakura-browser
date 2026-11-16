@@ -241,6 +241,21 @@ class Store extends EventEmitter {
     return out;
   }
 
+  // ---------- Gemerkte Videostellen (nur lokal) ----------
+  videoPos(key) {
+    const v = (this.data.videoPos || {})[key];
+    return v ? { t: v.t, d: v.d } : null;
+  }
+  setVideoPos(key, t, d) {
+    if (!this.data.videoPos || typeof this.data.videoPos !== 'object') this.data.videoPos = {};
+    const all = this.data.videoPos;
+    if (t == null || !(Number(t) >= 0)) delete all[key];
+    else all[key] = { t: Math.floor(Number(t)), d: Math.round(Number(d) || 0), at: Date.now() };
+    const keys = Object.keys(all);
+    if (keys.length > 500) keys.sort((a, b) => all[a].at - all[b].at).slice(0, keys.length - 500).forEach(k => delete all[k]);
+    this.save();
+  }
+
   // ---------- Einstellungen ----------
   prefs() { return this.data.prefs; }
   setPrefs(patch) {

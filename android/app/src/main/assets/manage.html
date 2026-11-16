@@ -305,6 +305,12 @@ async function settings() {
       .map(([v, l]) => `<option value="${v}"${(p.ytQuality || 'hd1080') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
   </section>
   <section>
+    <h2>Videos und Serien</h2>
+    <label class="sw"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
+    <label class="sw"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
+    <label class="sw"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
+  </section>
+  <section>
     <h2>Cookie-Banner</h2>
     <label class="sw"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
     <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Eine Ausnahme setzt du über das Schild.</p>
@@ -359,6 +365,9 @@ async function settings() {
   $('#yt-on').onchange = e => api.call('setPrefs', { youtube: e.target.checked });
   $('#yt-sb').onchange = e => api.call('setPrefs', { ytSponsor: e.target.checked });
   $('#yt-q').onchange = e => api.call('setPrefs', { ytQuality: e.target.value });
+  $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
+  $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
+  $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => host(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });
