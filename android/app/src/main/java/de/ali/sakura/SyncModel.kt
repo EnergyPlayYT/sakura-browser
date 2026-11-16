@@ -38,6 +38,7 @@ object SyncModel {
         .put("sleepAfter", 30)
         .put("ramLimit", 0)
         .put("cpuLimit", 0)
+        .put("containerNames", JSONArray())
         .put("passwordSave", true)
         .put("passwordFill", true)
         .put("popupBlock", true)

@@ -135,6 +135,20 @@ function prepareSession(ses, isPrivate) {
   });
 }
 
+// ---------------------------------------------------------------- Konto-Tabs
+// Bis zu 5 getrennte Konten gleichzeitig: jeder Konto-Tab hat eine eigene, dauerhafte Sitzung.
+const CONTAINERS = 5;
+const CONTAINER_COLORS = ['sakura', 'sora', 'matcha', 'yamabuki', 'fuji'];
+function containerSession(n) {
+  const ses = session.fromPartition('persist:sakura-konto-' + n);
+  prepareSession(ses, false);
+  return ses;
+}
+function containerName(n) {
+  const names = store.prefs().containerNames || [];
+  return String(names[n - 1] || '').trim().slice(0, 30) || 'Konto ' + n;
+}
+
 // ---------------------------------------------------------------- Fenster
 class SakuraWindow {
   constructor({ isPrivate = false, url, restore, adopt, bounds, ses } = {}) {
@@ -190,7 +204,7 @@ class SakuraWindow {
       }
       const gid = old => { for (const g of this.groups.values()) if (g.old === old) return g.id; return null; };
       this.restoring = true;
-      restore.tabs.forEach((t, i) => this.newTab(t.url, { background: true, lazy: i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null }));
+      restore.tabs.forEach((t, i) => this.newTab(t.url, { background: true, lazy: i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null, container: t.container }));
       for (const g of this.groups.values()) delete g.old;
       this.restoring = false;
       this.normalize();
@@ -318,11 +332,14 @@ class SakuraWindow {
     }
   }
 
-  newTab(url, { background = false, index, lazy = false, title, pinned = false, group = null } = {}) {
+  newTab(url, { background = false, index, lazy = false, title, pinned = false, group = null, container = null } = {}) {
     const id = ++tabCounter;
+    // Konto-Tab: eigene, dauerhafte Sitzung (eigene Cookies und Anmeldungen) – nicht in privaten Fenstern
+    const box = !this.isPrivate && Number.isInteger(container) && container >= 1 && container <= CONTAINERS ? container : null;
+    const tabSes = box ? containerSession(box) : this.ses;
     const view = new WebContentsView({
       webPreferences: {
-        session: this.ses, preload: path.join(__dirname, 'preload-page.js'),
+        session: tabSes, preload: path.join(__dirname, 'preload-page.js'),
         contextIsolation: true, sandbox: true, spellcheck: true
       }
     });
@@ -332,6 +349,7 @@ class SakuraWindow {
     const setBg = u => view.setBackgroundColor(String(u || '').startsWith('sakura:') ? (isPriv ? BG.private : theme().colors.yoru) : '#FFFFFF');
     setBg(url || NEWTAB);
     const tab = {
+      container: box,
       id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null,
       loading: false, audible: false, muted: false, pinned: !!pinned, pending: lazy ? (url || NEWTAB) : null,
       group: !pinned && group && this.groups.has(group) ? group : null,
@@ -355,7 +373,7 @@ class SakuraWindow {
         return { action: 'deny' };
       }
       const at = tab.w.tabs.indexOf(tab) + 1;
-      tab.w.newTab(u, { background: disposition === 'background-tab', index: at, group: tab.group });
+      tab.w.newTab(u, { background: disposition === 'background-tab', index: at, group: tab.group, container: tab.container });
       return { action: 'deny' };
     });
     const upd = () => tab.w.sendState();
@@ -631,6 +649,7 @@ class SakuraWindow {
         loading: t.loading, audible: t.audible, muted: t.muted, pinned: t.pinned, group: t.group,
         newtab: (t.pending || t.url).startsWith('sakura://newtab'),
         floating: !!t.floating,
+        container: t.container ? { n: t.container, name: containerName(t.container), color: CONTAINER_COLORS[t.container - 1] } : null,
         sleeping: !!t.pending && t.id !== this.activeId
       })),
       url: realUrl,
@@ -737,7 +756,14 @@ class SakuraWindow {
       { label: 'Neuer Tab rechts', click: () => this.newTab(NEWTAB, { index: i + 1 }) },
       { type: 'separator' },
       { label: 'Neu laden', click: () => t.view.webContents.reload() },
-      { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) },
+      { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1, container: t.container }) },
+      ...(this.isPrivate ? [] : [{
+        label: 'In Konto-Tab öffnen',
+        submenu: [...Array(CONTAINERS)].map((_, k) => ({
+          label: containerName(k + 1), type: 'radio', checked: t.container === k + 1,
+          click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1, container: k + 1 })
+        })).concat(t.container ? [{ type: 'separator' }, { label: 'Als normalen Tab öffnen', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) }] : [])
+      }]),
       { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
       { label: t.floating ? 'Video zurück in den Tab' : 'Video schweben lassen', accelerator: 'CmdOrCtrl+Alt+P', click: () => t.floating ? unfloat() : floatVideo(this, id) },
@@ -1250,7 +1276,7 @@ let lastSession = '';
 function saveSession() {
   const snap = [...windows].filter(w => !w.isPrivate && !w.win.isDestroyed()).map(w => ({
     active: Math.max(0, w.tabs.findIndex(t => t.id === w.activeId)),
-    tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined })),
+    tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined })),
     groups: [...w.groups.values()]
   })).filter(x => x.tabs.length);
   if (!snap.length) return;
@@ -1603,6 +1629,22 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  // Konto-Tabs
+  containers: () => [...Array(CONTAINERS)].map((_, k) => ({ n: k + 1, name: containerName(k + 1), color: CONTAINER_COLORS[k] })),
+  containerMenu: w => {
+    if (w.isPrivate) return;
+    Menu.buildFromTemplate([
+      { label: 'Neuer Konto-Tab', enabled: false },
+      ...[...Array(CONTAINERS)].map((_, k) => ({ label: containerName(k + 1), click: () => uiCommands.newContainerTab(w, k + 1) }))
+    ]).popup();
+  },
+  newContainerTab: (w, n) => { if (!w.isPrivate) w.newTab(NEWTAB, { container: Number(n), index: w.tabs.indexOf(w.active) + 1 }); },
+  clearContainer: async (w, n) => {
+    n = Number(n);
+    if (!(n >= 1 && n <= CONTAINERS)) return false;
+    await session.fromPartition('persist:sakura-konto-' + n).clearStorageData().catch(() => {});
+    return true;
+  },
   // Leistung
   perf: w => perfInfo(w),
   sleepTab: (w, id) => { const f = findTab(id); return f ? f.w.sleepTab(id) : false; },

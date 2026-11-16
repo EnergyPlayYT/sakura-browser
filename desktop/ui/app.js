@@ -219,9 +219,10 @@ function renderTabs() {
     el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
+    if (t.container) { el.classList.add('konto'); el.style.setProperty('--kc', `var(--g-${t.container.color})`); }
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', t.id === S.activeId);
-    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '');
+    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '') + (t.container ? ` – Konto-Tab „${t.container.name}“` : '');
     el.draggable = true;
     el.dataset.id = t.id;
     let fav;
@@ -323,6 +324,7 @@ api.on('edit-group', id => { pendingGroupEdit = id; });
 window.addEventListener('resize', renderTabs);
 $('#tabbar .drag-fill').addEventListener('dblclick', () => api.call('newTab'));
 $('#newtab').onclick = () => { api.call('newTab'); focusAddress(); };
+$('#newtab').addEventListener('contextmenu', e => { e.preventDefault(); api.call('containerMenu'); });
 
 // ------------------------------------------------------------ Werkzeugleiste
 $('#back').onclick = () => api.call('back');
@@ -846,6 +848,11 @@ async function renderSettings() {
     <label class="switch"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
     <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
   </section>
+  <section class="set" id="konto-section">
+    <h3>Konto-Tabs</h3>
+    <p>Bis zu fünf Konten gleichzeitig, z. B. zwei Google-Konten: Jeder Konto-Tab hat eigene Cookies und Anmeldungen. Öffnen per Rechtsklick auf einen Tab oder auf das Plus.</p>
+    <div class="konto-list"></div>
+  </section>
   <section class="set">
     <h3>Passwörter</h3>
     <label class="switch"><input type="checkbox" id="pw-save"${p.passwordSave !== false ? ' checked' : ''}><span>Anbieten, Passwörter zu speichern</span></label>
@@ -924,6 +931,7 @@ async function renderSettings() {
   $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
+  bindContainers(p);
   $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
   $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
   $('#pw-open').onclick = () => openPanel('passwords');
@@ -967,6 +975,24 @@ function bindDesign(p) {
     $('#accent-reset').hidden = true;
     api.call('setPrefs', { accent: '' });
   };
+}
+
+async function bindContainers(p) {
+  const box = $('#konto-section .konto-list');
+  if (!box) return;
+  const list = (await api.call('containers')) || [];
+  box.innerHTML = list.map(c => `<div class="konto-row" style="--kc:var(--g-${esc(c.color)})"><i></i>
+      <input data-n="${c.n}" value="${esc((p.containerNames || [])[c.n - 1] || '')}" placeholder="${esc('Konto ' + c.n)}" maxlength="30" spellcheck="false" aria-label="Name von Konto ${c.n}">
+      <button class="btn" data-clear="${c.n}" title="Abmelden: Cookies und Anmeldungen dieses Kontos löschen">Daten löschen</button></div>`).join('');
+  box.querySelectorAll('input[data-n]').forEach(inp => inp.onchange = () => {
+    const names = [...box.querySelectorAll('input[data-n]')].map(x => x.value.trim().slice(0, 30));
+    api.call('setPrefs', { containerNames: names });
+  });
+  box.querySelectorAll('[data-clear]').forEach(b => b.onclick = async () => {
+    if (!confirm('Alle Cookies und Anmeldungen dieses Kontos löschen?')) return;
+    await api.call('clearContainer', Number(b.dataset.clear));
+    b.textContent = 'Gelöscht'; b.disabled = true;
+  });
 }
 
 async function bindImport() {

@@ -443,3 +443,11 @@ input[type=range] { accent-color: var(--sakura); }
 .p-item.pw .leak { font: 600 10px var(--gothic); color: var(--fukai); background: var(--err); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
 .p-item.pw .icon.done { color: var(--sakura); }
 .pw-hint { color: var(--usuzumi); font-size: 12px; margin-top: 12px; }
+
+/* ---------------- Konto-Tabs ---------------- */
+.tab.konto { box-shadow: inset 0 -2px 0 var(--kc); }
+.tab.konto .fav { box-shadow: 0 0 0 1.5px var(--kc); border-radius: 50%; }
+.konto-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.konto-row i { width: 12px; height: 12px; border-radius: 50%; background: var(--kc); flex: none; }
+.konto-row input { flex: 1; min-width: 0; height: 30px; border: 0; outline: 0; border-radius: 8px; padding: 0 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--line); user-select: text; }
+.konto-row input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }

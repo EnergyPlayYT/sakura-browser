@@ -84,6 +84,17 @@ setTimeout(async()=>{
     assert.equal(opener.openHandler({url:'https://werbung.example/2', disposition:'foreground-tab', features:''}).action, 'deny'); // geht als Tab auf
     st = await call('state'); assert.equal(st.tabs.length, n0+3, 'Ausnahme: erlaubt'); await call('togglePopupAllow');
   }
+  // Konto-Tabs: eigene Sitzung, Links bleiben im Konto, Name und Neustart
+  { const parts=[]; const origFP = mock.session.fromPartition; mock.session.fromPartition = p => { parts.push(p); return origFP(p); };
+    await call('newContainerTab', 2); await new Promise(r=>setTimeout(r,20));
+    st = await call('state'); const kt = st.tabs.find(t=>t.id===st.activeId);
+    assert.deepEqual(kt.container, {n:2, name:'Konto 2', color:'sora'}); assert(parts.includes('persist:sakura-konto-2'));
+    await call('setPrefs',{containerNames:['','Arbeit']}); st = await call('state'); assert.equal(st.tabs.find(t=>t.id===kt.id).container.name, 'Arbeit');
+    const kwc = mock._all.filter(w=>w.view && w.view.opts && w.view.opts.webPreferences && w.view.opts.webPreferences.preload).pop();
+    kwc.emit('input-event',{}, {type:'mouseDown'}); kwc.url='https://mail.example/'; kwc.openHandler({url:'https://mail.example/2', disposition:'foreground-tab'}); await new Promise(r=>setTimeout(r,20));
+    st = await call('state'); assert.equal(st.tabs.find(t=>t.id===st.activeId).container.n, 2, 'Link bleibt im Konto-Tab');
+    mock.session.fromPartition = origFP; await call('setPrefs',{containerNames:[]});
+    assert.equal(await call('clearContainer', 9), false); }
   // Passwortmanager
   { const pwc = mock._all.find(w=>w.url==='https://github.com'); const fr={url:'https://github.com/login'};
     const orig = mock.dialog.showMessageBox; let asked = 0; mock.dialog.showMessageBox = async () => { asked++; return { response: 0 }; };
@@ -160,7 +171,8 @@ setTimeout(async()=>{
   await new Promise(r=>setTimeout(r,30));
   mock.app.emit('before-quit');
   const data = JSON.parse(fs.readFileSync(path.join(mock.app.getPath('userData'),'sakura-data.json'),'utf8'));
-  assert(data.session && data.session.length===1, 'nur das normale Fenster wird gemerkt'); assert(data.session[0].tabs.some(t=>t.url==='https://github.com'));
+  assert(data.session && data.session.length===1, 'nur das normale Fenster wird gemerkt');
+  assert(data.session[0].tabs.some(t=>t.container===2), 'Konto-Tabs werden gemerkt'); assert(data.session[0].tabs.some(t=>t.url==='https://github.com'));
   console.log('main.js Rauchtest bestanden');
   process.exit(0);
 },50);
