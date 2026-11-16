@@ -22,7 +22,7 @@ android/            Android-App (Kotlin, ein Activity, WebView) – app/src/main
   app/src/main/assets  newtab.html (Kopie aus desktop/pages!), manage.html (Lesezeichen/Verlauf/Skripte/Einstellungen), error.html, blocklist.txt
 .github/workflows/  release.yml (baut + veröffentlicht), security-update.yml (wöchentlich Electron-Patches)
 sync-server/        Sakura-Sync-Dienst (Netlify Function + Blobs) für den Abgleich per Sync-Code – speichert nur Verschlüsseltes;
-                    Netlify baut ihn aus diesem Ordner (Projekt „sakura-sync“, Basisverzeichnis sync-server)
+                    läuft auf https://sakura-sync.netlify.app; nach Änderungen von Hand neu hochladen (siehe sync-server/LIESMICH.md)
 firebase/           firestore.rules (alternativer Abgleich über ein eigenes Firebase-Projekt)
 ```
 
