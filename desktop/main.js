@@ -941,7 +941,7 @@ function tabOfSender(sender) {
 const pwPrompting = new Set();
 async function offerSavePassword(sender, url, d) {
   const f = tabOfSender(sender);
-  if (!f || f.w.isPrivate || store.prefs().passwordSave === false || !vault.available || vault.isNever(url)) return;
+  if (!f || f.w.isPrivate || store.prefs().passwordManager === false || store.prefs().passwordSave === false || !vault.available || vault.isNever(url)) return;
   if (!d || typeof d.password !== 'string' || !d.password) return;
   const st = vault.check(url, d.username, d.password);
   if (!st || st === 'same' || pwPrompting.has(f.t.id)) return;
@@ -1571,7 +1571,8 @@ const uiCommands = {
   updateCheck: () => updater.check(),
   updateInstall: () => { saveSession(); quitting = true; store.flush(); updater.installNow(); },
   // Passwörter (Verwaltung)
-  pwList: () => ({ available: !!(vault && vault.available), broken: !!(vault && vault.broken), entries: vault && vault.available ? vault.list() : [] }),
+  pwClear: () => { vault.clear(); return true; },
+  pwList: () => ({ enabled: store.prefs().passwordManager !== false, available: !!(vault && vault.available), broken: !!(vault && vault.broken), entries: vault && vault.available ? vault.list() : [] }),
   pwReveal: (w, id) => { const e = vault.reveal(String(id)); return e ? e.password : null; },
   pwCopy: (w, id) => {
     const e = vault.reveal(String(id));
@@ -1888,13 +1889,13 @@ app.whenReady().then(async () => {
   ipcMain.on('pw-submit', (e, d) => offerSavePassword(e.sender, e.senderFrame ? e.senderFrame.url : '', d));
   ipcMain.handle('pw-accounts', e => {
     // Im Streamer-Modus keine Benutzernamen unter Anmeldefeldern einblenden
-    if (store.prefs().passwordFill === false || streamerActive() || !tabOfSender(e.sender)) return [];
+    if (store.prefs().passwordManager === false || store.prefs().passwordFill === false || streamerActive() || !tabOfSender(e.sender)) return [];
     return vault.available ? vault.accountsFor(e.senderFrame ? e.senderFrame.url : '') : [];
   });
   ipcMain.handle('pw-fill', (e, id) => {
     const f = tabOfSender(e.sender);
     // Nur direkt nach einem echten Klick – eine Seite kann Passwörter nicht selbst abrufen
-    if (!f || !(f.t.lastInput && Date.now() - f.t.lastInput < 3000) || !vault.available) return null;
+    if (!f || store.prefs().passwordManager === false || !(f.t.lastInput && Date.now() - f.t.lastInput < 3000) || !vault.available) return null;
     const entry = vault.reveal(String(id), e.senderFrame ? e.senderFrame.url : '');
     if (!entry) return null;
     vault.used(entry.id);

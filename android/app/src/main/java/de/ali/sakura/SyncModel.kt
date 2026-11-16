@@ -41,6 +41,7 @@ object SyncModel {
         .put("streamerMode", "auto")
         .put("watchHours", 3)
         .put("containerNames", JSONArray())
+        .put("passwordManager", true)
         .put("passwordSave", true)
         .put("passwordFill", true)
         .put("popupBlock", true)

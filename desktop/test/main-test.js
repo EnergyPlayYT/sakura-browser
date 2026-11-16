@@ -122,7 +122,16 @@ setTimeout(async()=>{
     const list = await call('pwList'); assert(list.available && list.entries.length===1 && !('password' in list.entries[0]));
     assert.equal(await call('pwReveal', acc[0].id), 'geheim');
     const raw = fs.readFileSync(path.join(mock.app.getPath('userData'),'passwoerter.bin'),'utf8'); assert(!raw.includes('geheim'));
-    await call('pwDelete', acc[0].id); assert.equal((await call('pwList')).entries.length, 0); }
+    // Ausgeschaltet: keine Konten, kein Ausfüllen, keine Frage – gespeicherte Passwörter bleiben
+    await call('setPrefs',{passwordManager:false});
+    assert.deepEqual(await mock._handlers['pw-accounts']({sender:pwc, senderFrame:fr}), []);
+    pwc.emit('input-event', {}, {type:'mouseDown'}); assert.equal(await mock._handlers['pw-fill']({sender:pwc, senderFrame:fr}, acc[0].id), null);
+    let asked2 = 0; mock.dialog.showMessageBox = async () => { asked2++; return { response: 0 }; };
+    mock._handlers['on:pw-submit']({sender:pwc, senderFrame:fr}, {username:'neu', password:'x'}); await new Promise(r=>setTimeout(r,20));
+    assert.equal(asked2, 0); mock.dialog.showMessageBox = orig;
+    const off = await call('pwList'); assert.equal(off.enabled, false); assert.equal(off.entries.length, 1);
+    await call('setPrefs',{passwordManager:true});
+    await call('pwClear'); assert.equal((await call('pwList')).entries.length, 0); }
   // Video und Ton
   { await call('navigate','https://kino.example/film'); await new Promise(r=>setTimeout(r,30));
     const kwc = mock._all.find(w=>w.url==='https://kino.example/film'); kwc.jsResult = { hasVideo:true, notes:[] };

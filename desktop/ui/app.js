@@ -871,8 +871,9 @@ async function renderSettings() {
   </section>
   <section class="set">
     <h3>Passwörter</h3>
-    <label class="switch"><input type="checkbox" id="pw-save"${p.passwordSave !== false ? ' checked' : ''}><span>Anbieten, Passwörter zu speichern</span></label>
-    <label class="switch"><input type="checkbox" id="pw-fill"${p.passwordFill !== false ? ' checked' : ''}><span>Gespeicherte Konten beim Klick ins Anmeldefeld anbieten</span></label>
+    <label class="switch"><input type="checkbox" id="pw-on"${p.passwordManager !== false ? ' checked' : ''}><span>Passwortmanager verwenden</span></label>
+    <label class="switch"><input type="checkbox" id="pw-save"${p.passwordSave !== false ? ' checked' : ''}${p.passwordManager === false ? ' disabled' : ''}><span>Anbieten, Passwörter zu speichern</span></label>
+    <label class="switch"><input type="checkbox" id="pw-fill"${p.passwordFill !== false ? ' checked' : ''}${p.passwordManager === false ? ' disabled' : ''}><span>Gespeicherte Konten beim Klick ins Anmeldefeld anbieten</span></label>
     <div class="row"><button class="btn" id="pw-open">Passwörter verwalten</button></div>
   </section>
   <section class="set">
@@ -950,6 +951,10 @@ async function renderSettings() {
   bindContainers(p);
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
+  $('#pw-on').onchange = e => {
+    api.call('setPrefs', { passwordManager: e.target.checked });
+    $('#pw-save').disabled = $('#pw-fill').disabled = !e.target.checked;
+  };
   $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
   $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
   $('#pw-open').onclick = () => openPanel('passwords');
@@ -1074,6 +1079,13 @@ async function renderPasswords(filter = '', note = null) {
   const q = filter.toLowerCase();
   const list = d.entries.filter(e => !q || e.host.toLowerCase().includes(q) || e.username.toLowerCase().includes(q));
   const leaked = d.entries.filter(e => e.leaked).length;
+  if (!d.enabled) {
+    body.innerHTML = `<p class="p-empty">Der Passwortmanager ist ausgeschaltet. Sakura fragt nicht nach dem Speichern und füllt nichts aus.${d.entries.length ? ' Deine gespeicherten Passwörter sind noch da.' : ''}</p>
+      <div class="row"><button class="btn primary" id="pw-enable">Einschalten</button>${d.entries.length ? '<button class="btn danger" id="pw-clear">Alle Passwörter löschen</button>' : ''}</div>`;
+    $('#pw-enable').onclick = async () => { await api.call('setPrefs', { passwordManager: true }); renderPasswords(); };
+    if ($('#pw-clear')) $('#pw-clear').onclick = async () => { if (confirm('Alle gespeicherten Passwörter endgültig löschen?')) { await api.call('pwClear'); renderPasswords(); } };
+    return;
+  }
   body.innerHTML = !d.available
     ? `<p class="p-empty">${d.broken ? 'Die gespeicherten Passwörter gehören zu einem anderen Windows-Konto und lassen sich hier nicht öffnen.' : 'Der sichere Speicher ist auf diesem System nicht verfügbar – Passwörter werden deshalb nicht gespeichert.'}</p>`
     : `<input class="p-search" placeholder="Passwörter durchsuchen" value="${esc(filter)}">
@@ -1089,10 +1101,13 @@ async function renderPasswords(filter = '', note = null) {
         <button class="icon small" data-act="edit" title="Bearbeiten"><svg><use href="#i-edit"/></svg></button>
         <button class="icon small" data-act="del" title="Löschen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
       : `<p class="p-empty">${d.entries.length ? 'Keine Treffer.' : 'Noch keine Passwörter. Melde dich auf einer Seite an – Sakura fragt dann, ob es das Passwort speichern soll. Oder importiere sie aus Chrome, Edge oder Firefox.'}</p>`}
-    <p class="pw-hint">Deine Passwörter sind mit deinem Windows-Konto verschlüsselt und bleiben auf diesem PC.</p>`;
+    <p class="pw-hint">Deine Passwörter sind mit deinem Windows-Konto verschlüsselt und bleiben auf diesem PC.</p>
+    <div class="row"><button class="btn" id="pw-off">Passwortmanager ausschalten</button>${d.entries.length ? '<button class="btn danger" id="pw-clear">Alle Passwörter löschen</button>' : ''}</div>`;
   if (!d.available) return;
   const s = body.querySelector('.p-search');
   s.oninput = () => { const pos = s.selectionStart; renderPasswords(s.value).then(() => { const n = $('#panel-body .p-search'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); };
+  $('#pw-off').onclick = async () => { await api.call('setPrefs', { passwordManager: false }); renderPasswords(); };
+  if ($('#pw-clear')) $('#pw-clear').onclick = async () => { if (confirm('Alle gespeicherten Passwörter endgültig löschen?')) { await api.call('pwClear'); renderPasswords(s.value); } };
   $('#pw-import').onclick = async () => { const r = await api.call('pwImport'); if (r) renderPasswords(s.value, r); };
   $('#pw-check').onclick = async () => {
     $('#pw-check').disabled = true; $('#pw-check').textContent = 'Prüfe …';

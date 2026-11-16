@@ -122,6 +122,9 @@ class Vault {
     this.save();
   }
 
+  /** Alle gespeicherten Passwörter löschen (die Liste „Nie speichern“ bleibt) */
+  clear() { this.load(); this.entries = []; this.save(); }
+
   remove(id) { this.load(); this.entries = this.entries.filter(e => e.id !== id); this.save(); }
   used(id) { this.load(); const e = this.entries.find(x => x.id === id); if (e) { e.lastUsed = Date.now(); this.save(); } }
 

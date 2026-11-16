@@ -35,6 +35,7 @@ const DEFAULT_PREFS = {
   streamerMode: 'auto', // Streamer-Modus: 'auto' (wenn OBS läuft) | 'on' | 'off'
   watchHours: 3,      // überwachte Seiten alle … Stunden prüfen
   containerNames: [], // Namen der Konto-Tabs (leer = „Konto 1“ …)
+  passwordManager: true, // Passwortmanager insgesamt an/aus
   passwordSave: true, // anbieten, Passwörter zu speichern
   passwordFill: true, // gespeicherte Konten beim Klick ins Anmeldefeld anbieten
   popupBlock: true,   // Werbefenster und Klickfallen blockieren
