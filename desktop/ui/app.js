@@ -63,7 +63,8 @@ function render() {
   $('#star').title = S.bookmarked ? 'Lesezeichen entfernen (Strg+D)' : 'Lesezeichen setzen (Strg+D)';
   const shieldOff = !S.adblock || S.allowed;
   $('#shield').classList.toggle('off', shieldOff);
-  $('#blocked').textContent = !shieldOff && S.blocked ? (S.blocked > 99 ? '99+' : S.blocked) : '';
+  const nBlocked = (S.blocked || 0) + (S.popups || 0);
+  $('#blocked').textContent = !shieldOff && nBlocked ? (nBlocked > 99 ? '99+' : nBlocked) : '';
   $('#zoom').hidden = !S.zoom || S.zoom === 100;
   $('#zoom').textContent = S.zoom + ' %';
   $('#zoom-val').textContent = S.zoom + ' %';
@@ -394,8 +395,14 @@ function fillShield() {
   $('#shield-cookie').checked = S.cookieReject && !S.cookieAllowed;
   $('#shield-cookie').disabled = !S.cookieReject || !S.host;
   $('#shield-cookie').parentElement.title = S.cookieReject ? '' : 'In den Einstellungen ausgeschaltet';
+  $('#shield-popup').checked = S.popupBlock && !S.popupAllowed;
+  $('#shield-popup').disabled = !S.popupBlock || !S.host;
+  $('#shield-popups').hidden = !S.popups;
+  $('#shield-popups-text').textContent = S.popups === 1 ? 'Ein Werbefenster wurde blockiert.' : `${S.popups} Werbefenster wurden blockiert.`;
 }
 $('#shield-cookie').onchange = () => api.call('toggleCookieAllow');
+$('#shield-popup').onchange = () => api.call('togglePopupAllow');
+$('#shield-popup-open').onclick = () => { api.call('popupOpenLast'); closeOverlay(); };
 $('#shield-site').onchange = () => api.call('toggleAllow');
 $('#shield-global').onchange = e => api.call('setPrefs', { adblock: e.target.checked });
 
@@ -840,6 +847,14 @@ async function renderSettings() {
     <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
   </section>
   <section class="set">
+    <h3>Popups</h3>
+    <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
+    <p>Neue Fenster dürfen sich nur nach deinem Klick auf einen Link oder Knopf öffnen. Blockierte Fenster zeigt das Schild – dort kannst du sie trotzdem öffnen.</p>
+    <label class="field">Ausnahmen – hier Popups erlauben (eine Seite pro Zeile)
+      <textarea id="pp-allow" spellcheck="false">${esc((p.popupAllow || []).join('\n'))}</textarea>
+    </label>
+  </section>
+  <section class="set">
     <h3>Cookie-Banner</h3>
     <label class="switch"><input type="checkbox" id="ck-on"${p.cookieReject !== false ? ' checked' : ''}><span>Cookie-Banner automatisch ablehnen</span></label>
     <p>Sakura klickt bei Zustimmungsfenstern auf „Alle ablehnen“ oder „Nur notwendige“. Ausnahmen setzt du über das Schild in der Adressleiste.</p>
@@ -903,6 +918,8 @@ async function renderSettings() {
   $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
+  $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
+  $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });

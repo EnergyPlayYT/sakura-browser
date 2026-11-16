@@ -69,6 +69,21 @@ setTimeout(async()=>{
     assert.equal(await vp({sender:ghTab, senderFrame:{url:'https://andere.de/'}}, 'get'), null);
     assert.equal(await vp({sender:{}, senderFrame:{url:'https://github.com/'}}, 'get'), null, 'fremder Absender');
     ghTab.executed=[]; ghTab.emit('dom-ready'); assert(ghTab.executed.some(c=>c.includes('__sakuraVideoConfig = {"resume":true,"intro":true,"next":true}')), 'Video-Skript läuft'); }
+  // Popup-Blocker
+  { st = await call('state'); const opener = mock._all.find(w=>w.url==='https://github.com'); const n0 = (await call('state')).tabs.length;
+    await call('activate', st.tabs.find(t=>t.title.includes('github.com')).id);
+    assert.equal(opener.openHandler({url:'https://werbung.example/', disposition:'foreground-tab', features:''}).action, 'deny');
+    st = await call('state'); assert.equal(st.tabs.length, n0, 'ohne Klick blockiert'); assert.equal(st.popups, 1);
+    opener.emit('input-event', {}, {type:'mouseDown'});
+    opener.openHandler({url:'https://github.com/neu', disposition:'foreground-tab', features:''}); await new Promise(r=>setTimeout(r,20));
+    st = await call('state'); assert.equal(st.tabs.length, n0+1, 'nach Klick erlaubt');
+    await call('activate', st.tabs.find(t=>t.title.includes('https://github.com') && !t.title.includes('neu')).id);
+    await call('popupOpenLast'); await new Promise(r=>setTimeout(r,20)); st = await call('state'); assert.equal(st.tabs.length, n0+2, 'trotzdem öffnen');
+    st = await call('state'); await call('activate', st.tabs.find(t=>t.title==='T https://github.com').id);
+    await call('togglePopupAllow'); assert((await call('prefs')).popupAllow.includes('github.com'));
+    assert.equal(opener.openHandler({url:'https://werbung.example/2', disposition:'foreground-tab', features:''}).action, 'deny'); // geht als Tab auf
+    st = await call('state'); assert.equal(st.tabs.length, n0+3, 'Ausnahme: erlaubt'); await call('togglePopupAllow');
+  }
   // Video und Ton
   { await call('navigate','https://kino.example/film'); await new Promise(r=>setTimeout(r,30));
     const kwc = mock._all.find(w=>w.url==='https://kino.example/film'); kwc.jsResult = { hasVideo:true, notes:[] };

@@ -23,6 +23,6 @@ Object.assign(app,{ commandLine:{appendSwitch(){}}, relaunch(){}, setName(){}, u
 class BrowserWindow extends BaseWindow { constructor(o){super(o); this.webContents=new WC();} }
 const screen={cursor:{x:0,y:0},getCursorScreenPoint(){return this.cursor},getDisplayNearestPoint(){return {workArea:{x:0,y:0,width:1920,height:1040}}}};
 const globalShortcut={keys:new Set(),register(k){this.keys.add(k);return true},unregister(k){this.keys.delete(k)},unregisterAll(){this.keys.clear()}};
-module.exports = { globalShortcut, screen, BrowserWindow, nativeTheme:{themeSource:'system'}, app, BaseWindow, WebContentsView, ipcMain:{handle:(c,f)=>handlers[c]=f}, session:{defaultSession:ses, fromPartition:()=>({...ses})},
+module.exports = { globalShortcut, screen, BrowserWindow, nativeTheme:{themeSource:'system'}, app, BaseWindow, WebContentsView, ipcMain:{handle:(c,f)=>handlers[c]=f, on:(c,f)=>handlers['on:'+c]=f}, session:{defaultSession:ses, fromPartition:()=>({...ses})},
   protocol:{registerSchemesAsPrivileged(){}}, Menu:{buildFromTemplate:()=>({popup(){}})}, clipboard:{writeText(){}}, net:{fetch(){}}, dialog:{showMessageBox:async()=>({response:1})},
   webContents:{fromId:id=>all.find(w=>w.id===id)}, shell:{openPath(){}}, _handlers:handlers, _all:all };

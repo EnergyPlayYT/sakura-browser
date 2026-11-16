@@ -21,6 +21,7 @@ const Themes = require('./pages/themes');
 const SB = require('./lib/sponsorblock');
 const { pickTabsToSleep } = require('./lib/sleeper');
 const Gaming = require('./lib/gaming');
+const Popups = require('./lib/popups');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -342,7 +343,16 @@ class SakuraWindow {
     this.win.contentView.addChildView(view, 0); // unter der Oberfläche
     const wc = view.webContents;
 
-    wc.setWindowOpenHandler(({ url: u, disposition }) => {
+    // Klicks und Tastendrücke merken – der Popup-Blocker erlaubt neue Fenster nur kurz danach
+    const INPUT = new Set(['mouseDown', 'keyDown', 'rawKeyDown', 'touchStart', 'gestureTap']);
+    wc.on('input-event', (e, ie) => { if (INPUT.has(ie.type)) tab.lastInput = Date.now(); });
+    wc.setWindowOpenHandler(({ url: u, disposition, features }) => {
+      const verdict = popupVerdict(tab, u, features);
+      if (!verdict.allow) {
+        tab.popups = [...(tab.popups || []), { url: u, reason: verdict.reason }].slice(-20);
+        tab.w.sendState();
+        return { action: 'deny' };
+      }
       const at = tab.w.tabs.indexOf(tab) + 1;
       tab.w.newTab(u, { background: disposition === 'background-tab', index: at, group: tab.group });
       return { action: 'deny' };
@@ -363,7 +373,7 @@ class SakuraWindow {
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
     wc.on('did-stop-loading', () => { tab.loading = false; upd(); });
     wc.on('did-start-navigation', (d) => {
-      if (d.isMainFrame && !d.isSameDocument) { blocker.reset(wc.id); setBg(d.url); }
+      if (d.isMainFrame && !d.isSameDocument) { blocker.reset(wc.id); setBg(d.url); tab.popups = []; }
     });
     wc.on('did-navigate', (e, u) => {
       if (tab.sleeping) return;
@@ -633,6 +643,9 @@ class SakuraWindow {
       adblock: store.prefs().adblock,
       allowed: !!(host && (store.prefs().adblockAllow || []).includes(host)),
       cookieReject: store.prefs().cookieReject !== false,
+      popups: a && a.popups ? a.popups.length : 0,
+      popupBlock: store.prefs().popupBlock !== false,
+      popupAllowed: !!(host && (store.prefs().popupAllow || []).includes(host)),
       cookieAllowed: !!(host && (store.prefs().cookieAllow || []).includes(host)),
       zoom: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
       extActions: this.isPrivate ? [] : extensions.actions(),
@@ -888,6 +901,20 @@ function videoKey(url) {
     for (const k of ['t', 'start', 'time_continue', 'si', 'pp']) u.searchParams.delete(k);
     return u.toString();
   } catch { return null; }
+}
+
+// ---------------------------------------------------------------- Popup-Blocker
+const clickIntents = new Map(); // webContents-ID → letzter Klick auf der Seite { at, href, interactive }
+function popupVerdict(tab, url, features) {
+  const p = store.prefs();
+  const opener = tab.view.webContents.getURL();
+  const host = hostOfUrl(opener);
+  if (p.popupBlock === false || (host && (p.popupAllow || []).includes(host)) || /^sakura:/.test(opener)) return { allow: true };
+  const adsOn = p.adblock !== false && !(host && (p.adblockAllow || []).includes(host));
+  return Popups.decidePopup({
+    url, opener, features, lastInput: tab.lastInput, intent: clickIntents.get(tab.view.webContents.id) || null,
+    isAd: adsOn ? h => blocker.isBlocked(h) : null
+  });
 }
 
 // ---------------------------------------------------------------- Video und Ton
@@ -1433,6 +1460,19 @@ const uiCommands = {
   updateInfo: () => updater.info(),
   updateCheck: () => updater.check(),
   updateInstall: () => { saveSession(); quitting = true; store.flush(); updater.installNow(); },
+  popupOpenLast: w => {
+    const t = w.active;
+    const last = t && t.popups && t.popups.pop();
+    if (last && /^https?:/i.test(last.url)) w.newTab(last.url, { index: w.tabs.indexOf(t) + 1 });
+    w.sendState();
+  },
+  togglePopupAllow: w => {
+    const s = w.state();
+    if (!s.host) return;
+    const list = new Set(store.prefs().popupAllow || []);
+    if (list.has(s.host)) list.delete(s.host); else list.add(s.host);
+    store.setPrefs({ popupAllow: [...list] });
+  },
   toggleCookieAllow: w => {
     const s = w.state();
     if (!s.host) return;
@@ -1663,6 +1703,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('yt-segments', async (e, id) => {
     if (!SB.isYouTube(e.senderFrame ? e.senderFrame.url : '') || store.prefs().youtube === false || store.prefs().ytSponsor === false) return [];
     return sponsorBlock.segments(id);
+  });
+  // Popup-Blocker: Was wurde zuletzt angeklickt? (preload-page.js, nur Angaben zum eigenen Klick)
+  ipcMain.on('click-intent', (e, d) => {
+    if (!d || typeof d !== 'object') return;
+    clickIntents.set(e.sender.id, { at: Date.now(), href: typeof d.href === 'string' ? d.href.slice(0, 2000) : null, interactive: !!d.interactive });
   });
   // Videostellen: jede Seite kann nur ihre eigene Adresse lesen und schreiben; privat wird nichts gemerkt
   ipcMain.handle('video-pos', async (e, cmd, arg) => {

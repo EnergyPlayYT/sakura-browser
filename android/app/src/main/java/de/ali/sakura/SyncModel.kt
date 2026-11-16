@@ -38,6 +38,8 @@ object SyncModel {
         .put("sleepAfter", 30)
         .put("ramLimit", 0)
         .put("cpuLimit", 0)
+        .put("popupBlock", true)
+        .put("popupAllow", JSONArray())
         .put("videoResume", true)
         .put("skipIntro", true)
         .put("autoNext", true)

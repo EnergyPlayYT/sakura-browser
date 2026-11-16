@@ -23,6 +23,19 @@ if (/^https?:$/.test(location.protocol)) {
   });
 }
 
+// Popup-Blocker: Sakura erfährt, ob du auf einen Link/Knopf geklickt hast oder auf eine leere Fläche
+// (Klickfallen öffnen Werbefenster bei Klicks irgendwohin auf die Seite)
+if (/^https?:$/.test(location.protocol)) {
+  const INTERACTIVE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="menuitem"], [role="tab"], [contenteditable=""], [contenteditable="true"]';
+  const report = e => {
+    if (!e.isTrusted || !(e.target instanceof Element)) return;
+    const a = e.target.closest('a[href]');
+    ipcRenderer.send('click-intent', { href: a ? a.href : null, interactive: !!e.target.closest(INTERACTIVE) });
+  };
+  window.addEventListener('mousedown', report, true);
+  window.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') report(e); }, true);
+}
+
 // Chrome Web Store: „Zu Chrome hinzufügen“ wird zu „Zu Sakura hinzufügen“
 if (location.hostname === 'chromewebstore.google.com') {
   const ID_RE = /\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/;

@@ -15,7 +15,7 @@ setTimeout(async()=>{
   assert.deepEqual(st.tabs.map(t=>t.group||null),[null,null,g,g,null]);
   await call('groupUpdate',{id:g,name:'Arbeit',color:'matcha'}); st=await call('state'); assert.equal(st.groups[0].name,'Arbeit'); assert.equal(st.groups[0].color,'matcha');
   // neuer Tab aus einem Gruppen-Tab (Link) erbt die Gruppe
-  const wcB=mock._all.find(w=>w.url==='https://b.de/'); wcB.openHandler({url:'https://link.de/',disposition:'foreground-tab'}); await wait(20);
+  const wcB=mock._all.find(w=>w.url==='https://b.de/'); wcB.emit('input-event',{},{type:'mouseDown'}); wcB.openHandler({url:'https://link.de/',disposition:'foreground-tab'}); await wait(20);
   st=await call('state'); const link=st.tabs.find(t=>t.title.includes('link.de')||t.id===Math.max(...st.tabs.map(x=>x.id)));
   assert.equal(link.group,g);
   // a zwischen zwei Gruppen-Tabs ziehen → gehört dazu

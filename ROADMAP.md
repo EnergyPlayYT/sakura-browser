@@ -27,7 +27,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 ## Etappe 3 – Video und Serien
 - [x] Weiterschauen, wo man war (auf jeder Seite), Intro überspringen, nächste Folge automatisch.
 - [x] Sleep-Timer (30 Min. / Ende der Folge), Kino-Modus, Helligkeit, Bass/Dialog-Verstärker, Equalizer pro Seite.
-- [ ] Popup-Blocker gegen Werbefenster und Klickfallen.
+- [x] Popup-Blocker gegen Werbefenster und Klickfallen.
 
 ## Etappe 4 – Konten und Sicherheit
 - [ ] Passwortmanager (mit Windows-Konto verschlüsselt über `safeStorage`), Leck-Prüfung über die k-Anonymität-API von Have I Been Pwned, Import per CSV aus Chrome/Firefox.
