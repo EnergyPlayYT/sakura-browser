@@ -98,14 +98,15 @@ jobs:
     needs: [version, windows]
     runs-on: ubuntu-latest
     env:
-      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      # Ein einziges Secret ANDROID_SIGNING = "Alias:Passwort:Schlüssel-als-Base64" (oder die vier einzelnen Secrets)
+      HAS_KEY: ${{ secrets.ANDROID_SIGNING != '' || secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: v${{ needs.version.outputs.version }}
       - name: Hinweis, falls der Signaturschlüssel fehlt
         if: env.HAS_KEY != 'true'
-        run: echo "::warning::Kein Android-Signaturschlüssel hinterlegt (Secret ANDROID_KEYSTORE_BASE64). Die Android-App wird übersprungen – siehe LIESMICH.md."
+        run: echo "::warning::Kein Android-Signaturschlüssel hinterlegt (Secret ANDROID_SIGNING). Die Android-App wird übersprungen – siehe LIESMICH.md."
       - uses: actions/setup-java@v4
         if: env.HAS_KEY == 'true'
         with:
@@ -119,11 +120,18 @@ jobs:
         if: env.HAS_KEY == 'true'
         working-directory: android
         env:
+          SAKURA_SIGNING: ${{ secrets.ANDROID_SIGNING }}
           SAKURA_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           SAKURA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           SAKURA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           SAKURA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -n "$SAKURA_SIGNING" ]; then
+            # Alias:Passwort:Base64 (Base64 enthält keinen Doppelpunkt)
+            IFS=':' read -r SAKURA_KEY_ALIAS SAKURA_KEYSTORE_PASSWORD SAKURA_KEYSTORE_BASE64 <<< "$(echo "$SAKURA_SIGNING" | tr -d '[:space:]')"
+            SAKURA_KEY_PASSWORD="$SAKURA_KEYSTORE_PASSWORD"
+            export SAKURA_KEY_ALIAS SAKURA_KEYSTORE_PASSWORD SAKURA_KEY_PASSWORD
+          fi
           echo "$SAKURA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sakura.jks"
           export SAKURA_KEYSTORE="$RUNNER_TEMP/sakura.jks"
           gradle assembleRelease --no-daemon
