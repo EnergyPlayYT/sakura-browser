@@ -54,7 +54,7 @@ jobs:
           {
             echo "## Was ist neu in Sakura $V?"
             echo
-            git log --no-merges --format='%x1e%s%n%n%b' ${PREV:+"$PREV..v$V"} -- desktop android | python3 -c '
+            git log --no-merges --format='%x1e%s%n%n%b' ${PREV:+"$PREV..v$V"} -- ':/desktop' ':/android' | python3 -c '
           import sys, re
           for c in sys.stdin.read().split("\x1e"):
               lines = c.strip().splitlines()

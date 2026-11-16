@@ -1,0 +1,47 @@
+# Trägt bei allen bisherigen Versionen die deutsche Beschreibung „Was ist neu“ nach
+# (nur von Hand starten: Actions → „Beschreibungen nachtragen“ → Run workflow).
+name: Beschreibungen nachtragen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Beschreibungen schreiben
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV=""
+          for T in $(git tag --list 'v*' --sort=version:refname); do
+            if [ -n "$PREV" ]; then
+              V=${T#v}
+              {
+                echo "## Was ist neu in Sakura $V?"
+                echo
+                git log --no-merges --format='%x1e%s%n%n%b' "$PREV..$T" -- ':/desktop' ':/android' | python3 -c '
+          import sys, re
+          for c in sys.stdin.read().split("\x1e"):
+              lines = c.strip().splitlines()
+              if not lines or re.fullmatch(r"Sakura [0-9.]+", lines[0]): continue
+              body = [l for l in lines[1:] if not re.match(r"(Co-Authored-By|Claude-Session):", l)]
+              print("### " + lines[0] + "\n" + "\n".join(body).strip() + "\n")
+          '
+                echo
+                echo "Installierte Sakura-Versionen aktualisieren sich von selbst. Neu installieren: **Sakura-Setup-$V.exe** unten herunterladen."
+              } > notes.md
+              # Nur ergänzen, wo noch nichts Richtiges steht
+              BODY=$(gh release view "$T" --json body -q .body 2>/dev/null || echo "-")
+              if [ "$BODY" != "-" ] && ! echo "$BODY" | grep -q '^### '; then
+                if grep -q '^### ' notes.md; then gh release edit "$T" --notes-file notes.md && echo "$T ergänzt"; fi
+              fi
+            fi
+            PREV=$T
+          done
