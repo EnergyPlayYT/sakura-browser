@@ -23,6 +23,7 @@ const { pickTabsToSleep } = require('./lib/sleeper');
 const Gaming = require('./lib/gaming');
 const Popups = require('./lib/popups');
 const Passwords = require('./lib/passwords');
+const { Watcher } = require('./lib/watch');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -50,7 +51,7 @@ const startTheme = store.prefs().siteTheme;
 // Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
 app.commandLine.appendSwitch('enable-features', ['HardwareMediaKeyHandling', ...(startTheme === 'force' ? ['WebContentsForceDark'] : [])].join(','));
 
-let blocker, sync, extensions, downloads, updater, favicons, gameWatch, vault;
+let blocker, sync, extensions, downloads, updater, favicons, gameWatch, vault, watcher;
 const windows = new Set();
 let tabCounter = 0;
 let privateCounter = 0;
@@ -834,6 +835,7 @@ class SakuraWindow {
         { label: 'Neu laden', click: () => wc.reload() },
         { type: 'separator' },
         { label: 'Seite übersetzen', click: () => translatePage(this) },
+        { label: 'Seite überwachen (Preis, Verfügbarkeit)', click: () => uiCommands.watchPage(this) },
         { label: 'Als PDF speichern …', click: () => savePdf(this) },
         { label: 'Bildschirmfoto speichern …', click: () => screenshot(this) },
         { label: 'Drucken …', click: () => wc.print() }
@@ -955,6 +957,51 @@ async function offerSavePassword(sender, url, d) {
     if (r.response === 2) vault.addNever(url);
   } catch (e) { console.error('Passwort speichern:', e.message); }
   finally { pwPrompting.delete(f.t.id); }
+}
+
+// ---------------------------------------------------------------- Seitenüberwachung
+let watchScript = null;
+const readWatchScript = () => {
+  if (watchScript == null) { try { watchScript = fs.readFileSync(path.join(__dirname, 'assets', 'watch.js'), 'utf8'); } catch { watchScript = ''; } }
+  return watchScript;
+};
+/** Seite unsichtbar laden und Preis/Verfügbarkeit auslesen */
+async function extractPage(url) {
+  const win = new BrowserWindow({ show: false, width: 1280, height: 900, webPreferences: { session: session.defaultSession, sandbox: true, contextIsolation: true } });
+  try {
+    const wc = win.webContents;
+    wc.setAudioMuted(true);
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+    await Promise.race([wc.loadURL(url), new Promise((_, rej) => setTimeout(() => rej(new Error('Zeitüberschreitung')), 30000))]);
+    await new Promise(r => setTimeout(r, 2500)); // Shops laden Preise oft nach
+    return await wc.executeJavaScript(readWatchScript(), true);
+  } finally {
+    if (!win.isDestroyed()) win.destroy ? win.destroy() : win.close();
+  }
+}
+function watchNotify(w, change) {
+  try {
+    if (!Notification || !Notification.isSupported()) return;
+    const n = new Notification({ title: change.text, body: w.title, icon: ICON });
+    n.on('click', () => {
+      const win = [...windows].find(x => !x.isPrivate) || new SakuraWindow();
+      win.newTab(w.url); win.win.focus();
+    });
+    n.show();
+  } catch {}
+}
+async function watchActive(w) {
+  const t = w.active;
+  const url = t && w.displayUrl(t.url);
+  if (!url || !/^https?:/i.test(url)) return { error: 'Öffne zuerst die Seite, die du überwachen willst.' };
+  let r = null;
+  try { r = await t.view.webContents.executeJavaScript(readWatchScript(), true); } catch {}
+  try {
+    const entry = watcher.add(url, r);
+    broadcast('watches-changed');
+    const what = entry.price != null ? `Aktueller Preis: ${require('./lib/watch').fmtPrice(entry.price, entry.currency)}.` : entry.available === false ? 'Gerade nicht verfügbar.' : 'Gerade verfügbar.';
+    return { ok: true, message: `Sakura überwacht jetzt „${entry.title}“. ${what} Du bekommst eine Nachricht, wenn sich der Preis ändert oder es wieder verfügbar ist.` };
+  } catch (e) { return { error: e.message }; }
 }
 
 // ---------------------------------------------------------------- Popup-Blocker
@@ -1629,6 +1676,15 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  // Seitenüberwachung
+  watchPage: async w => {
+    const r = await watchActive(w);
+    dialog.showMessageBox(w.win, { type: r.error ? 'info' : 'none', title: 'Seite überwachen', message: r.error || 'Seite wird überwacht', detail: r.message || '', buttons: ['OK'] });
+    return r;
+  },
+  watches: () => watcher.list(),
+  watchRemove: (w, id) => { watcher.remove(String(id)); return watcher.list(); },
+  watchCheckNow: async () => { await watcher.checkDue(0, true); return watcher.list(); },
   // Konto-Tabs
   containers: () => [...Array(CONTAINERS)].map((_, k) => ({ n: k + 1, name: containerName(k + 1), color: CONTAINER_COLORS[k] })),
   containerMenu: w => {
@@ -1849,6 +1905,12 @@ app.whenReady().then(async () => {
   });
 
   vault = new Passwords.Vault({ dir: userDir, safeStorage });
+  watcher = new Watcher({ store, extract: extractPage });
+  watcher.on('change', (w, change) => { watchNotify(w, change); broadcast('watches-changed'); });
+  // Alle 10 Minuten nachsehen, welche Seiten wieder dran sind
+  const watchTick = () => watcher.checkDue(Number(store.prefs().watchHours) || 3).then(n => { if (n) broadcast('watches-changed'); }).catch(() => {});
+  setTimeout(watchTick, 60000);
+  setInterval(watchTick, 10 * 60000);
 
   // Erweiterungen vor den ersten Tabs laden, damit ihre Skripte sofort greifen
   prepareSession(session.defaultSession, false);

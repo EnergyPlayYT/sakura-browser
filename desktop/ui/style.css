@@ -451,3 +451,9 @@ input[type=range] { accent-color: var(--sakura); }
 .konto-row i { width: 12px; height: 12px; border-radius: 50%; background: var(--kc); flex: none; }
 .konto-row input { flex: 1; min-width: 0; height: 30px; border: 0; outline: 0; border-radius: 8px; padding: 0 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--line); user-select: text; }
 .konto-row input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+
+/* ---------------- Überwachte Seiten ---------------- */
+.p-item.watch .txt small { white-space: normal; }
+.w-last { font-weight: 600; }
+.w-last.down, .w-last.back { color: #9FD8B0 !important; }
+.w-last.up, .w-last.gone { color: var(--err) !important; }

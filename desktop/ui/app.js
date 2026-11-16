@@ -489,8 +489,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (!TITLES[kind]) return;
   if (kind === 'extensions' && S.private) kind = 'settings';
@@ -848,6 +848,12 @@ async function renderSettings() {
     <label class="switch"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
     <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
   </section>
+  <section class="set">
+    <h3>Seitenüberwachung</h3>
+    <label class="field">Überwachte Seiten prüfen alle
+      <select id="w-hours">${[[1, '1 Stunde'], [3, '3 Stunden'], [6, '6 Stunden'], [12, '12 Stunden'], [24, '24 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.watchHours || 3) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+  </section>
   <section class="set" id="konto-section">
     <h3>Konto-Tabs</h3>
     <p>Bis zu fünf Konten gleichzeitig, z. B. zwei Google-Konten: Jeder Konto-Tab hat eigene Cookies und Anmeldungen. Öffnen per Rechtsklick auf einen Tab oder auf das Plus.</p>
@@ -932,6 +938,7 @@ async function renderSettings() {
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   bindContainers(p);
+  $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
   $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
   $('#pw-open').onclick = () => openPanel('passwords');
@@ -1023,6 +1030,30 @@ api.on('open-import', () => {
   const go = () => { const s = $('#import-section'); if (s) s.scrollIntoView(); else setTimeout(go, 30); };
   setTimeout(go, 30);
 });
+
+// ------------------------------------------------------------ Überwachte Seiten
+const WATCH_LABEL = { down: 'Preis gesunken', up: 'Preis gestiegen', back: 'Wieder verfügbar', gone: 'Nicht mehr verfügbar' };
+async function renderWatches() {
+  const body = $('#panel-body');
+  const list = (await api.call('watches')) || [];
+  if (panelKind !== 'watches') return;
+  body.innerHTML = `<div class="row pw-actions"><button class="btn" id="w-now"${list.length ? '' : ' disabled'}>Jetzt alle prüfen</button></div>` +
+    (list.length ? list.map(w => `<div class="p-item watch" data-id="${esc(w.id)}">
+      <span class="fav">${iconImg(w.url, w.title)}</span>
+      <div class="txt" data-url="${esc(w.url)}" title="${esc(w.url)}"><div>${esc(w.title)}</div>
+        <small>${esc(w.priceText || (w.available === false ? 'Nicht verfügbar' : w.available ? 'Verfügbar' : ''))}${w.available === false && w.priceText ? ' · nicht verfügbar' : ''} · geprüft ${esc(timeAgo(w.lastCheck))}${w.error ? ' · ' + esc(w.error) : ''}</small>
+        ${w.last ? `<small class="w-last ${esc(w.last.kind)}">${esc(w.last.text)} · ${esc(timeAgo(w.lastChange))}</small>` : ''}</div>
+      <button class="icon small" data-act="del" title="Nicht mehr überwachen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : `<p class="p-empty">Noch nichts überwacht. Öffne eine Produktseite und wähle im Menü „Seite überwachen“ – Sakura meldet sich, wenn der Preis sinkt oder das Produkt wieder verfügbar ist.</p>`);
+  const now = $('#w-now');
+  now.onclick = async () => { now.disabled = true; now.textContent = 'Prüfe …'; await api.call('watchCheckNow'); renderWatches(); };
+  body.onclick = async e => {
+    if (openFromPanel(e)) return;
+    const b = e.target.closest('button[data-act="del"]');
+    if (b) { await api.call('watchRemove', b.closest('.p-item').dataset.id); renderWatches(); }
+  };
+}
+api.on('watches-changed', () => { if (panelKind === 'watches') renderWatches(); });
 
 // ------------------------------------------------------------ Passwörter
 async function renderPasswords(filter = '', note = null) {

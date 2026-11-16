@@ -32,7 +32,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 ## Etappe 4 – Konten und Sicherheit
 - [x] Passwortmanager (mit Windows-Konto verschlüsselt über `safeStorage`), Leck-Prüfung über die k-Anonymität-API von Have I Been Pwned, Import per CSV aus Chrome/Firefox.
 - [x] Mehrere Konten gleichzeitig (bis zu 5 getrennte „Konto-Tabs“ über eigene Sitzungen).
-- [ ] Seitenüberwachung: Benachrichtigung bei Preisänderung oder wieder verfügbar.
+- [x] Seitenüberwachung: Benachrichtigung bei Preisänderung oder wieder verfügbar.
 - [ ] Streamer-Modus (private Daten unscharf, wenn OBS läuft).
 
 ## Etappe 5 – Twitch und Steam

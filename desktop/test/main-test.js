@@ -84,6 +84,13 @@ setTimeout(async()=>{
     assert.equal(opener.openHandler({url:'https://werbung.example/2', disposition:'foreground-tab', features:''}).action, 'deny'); // geht als Tab auf
     st = await call('state'); assert.equal(st.tabs.length, n0+3, 'Ausnahme: erlaubt'); await call('togglePopupAllow');
   }
+  // Seitenüberwachung
+  { st = await call('state'); const awc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
+    awc.jsResult = { title:'Kopfhörer', price: 59.9, currency:'€', available:true };
+    const r = await call('watchPage'); assert(r.ok, r.error); awc.jsResult = undefined;
+    let wl = await call('watches'); assert.equal(wl.length, 1); assert.equal(wl[0].priceText, '59,90 €');
+    wl = await call('watchCheckNow'); assert.equal(wl[0].error, 'Preis nicht mehr gefunden', 'unsichtbare Seite ohne Preis');
+    await call('watchRemove', wl[0].id); assert.equal((await call('watches')).length, 0); }
   // Konto-Tabs: eigene Sitzung, Links bleiben im Konto, Name und Neustart
   { const parts=[]; const origFP = mock.session.fromPartition; mock.session.fromPartition = p => { parts.push(p); return origFP(p); };
     await call('newContainerTab', 2); await new Promise(r=>setTimeout(r,20));
