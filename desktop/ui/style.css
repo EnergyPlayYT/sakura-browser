@@ -428,3 +428,11 @@ input[type=range] { accent-color: var(--sakura); }
 .m-eq small { color: var(--usuzumi); font-size: 11px; }
 #media-btn b { position: absolute; right: 1px; bottom: 2px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px;
   font: 600 9.5px/15px var(--gothic); text-align: center; background: var(--sakura); color: var(--fukai); }
+
+/* ---------------- Sync-Code ---------------- */
+.sync-code { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: rgba(var(--washi-rgb), .05); box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 8px; }
+.sync-code small { width: 100%; color: var(--usuzumi); }
+.sync-code code { flex: 1; font: 600 16px/1.4 Consolas, "Cascadia Mono", monospace; letter-spacing: .06em; color: var(--sakura); user-select: all; cursor: pointer; transition: filter .2s; background: none; padding: 0; }
+.sync-code code.blur { filter: blur(6px); }
+/* Langes Menü in kleinen Fenstern: scrollen statt abschneiden */
+#menu { max-height: calc(100vh - var(--tabbar) - var(--toolbar) - var(--bar) - 12px); overflow-y: auto; }

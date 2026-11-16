@@ -814,6 +814,8 @@ class MainActivity : ComponentActivity() {
                 send(if (err == null) sync.info() else sync.info().put("message", err).put("failed", true))
             }
             "syncLogout" -> { sync.logout(); send(sync.info()) }
+            "syncCreateCode" -> sync.createCode { err -> send(if (err == null) sync.info() else sync.info().put("message", err).put("failed", true)) }
+            "syncConnectCode" -> sync.connectCode(str) { err -> send(if (err == null) sync.info() else sync.info().put("message", err).put("failed", true)) }
             "syncNow" -> { sync.syncNow(); send(sync.info()) }
             else -> send(null)
         }

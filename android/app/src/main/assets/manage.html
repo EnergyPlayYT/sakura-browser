@@ -389,6 +389,21 @@ async function settings() {
 }
 function syncHtml(si) {
   si = si || {};
+  if (si.mode === 'code') {
+    const label = { ok: `Synchronisiert ${ago(si.lastSync)}`, syncing: si.message || 'Synchronisiere …', error: si.message || 'Fehler', idle: `Zuletzt ${ago(si.lastSync)}` }[si.state] || '';
+    return `<h2>Synchronisation</h2><div class="status ${esc(si.state)}"><i></i><span>${esc(label)}</span></div>
+      <p>Alle Geräte mit diesem Sync-Code gleichen sich automatisch ab – Ende-zu-Ende-verschlüsselt.</p>
+      <p>Dein Sync-Code: <code id="code" style="filter:blur(5px)">${esc(si.code)}</code> <small>(antippen zum Anzeigen)</small></p>
+      <div class="row" style="justify-content:flex-start"><button class="btn primary" id="now">Jetzt synchronisieren</button><button class="btn" id="out">Trennen</button></div>`;
+  }
+  if (!si.email && (!si.state || si.state === 'off')) {
+    return `<h2>Synchronisation</h2>
+      <p>Gib den Sync-Code ein, den dir Sakura auf dem PC zeigt (Einstellungen → Synchronisation). Danach gleichen sich deine Geräte automatisch ab.</p>
+      <label class="f">Sync-Code<input id="codein" spellcheck="false" autocapitalize="characters" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
+      <p class="err" id="err" hidden>${esc(si.message || '')}</p>
+      <div class="row" style="justify-content:flex-start"><button class="btn primary" id="connect">Verbinden</button><button class="btn" id="newcode">Neuen Code erstellen</button></div>
+      <details><summary>Stattdessen ein eigenes Firebase-Projekt verwenden</summary>${firebaseHtml(si)}</details>`;
+  }
   if (si.email && si.state === 'needkey') {
     return `<h2>Synchronisation</h2>
       <div class="status error"><i></i><span>${esc(si.message || 'Sync-Passwort fehlt – der Abgleich ist pausiert.')}</span></div>
@@ -413,7 +428,10 @@ function syncHtml(si) {
         <button class="btn primary" id="chggo">Ändern</button>
       </div>`;
   }
-  return `<h2>Synchronisation</h2>
+  return `<h2>Synchronisation</h2>${firebaseHtml(si)}`;
+}
+function firebaseHtml(si) {
+  return `
     <p>Melde dich mit demselben Konto und Sync-Passwort an wie im Sakura-Browser auf dem PC.</p>
     <details><summary>Woher bekomme ich die Werte?</summary><ol>
       <li>Firebase-Konsole → dein Projekt → Projekteinstellungen.</li>
@@ -459,10 +477,20 @@ function bindSync() {
     redraw(r); setTimeout(refreshSync, 3000);
   };
   if ($('#in')) { $('#in').onclick = go(false); $('#new').onclick = go(true); }
+  // Sync-Code
+  const codeGo = (cmd, arg) => async () => {
+    showErr('');
+    busy(true);
+    const r = await api.call(cmd, arg ? arg() : null);
+    if (r && r.failed) { busy(false); return showErr(r.message); }
+    redraw(r); setTimeout(refreshSync, 3000); setTimeout(refreshSync, 8000);
+  };
+  if ($('#connect')) { $('#connect').onclick = codeGo('syncConnectCode', () => $('#codein').value); $('#newcode').onclick = codeGo('syncCreateCode'); }
+  if ($('#code')) $('#code').onclick = e => { e.target.style.filter = e.target.style.filter ? '' : 'blur(5px)'; };
 }
 async function refreshSync() {
   const sec = $('#sync');
-  if (!sec || $('#pw') || $('#sp') || ($('#chgbox') && !$('#chgbox').hidden)) return;
+  if (!sec || $('#pw') || $('#sp') || $('#codein') || ($('#chgbox') && !$('#chgbox').hidden)) return;
   sec.innerHTML = syncHtml(await api.call('syncInfo'));
   bindSync();
 }

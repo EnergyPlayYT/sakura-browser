@@ -10,8 +10,9 @@ import java.net.URLEncoder
 import java.util.concurrent.Executors
 
 /**
- * Synchronisation mit Firebase – gleiches Format wie der Windows-Browser:
- * Firestore-Dokument users/{uid}/sync/main mit dem Feld „payload“ (JSON-Text).
+ * Synchronisation – zwei Wege, gleiches verschlüsseltes Format wie der Windows-Browser:
+ *  1. Sync-Code (ohne Konto): Daten liegen verschlüsselt beim Sakura-Sync-Dienst (sync-server/, Netlify)
+ *  2. Eigenes Firebase-Projekt: Firestore-Dokument users/{uid}/sync/main mit dem Feld „payload“
  */
 class SyncClient(ctx: Context, private val store: Store) {
     private val sp = ctx.getSharedPreferences("sync", Context.MODE_PRIVATE)
@@ -31,7 +32,9 @@ class SyncClient(ctx: Context, private val store: Store) {
     /** Liefert Gerätename und offene Tabs dieses Handys für „Tabs auf anderen Geräten“ */
     var tabsProvider: (() -> Pair<String, org.json.JSONArray>)? = null
 
-    val configured get() = sp.getString("refreshToken", null) != null && sp.getString("uid", null) != null
+    val isCode get() = sp.getString("mode", "") == "code"
+    val configured get() = if (isCode) sp.getString("id", null) != null && sp.getString("write", null) != null
+        else sp.getString("refreshToken", null) != null && sp.getString("uid", null) != null
     val email get() = sp.getString("email", "") ?: ""
 
     /** Von der Activity bei jeder Datenänderung aufgerufen */
@@ -47,6 +50,8 @@ class SyncClient(ctx: Context, private val store: Store) {
         .put("lastSync", sp.getLong("lastSync", 0))
         .put("apiKey", sp.getString("apiKey", "")).put("projectId", sp.getString("projectId", ""))
         .put("encrypted", sp.getString("key", null) != null)
+        .put("mode", if (isCode) "code" else if (sp.getString("apiKey", null) != null) "firebase" else "")
+        .put("code", if (isCode) sp.getString("code", "") else "")
 
     private fun setStatus(s: String, m: String = "") {
         state = s; message = m
@@ -55,12 +60,14 @@ class SyncClient(ctx: Context, private val store: Store) {
 
     private class HttpResult(val code: Int, val body: String)
 
-    private fun http(method: String, url: String, body: String? = null, type: String = "application/json", token: String? = null): HttpResult {
+    private fun http(method: String, url: String, body: String? = null, type: String = "application/json", token: String? = null,
+                     headers: Map<String, String> = emptyMap()): HttpResult {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 20000
         c.requestMethod = if (method == "PATCH") "POST" else method
         if (method == "PATCH") c.setRequestProperty("X-HTTP-Method-Override", "PATCH")
         if (token != null) c.setRequestProperty("Authorization", "Bearer $token")
+        for ((k, v) in headers) c.setRequestProperty(k, v)
         if (body != null) {
             c.doOutput = true
             c.setRequestProperty("Content-Type", "$type; charset=utf-8")
@@ -124,6 +131,25 @@ class SyncClient(ctx: Context, private val store: Store) {
         }
     }
 
+    /** Mit Sync-Code verbinden (cb auf dem UI-Thread: null = verbunden) – danach gleicht Sakura automatisch ab */
+    fun connectCode(input: String, cb: (String?) -> Unit) {
+        val d = SyncCode.derive(input)
+        if (d == null) { cb("Der Sync-Code stimmt nicht. Er hat 20 Zeichen, z. B. K7QM4-ZX92A-1VNAB-8P3RT."); return }
+        setStatus("syncing", "Schlüssel wird berechnet …")
+        net.execute {
+            val key = SyncCrypto.deriveKey(d.secret, d.salt)
+            sp.edit().clear().putString("mode", "code").putString("code", d.code).putString("id", d.id).putString("write", d.write)
+                .putString("salt", d.salt).putString("key", key).putString("server", SyncCode.DEFAULT_SERVER).putLong("lastSync", 0).apply()
+            main.post { cb(null); syncNow() }
+        }
+    }
+
+    /** Neuen Sync-Code erzeugen und die Daten dieses Handys hochladen */
+    fun createCode(cb: (String?) -> Unit) = connectCode(SyncCode.newCode(), cb)
+
+    private fun codeUrl() = (sp.getString("server", SyncCode.DEFAULT_SERVER) ?: SyncCode.DEFAULT_SERVER) + "/api/sync/" + sp.getString("id", "")
+    private fun codeHeaders() = mapOf("X-Sakura-Write" to (sp.getString("write", "") ?: ""))
+
     fun logout() {
         sp.edit().clear().apply()
         idToken = null
@@ -133,6 +159,7 @@ class SyncClient(ctx: Context, private val store: Store) {
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
     private fun token(): String {
+        if (isCode) return "" // Sync-Code braucht keine Anmeldung
         val t = idToken
         if (t != null && System.currentTimeMillis() < exp) return t
         val key = sp.getString("apiKey", "")!!
@@ -156,6 +183,13 @@ class SyncClient(ctx: Context, private val store: Store) {
 
     /** Liest das Server-Dokument (Hintergrund-Thread). */
     private fun readDoc(tok: String): Doc {
+        if (isCode) {
+            val r = http("GET", codeUrl(), headers = codeHeaders())
+            if (r.code == 404) return Doc("", "")
+            if (r.code != 200) throw IllegalStateException("Der Sync-Dienst antwortet nicht (${r.code}).")
+            val j = JSONObject(r.body)
+            return Doc(j.optString("payload"), j.optString("salt"))
+        }
         val get = http("GET", docUrl(), token = tok)
         if (get.code == 404) return Doc("", "")
         if (get.code != 200) throw IllegalStateException(errorText(get.body, "Server antwortet nicht (${get.code})."))
@@ -225,6 +259,8 @@ class SyncClient(ctx: Context, private val store: Store) {
     }
 
     private fun needKey(msg: String) {
+        // Beim Sync-Code ist der Schlüssel der Code selbst – nichts zu entsperren
+        if (isCode) { finish("error", "Die Daten beim Sync-Dienst passen nicht zu diesem Sync-Code."); return }
         sp.edit().remove("key").apply()
         finish("needkey", msg)
     }
@@ -272,6 +308,14 @@ class SyncClient(ctx: Context, private val store: Store) {
 
     private fun upload(tok: String, key: String, text: String) {
         try {
+            if (isCode) {
+                val body = JSONObject().put("payload", SyncCrypto.encrypt(key, text)).put("salt", sp.getString("salt", "")).toString()
+                val r = http("PUT", codeUrl(), body, headers = codeHeaders())
+                if (r.code !in 200..299) throw IllegalStateException(if (r.code == 403) "Der Sync-Dienst lehnt das Schreiben ab." else "Hochladen fehlgeschlagen (${r.code}).")
+                sp.edit().putLong("lastSync", System.currentTimeMillis()).apply()
+                finish("ok", "")
+                return
+            }
             val body = JSONObject().put("fields", JSONObject()
                 .put("payload", JSONObject().put("stringValue", SyncCrypto.encrypt(key, text)))
                 .put("salt", JSONObject().put("stringValue", sp.getString("salt", "")))

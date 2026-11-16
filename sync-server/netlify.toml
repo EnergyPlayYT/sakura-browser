@@ -1,0 +1,3 @@
+# Sakura-Sync: kleiner Speicher für verschlüsselte Sync-Daten (Netlify Functions + Blobs)
+[build]
+  publish = "public"

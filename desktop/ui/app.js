@@ -1097,6 +1097,29 @@ function timeAgo(ts) {
 const SYNC_PW_HINT = 'Mit dem Sync-Passwort werden deine Daten verschlüsselt, bevor sie den PC verlassen – auch Google kann sie nicht lesen. Gib auf allen Geräten dasselbe ein. Vergisst du es, sind die Daten auf dem Server verloren; deine Geräte behalten ihre eigenen Daten.';
 
 function syncHtml(si) {
+  if (si.mode === 'code') {
+    const label = { ok: `Synchronisiert ${timeAgo(si.lastSync)}`, syncing: si.message || 'Synchronisiere …', error: si.message || 'Fehler', idle: `Zuletzt ${timeAgo(si.lastSync)}` }[si.state] || '';
+    return `<h3>Synchronisation</h3>
+      <div class="status ${esc(si.state)}"><i></i><span>${esc(label)}</span></div>
+      <p>Alle Geräte mit diesem Sync-Code gleichen sich automatisch ab: Lesezeichen, Kacheln, Verlauf, offene Tabs, Skripte und Einstellungen – Ende-zu-Ende-verschlüsselt.</p>
+      <div class="sync-code"><small>Dein Sync-Code</small><code id="s-code" class="blur" title="Klicken zum Anzeigen">${esc(si.code)}</code>
+        <button class="btn" id="s-copy">Kopieren</button></div>
+      <p>Gib diesen Code auf dem Handy in der Sakura-App unter Einstellungen → Synchronisation ein. Behandle ihn wie ein Passwort.</p>
+      <div id="s-devices"></div>
+      <p class="msg-error" id="s-err" hidden></p>
+      <div class="row"><button class="btn primary" id="sync-now">Jetzt synchronisieren</button><button class="btn" id="sync-out">Trennen</button></div>`;
+  }
+  if (!si.email && si.state === 'off') {
+    return `<h3>Synchronisation</h3>
+      <p>Verbinde deinen PC und dein Handy mit einem Sync-Code. Danach gleichen sie sich automatisch ab – ohne Konto, Ende-zu-Ende-verschlüsselt.</p>
+      ${si.message ? `<p class="msg-error">${esc(si.message)}</p>` : ''}
+      <div class="row"><button class="btn primary" id="s-newcode">Sync-Code erstellen</button></div>
+      <label class="field" style="margin-top:12px">Oder Code von einem anderen Gerät eingeben
+        <input id="s-codein" spellcheck="false" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
+      <p class="msg-error" id="s-err" hidden></p>
+      <div class="row"><button class="btn" id="s-connect">Verbinden</button></div>
+      <details><summary>Stattdessen ein eigenes Firebase-Projekt verwenden</summary>${firebaseHtml(si)}</details>`;
+  }
   if (si.email && si.state === 'needkey') {
     return `<h3>Synchronisation</h3>
       <div class="status error"><i></i><span>${esc(si.message || 'Sync-Passwort fehlt – der Abgleich ist pausiert.')}</span></div>
@@ -1122,7 +1145,11 @@ function syncHtml(si) {
         <div class="row"><button class="btn primary" id="s-change-go">Ändern</button></div>
       </div>`;
   }
-  return `<h3>Synchronisation</h3>
+  return `<h3>Synchronisation</h3>${firebaseHtml(si)}`;
+}
+
+function firebaseHtml(si) {
+  return `
     <p>Melde dich auf dem PC und in der Android-App mit demselben Konto an. Dafür brauchst du ein kostenloses Firebase-Projekt.</p>
     <details><summary>So richtest du Firebase ein</summary><ol>
       <li>In der Firebase-Konsole ein Projekt anlegen.</li>
@@ -1182,9 +1209,24 @@ function bindSync() {
     redraw(r);
   };
   if ($('#s-login')) { $('#s-login').onclick = go(false); $('#s-create').onclick = go(true); }
+  // Sync-Code
+  const codeDone = r => { if (r && r.failed && r.mode !== 'code') { busy(false); return showErr(r.message); } redraw(r); };
+  if ($('#s-newcode')) $('#s-newcode').onclick = async () => { showErr(''); busy(true); codeDone(await api.call('syncCreateCode')); };
+  if ($('#s-connect')) {
+    const connect = async () => { showErr(''); busy(true); codeDone(await api.call('syncConnectCode', $('#s-codein').value)); };
+    $('#s-connect').onclick = connect;
+    $('#s-codein').onkeydown = e => { if (e.key === 'Enter') connect(); };
+  }
+  if ($('#s-code')) $('#s-code').onclick = e => e.target.classList.toggle('blur');
+  if ($('#s-copy')) $('#s-copy').onclick = async () => { await api.call('copyText', $('#s-code').textContent); $('#s-copy').textContent = 'Kopiert'; };
+  if ($('#s-devices')) api.call('devices').then(list => {
+    const box = $('#s-devices');
+    if (!box || !list || !list.length) return;
+    box.innerHTML = `<p>Verbundene Geräte: ${list.map(d => `<b>${esc(d.name || 'Gerät')}</b> (${esc(timeAgo(d.updatedAt))})`).join(', ')}</p>`;
+  });
 }
 api.on('sync-status', async () => {
-  if (panelKind === 'settings' && !document.querySelector('#s-pw, #s-sync, #s-new')) {
+  if (panelKind === 'settings' && !document.querySelector('#s-pw, #s-sync, #s-new, #s-codein')) {
     const sec = $('#sync-section');
     if (sec) { sec.innerHTML = syncHtml(await api.call('syncInfo')); bindSync(); }
   }

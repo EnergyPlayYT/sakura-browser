@@ -21,13 +21,15 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
 android/            Android-App (Kotlin, ein Activity, WebView) – app/src/main/java/de/ali/sakura/*.kt
   app/src/main/assets  newtab.html (Kopie aus desktop/pages!), manage.html (Lesezeichen/Verlauf/Skripte/Einstellungen), error.html, blocklist.txt
 .github/workflows/  release.yml (baut + veröffentlicht), security-update.yml (wöchentlich Electron-Patches)
-firebase/           firestore.rules
+sync-server/        Sakura-Sync-Dienst (Netlify Function + Blobs) für den Abgleich per Sync-Code – speichert nur Verschlüsseltes;
+                    Netlify baut ihn aus diesem Ordner (Projekt „sakura-sync“, Basisverzeichnis sync-server)
+firebase/           firestore.rules (alternativer Abgleich über ein eigenes Firebase-Projekt)
 ```
 
 ## Regeln
 
 - **Gemeinsame Dateien synchron halten:** Nach jeder Änderung an `desktop/pages/newtab.html`, `error.html`, `themes.js` (Designs), `desktop/assets/blocklist.txt`, `cookie-reject.js`, `youtube.js`, `youtube.css`, `video.js` oder `media.js` die Datei nach `android/app/src/main/assets/` kopieren (`theme-test` prüft newtab.html und themes.js).
-- **Synchronisierte Daten** (Lesezeichen, Kacheln, Verlauf, Skripte, Geräte, Einstellungen) müssen auf PC (`lib/model.js`) und Android (`SyncModel.kt`) gleich zusammengeführt werden. Neue synchronisierte Felder in beiden ergänzen. Die Verschlüsselung (`crypto.js` / `SyncCrypto.kt`) nicht ändern, sonst können sich Geräte nicht mehr lesen.
+- **Synchronisierte Daten** (Lesezeichen, Kacheln, Verlauf, Skripte, Geräte, Einstellungen) müssen auf PC (`lib/model.js`) und Android (`SyncModel.kt`) gleich zusammengeführt werden. Neue synchronisierte Felder in beiden ergänzen. Die Verschlüsselung (`crypto.js` / `SyncCrypto.kt`) und die Ableitung aus dem Sync-Code (`synccode.js` / `SyncCode.kt`) nicht ändern, sonst können sich Geräte nicht mehr lesen.
 - **Sicherheit:** Seiten-Inhalte niemals mit Node-Rechten ausführen. Neue Befehle für sakura://-Seiten nur in `pageCommands` (prüft die Herkunft). Webinhalte, Dateinamen, Titel immer mit `esc()` ausgeben. Die Oberfläche hat eine CSP ohne Inline-Skripte/-Handler.
 - **Design:** Farben nie fest eintragen, sondern über die CSS-Variablen aus `pages/themes.js` (Nutzer können Designs und Akzentfarbe wählen). Standard: Dunkles Nachtindigo (`--yoru #1C1A33`), Kirschblüte als Akzent (`--sakura #F2B3C5`), Rot für Siegel/Privat (`--beni #D9566F`), Mincho-Schrift für Überschriften. Keine Emojis in der Oberfläche. Texte kurz, im Du, aktiv („Lesezeichen gespeichert“).
 - **Tests:** Vor jedem Commit `cd desktop && npm test`. Für neue Logik Tests in `desktop/test/` ergänzen und in `run-all.js` eintragen. Android-Code kann ohne Android-SDK nicht gebaut werden – Kotlin sorgfältig schreiben; GitHub baut die APK nur, wenn der Signaturschlüssel hinterlegt ist.

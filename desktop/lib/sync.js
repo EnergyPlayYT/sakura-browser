@@ -1,8 +1,10 @@
-// Synchronisation über Firebase (Anmeldung per E-Mail/Passwort, Daten in Firestore)
-// Gleiches Format wie die Android-App: users/{uid}/sync/main  →  { payload: "<JSON>", updatedAt: <ms> }
+// Synchronisation – zwei Wege, gleiches verschlüsseltes Format wie die Android-App:
+//  1. Sync-Code (einfach, ohne Konto): Daten liegen verschlüsselt beim Sakura-Sync-Dienst (sync-server/, Netlify)
+//  2. Eigenes Firebase-Projekt: users/{uid}/sync/main  →  { payload: "<JSON>", salt, updatedAt }
 const { EventEmitter } = require('events');
 const M = require('./model');
 const C = require('./crypto');
+const SC = require('./synccode');
 
 const ERRORS = {
   EMAIL_NOT_FOUND: 'Kein Konto mit dieser E-Mail. Wähle „Konto anlegen“.',
@@ -56,7 +58,13 @@ class Sync extends EventEmitter {
   }
 
   get cfg() { return this.store.data.sync; }
-  get configured() { const c = this.cfg; return !!(c && c.apiKey && c.projectId && c.refreshToken && c.uid); }
+  get isCode() { const c = this.cfg; return !!(c && c.mode === 'code'); }
+  get configured() {
+    const c = this.cfg;
+    if (!c) return false;
+    if (c.mode === 'code') return !!(c.id && c.write);
+    return !!(c.apiKey && c.projectId && c.refreshToken && c.uid);
+  }
 
   setStatus(state, message = '') {
     this.status = { state, message, lastSync: this.cfg ? this.cfg.lastSync || 0 : 0, email: this.cfg ? this.cfg.email : '' };
@@ -65,7 +73,33 @@ class Sync extends EventEmitter {
 
   info() {
     const c = this.cfg || {};
-    return { ...this.status, email: c.email || '', projectId: c.projectId || '', apiKey: c.apiKey || '', encrypted: !!c.key };
+    return {
+      ...this.status, email: c.email || '', projectId: c.projectId || '', apiKey: c.apiKey || '', encrypted: !!c.key,
+      mode: c.mode === 'code' ? 'code' : c.apiKey ? 'firebase' : '', code: c.mode === 'code' ? c.code : ''
+    };
+  }
+
+  /** Mit Sync-Code verbinden (Code von einem anderen Gerät) – danach gleicht Sakura automatisch ab */
+  async connectCode({ code, server } = {}) {
+    const d = SC.derive(code);
+    if (!d) throw new Error('Der Sync-Code stimmt nicht. Er hat 20 Zeichen, z. B. K7QM4-ZX92A-1VNAB-8P3RT.');
+    this.setStatus('syncing', 'Schlüssel wird berechnet …');
+    const key = await C.deriveKey(d.secret, d.salt);
+    this.store.data.sync = { mode: 'code', code: d.code, id: d.id, write: d.write, salt: d.salt, key, server: server || SC.DEFAULT_SERVER, lastSync: 0 };
+    this.store.flush();
+    return this.syncNow();
+  }
+
+  /** Neuen Sync-Code erzeugen und die Daten dieses Geräts hochladen */
+  createCode(opts = {}) { return this.connectCode({ ...opts, code: SC.newCode() }); }
+
+  async codeFetch(method, body) {
+    const c = this.cfg;
+    const res = await fetch(`${c.server}/api/sync/${c.id}`, {
+      method, headers: { 'Content-Type': 'application/json', 'X-Sakura-Write': c.write }, body: body ? JSON.stringify(body) : undefined
+    });
+    const j = await res.json().catch(() => ({}));
+    return { status: res.status, ok: res.ok, j };
   }
 
   async login({ apiKey, projectId, email, password, create, syncPassword }) {
@@ -93,6 +127,7 @@ class Sync extends EventEmitter {
   }
 
   async token() {
+    if (this.isCode) return null; // Sync-Code braucht keine Anmeldung
     if (this.idToken && Date.now() < this.exp) return this.idToken;
     const c = this.cfg;
     const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`, {
@@ -115,6 +150,12 @@ class Sync extends EventEmitter {
 
   /** Liest das Server-Dokument: { exists, payload, salt } */
   async readDoc(tok) {
+    if (this.isCode) {
+      const r = await this.codeFetch('GET');
+      if (r.status === 404) return { exists: false, payload: '', salt: '' };
+      if (!r.ok) throw new Error('Der Sync-Dienst antwortet nicht (' + r.status + ').');
+      return { exists: true, payload: r.j.payload || '', salt: r.j.salt || '' };
+    }
     const get = await fetch(this.docUrl(), { headers: { Authorization: 'Bearer ' + tok } });
     if (get.status === 404) return { exists: false, payload: '', salt: '' };
     if (get.status !== 200) {
@@ -131,6 +172,11 @@ class Sync extends EventEmitter {
 
   async writeDoc(tok, data) {
     const c = this.cfg;
+    if (this.isCode) {
+      const r = await this.codeFetch('PUT', { payload: C.encrypt(c.key, JSON.stringify(M.syncPayload(data))), salt: c.salt });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Der Sync-Dienst lehnt das Schreiben ab.' : 'Hochladen fehlgeschlagen (' + r.status + ').');
+      return;
+    }
     const body = {
       fields: {
         payload: { stringValue: C.encrypt(c.key, JSON.stringify(M.syncPayload(data))) },
@@ -149,6 +195,8 @@ class Sync extends EventEmitter {
   }
 
   needKey(message) {
+    // Beim Sync-Code ist der Schlüssel der Code selbst – nichts zu entsperren
+    if (this.isCode) { this.setStatus('error', 'Die Daten beim Sync-Dienst passen nicht zu diesem Sync-Code.'); return; }
     if (this.cfg) { delete this.cfg.key; this.store.flush(); }
     this.setStatus('needkey', message);
   }
