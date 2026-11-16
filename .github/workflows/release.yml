@@ -26,7 +26,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -74,7 +74,7 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ needs.version.outputs.version }}
       - uses: actions/setup-node@v4
@@ -101,7 +101,7 @@ jobs:
       # Ein einziges Secret ANDROID_SIGNING = "Alias:Passwort:Schlüssel-als-Base64" (oder die vier einzelnen Secrets)
       HAS_KEY: ${{ secrets.ANDROID_SIGNING != '' || secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ needs.version.outputs.version }}
       - name: Hinweis, falls der Signaturschlüssel fehlt
