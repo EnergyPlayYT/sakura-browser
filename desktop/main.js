@@ -24,6 +24,7 @@ const Gaming = require('./lib/gaming');
 const Popups = require('./lib/popups');
 const Passwords = require('./lib/passwords');
 const { Watcher } = require('./lib/watch');
+const { Emotes } = require('./lib/emotes');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -97,7 +98,7 @@ function prepareSession(ses, isPrivate) {
       if (!BG_FILE.test(name)) return new Response('Nicht gefunden', { status: 404 });
       return net.fetch(pathToFileURL(path.join(__dirname, 'backgrounds', name)).toString());
     }
-    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html' }[u.hostname];
+    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html', multistream: 'multistream.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
@@ -409,7 +410,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -962,6 +963,46 @@ async function offerSavePassword(sender, url, d) {
   finally { pwPrompting.delete(f.t.id); }
 }
 
+// ---------------------------------------------------------------- Multistream
+/** Kacheln für 1–4 Streams: eins groß, zwei nebeneinander, drei/vier im 2×2-Raster */
+function multistreamLayout(n, w, h) {
+  if (n <= 1) return [{ x: 0, y: 0, width: w, height: h }];
+  if (n === 2) return [0, 1].map(i => ({ x: Math.round(i * w / 2), y: 0, width: Math.round(w / 2), height: h }));
+  return [0, 1, 2, 3].slice(0, n).map(i => ({ x: (i % 2) * Math.round(w / 2), y: Math.floor(i / 2) * Math.round(h / 2), width: Math.round(w / 2), height: Math.round(h / 2) }));
+}
+function openMultistream(channels) {
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const win = new BaseWindow({
+    width: Math.min(1600, area.width), height: Math.min(920, area.height), title: 'Multistream – ' + channels.join(', '),
+    backgroundColor: '#000000', icon: ICON, autoHideMenuBar: true
+  });
+  const views = channels.map((c, i) => {
+    const v = new WebContentsView({ webPreferences: { session: session.defaultSession, sandbox: true, contextIsolation: true } });
+    v.setBackgroundColor('#000000');
+    win.contentView.addChildView(v);
+    const wc = v.webContents;
+    wc.setWindowOpenHandler(({ url }) => {
+      const w = [...windows].find(x => !x.isPrivate) || new SakuraWindow();
+      if (/^https:\/\//.test(url)) w.newTab(url);
+      return { action: 'deny' };
+    });
+    // Ton nur beim zuletzt angeklickten Stream
+    wc.on('input-event', (e, ie) => { if (ie.type === 'mouseDown') views.forEach(x => x.webContents.setAudioMuted(x !== v)); });
+    wc.setAudioMuted(i > 0);
+    wc.loadURL(`https://player.twitch.tv/?channel=${encodeURIComponent(c)}&parent=twitch.tv&player=popout&muted=false`).catch(() => {});
+    return v;
+  });
+  const fit = () => {
+    if (win.isDestroyed()) return;
+    const b = win.getContentBounds();
+    multistreamLayout(views.length, b.width, b.height).forEach((r, i) => views[i].setBounds(r));
+  };
+  win.on('resize', fit);
+  win.on('closed', () => views.forEach(v => { if (!v.webContents.isDestroyed()) v.webContents.close(); }));
+  fit();
+  return win;
+}
+
 // ---------------------------------------------------------------- Streamer-Modus
 let streamerApp = null; // laufendes Streaming-Programm (OBS …)
 /** Ist der Streamer-Modus gerade aktiv? Einstellung streamerMode: 'auto' (wenn OBS läuft) | 'on' | 'off' */
@@ -1105,6 +1146,18 @@ async function setSleep(w, { minutes, episode } = {}) {
   }
   broadcastState();
   return { ok: true };
+}
+
+// Twitch: Emotes (7TV/BTTV/FFZ) und Kanalpunkte (assets/twitch.js)
+const isTwitch = url => { try { const u = new URL(url); return u.protocol === 'https:' && /(^|\.)twitch\.tv$/.test(u.hostname); } catch { return false; } };
+let twitchScript = null;
+function runTwitch(wc) {
+  const p = store.prefs();
+  if ((p.twitchEmotes === false && !p.twitchPoints) || !isTwitch(wc.getURL())) return;
+  if (twitchScript == null) { try { twitchScript = fs.readFileSync(path.join(__dirname, 'assets', 'twitch.js'), 'utf8'); } catch { twitchScript = ''; } }
+  if (!twitchScript) return;
+  const cfg = JSON.stringify({ emotes: p.twitchEmotes !== false, points: !!p.twitchPoints });
+  wc.executeJavaScript(`window.__sakuraTwitchConfig = ${cfg};\n${twitchScript}`, false).catch(() => {});
 }
 
 // YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js)
@@ -1688,6 +1741,12 @@ const uiCommands = {
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),
   floatThrough: () => toggleFloatThrough(),
+  openMultistream: w => {
+    const t = w.active;
+    let pre = '';
+    try { const u = new URL(t.url); if (/(^|\.)twitch\.tv$/.test(u.hostname)) pre = (u.pathname.split('/').filter(Boolean)[0] || '').toLowerCase(); } catch {}
+    w.newTab('sakura://multistream/' + (/^[a-z0-9_]{2,25}$/.test(pre) ? '#' + pre : ''), { index: w.tabs.indexOf(t) + 1 });
+  },
   // Einstellungen als eigene Seite
   openSettings: (w, section) => {
     const target = 'sakura://settings/' + (/^[a-z]+$/.test(section || '') ? '#' + section : '');
@@ -1818,6 +1877,14 @@ const pageCommands = {
   builtinBackgrounds: () => builtinBackgrounds(),
   isPrivate: wc => [...windows].some(w => w.isPrivate && w.tabs.some(t => t.view.webContents === wc)),
   platform: () => 'desktop',
+  // Multistream: Fenster mit bis zu vier Twitch-Streams (nur von sakura://multistream)
+  multistream: (wc, list, from = {}) => {
+    if (!from.top || !/^sakura:\/\/multistream\//.test(from.url || '')) return null;
+    const ch = (Array.isArray(list) ? list : []).map(x => String(x || '').toLowerCase().trim()).filter(x => /^[a-z0-9_]{2,25}$/.test(x)).slice(0, 4);
+    if (!ch.length) return { error: 'Gib mindestens einen Kanalnamen ein, z. B. papaplatte.' };
+    openMultistream(ch);
+    return { ok: true };
+  },
   // Einstellungsseite sakura://settings: nur diese Befehle, nur aus dem obersten Rahmen der Seite selbst
   settings: (wc, { cmd, arg } = {}, from = {}) => {
     if (!from.top || !/^sakura:\/\/settings\//.test(from.url || '') || !SETTINGS_COMMANDS.has(cmd)) return null;
@@ -1899,6 +1966,12 @@ app.whenReady().then(async () => {
       if (info) await confirmRemoveExtension(w, info);
     }
     return status();
+  });
+  // Emote-Listen für Twitch (preload-page.js → window.sakuraTwitch)
+  const emotes = new Emotes((u, o) => net.fetch(u, o));
+  ipcMain.handle('twitch-emotes', async (e, login) => {
+    if (!isTwitch(e.senderFrame ? e.senderFrame.url : '') || store.prefs().twitchEmotes === false) return {};
+    return emotes.forChannel(String(login || ''));
   });
   // Sponsor-Abschnitte für YouTube (preload-page.js → window.sakuraYT)
   const sponsorBlock = new SB.SponsorBlock((u, o) => net.fetch(u, o));

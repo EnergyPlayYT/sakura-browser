@@ -26,6 +26,8 @@ const DEFAULT_PREFS = {
   downloadAsk: false,
   cookieReject: true, // Cookie-Banner automatisch ablehnen
   cookieAllow: [],    // Seiten, auf denen Banner nicht abgelehnt werden
+  twitchEmotes: true,  // 7TV/BTTV/FFZ-Emotes im Twitch-Chat
+  twitchPoints: false, // Kanalpunkte-Bonus automatisch abholen (gegen Twitchs Regeln – nur auf Wunsch)
   youtube: true,      // YouTube: Werbung überspringen
   ytSponsor: true,    // Sponsor-Abschnitte überspringen (SponsorBlock)
   ytQuality: 'hd1080',

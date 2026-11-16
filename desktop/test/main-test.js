@@ -27,6 +27,14 @@ setTimeout(async()=>{
   let sc = await page('saveShortcut',{title:'',url:'netflix.com'}); assert(sc.some(s=>s.title==='netflix.com'));
   const bad = await page('saveShortcut',{title:'x',url:'kein link'}); assert(bad.error);
   assert(Array.isArray(await page('builtinBackgrounds')), 'Liste der mitgelieferten Hintergrundbilder');
+  // Multistream: nur von sakura://multistream, Kanalnamen werden geprüft
+  { const mp=(url, list)=>mock._handlers.page({sender:tabWc,senderFrame:{url, parent:null}},'multistream',list);
+    assert.equal(await mp('sakura://newtab/', ['a1']), null);
+    assert(/mindestens/.test((await mp('sakura://multistream/', ['../böse', ''])).error));
+    const before = mock._all.length;
+    assert.deepEqual(await mp('sakura://multistream/', ['Papaplatte', 'gronkh', 'x', 'trymacs', 'zu_viel', 'fuenfter']), {ok:true});
+    const players = mock._all.slice(before).map(w=>w.url).filter(u=>u.startsWith('https://player.twitch.tv'));
+    assert.deepEqual(players.map(u=>new URL(u).searchParams.get('channel')), ['papaplatte','gronkh','trymacs','zu_viel'], 'max. 4, ungültige raus'); }
   // Einstellungsseite: nur sakura://settings (oberster Rahmen), nur erlaubte Befehle
   { const sp=(url, cmd, arg, parent=null)=>mock._handlers.page({sender:tabWc,senderFrame:{url, parent}},'settings',{cmd,arg});
     assert.equal((await sp('sakura://settings/','prefs')).searchEngine,'google');
@@ -41,6 +49,11 @@ setTimeout(async()=>{
   gh.emit('dom-ready'); assert(gh.executed && gh.executed.some(c=>c.includes('window.x=1')));
   assert(gh.executed.some(c=>c.includes('__sakuraCookieReject')), 'Cookie-Banner-Skript läuft');
   await call('toggleCookieAllow');
+  // Twitch-Skript nur auf twitch.tv
+  { await call('newTab','https://www.twitch.tv/papaplatte'); await new Promise(r=>setTimeout(r,30));
+    const tw = mock._all.find(w=>w.url==='https://www.twitch.tv/papaplatte'); tw.emit('dom-ready');
+    assert(tw.executed.some(c=>c.includes('__sakuraTwitchConfig = {"emotes":true,"points":false}')));
+    assert.deepEqual(await mock._handlers['twitch-emotes']({senderFrame:{url:'https://evil.com/'}}, 'papaplatte'), {}); }
   // YouTube-Skript nur auf youtube.com, Sponsor-Abfrage nur von dort
   await call('newTab','https://www.youtube.com/watch?v=dQw4w9WgXcQ'); await new Promise(r=>setTimeout(r,30));
   const yt = mock._all.find(w=>w.url.startsWith('https://www.youtube.com'));

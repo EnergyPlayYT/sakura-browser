@@ -36,6 +36,6 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Streamer-Modus (private Daten unscharf, wenn OBS läuft).
 
 ## Etappe 5 – Twitch und Steam
-- [ ] 7TV/BTTV/FFZ-Emotes im Twitch-Chat, Multistream (bis 4 Streams nebeneinander).
+- [x] 7TV/BTTV/FFZ-Emotes im Twitch-Chat, Multistream (bis 4 Streams nebeneinander).
 - [ ] Steam: Spielerzahlen, Spielzeit; Preisvergleich nur mit offizieller Preis-API.
-- [ ] Hinweis: Automatisches Sammeln von Kanalpunkten/Drops verstößt gegen Twitchs Regeln (Kontosperre möglich) – nur nach ausdrücklicher Zustimmung von Ali.
+- [x] Hinweis: Automatisches Sammeln von Kanalpunkten/Drops verstößt gegen Twitchs Regeln (Kontosperre möglich) – nur nach ausdrücklicher Zustimmung von Ali. → Ali hat zugestimmt: Kanalpunkte-Bonus automatisch abholen, eigener Schalter (standardmäßig aus, mit Warnung). Drops nicht automatisiert.

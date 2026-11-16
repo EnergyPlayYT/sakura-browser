@@ -15,6 +15,13 @@ if (/(^|\.)youtube\.com$/.test(location.hostname) && location.protocol === 'http
   });
 }
 
+// Twitch: Emote-Listen (7TV/BTTV/FFZ) holt der Hauptprozess
+if (/(^|\.)twitch\.tv$/.test(location.hostname) && location.protocol === 'https:') {
+  contextBridge.exposeInMainWorld('sakuraTwitch', {
+    emotes: login => ipcRenderer.invoke('twitch-emotes', String(login || '').slice(0, 30))
+  });
+}
+
 // Videos: Sakura merkt sich, wo du warst – die Seite kann nur ihre eigene Stelle lesen und schreiben
 if (/^https?:$/.test(location.protocol)) {
   contextBridge.exposeInMainWorld('sakuraVideo', {

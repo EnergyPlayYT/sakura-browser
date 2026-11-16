@@ -87,6 +87,12 @@ async function renderSettings() {
     <p>Sponsor-Abschnitte kommen von der freien SponsorBlock-Datenbank. Dabei wird nur ein Teil eines verschlüsselten Werts gesendet, nicht welches Video du schaust.</p>
   </section>
   <section class="set">
+    <h3>Twitch</h3>
+    <label class="switch"><input type="checkbox" id="tw-emotes"${p.twitchEmotes !== false ? ' checked' : ''}><span>Emotes von 7TV, BTTV und FFZ im Chat anzeigen</span></label>
+    <label class="switch"><input type="checkbox" id="tw-points"${p.twitchPoints ? ' checked' : ''}><span>Kanalpunkte-Bonus automatisch abholen</span></label>
+    <p class="msg-error">Achtung: Automatisches Abholen verstößt gegen die Regeln von Twitch. Twitch kann dein Konto dafür sperren. Nutzung auf eigenes Risiko.</p>
+  </section>
+  <section class="set">
     <h3>Videos und Serien</h3>
     <label class="switch"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
     <label class="switch"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
@@ -186,6 +192,11 @@ async function renderSettings() {
   $('#yt-on').onchange = e => api.call('setPrefs', { youtube: e.target.checked });
   $('#yt-sb').onchange = e => api.call('setPrefs', { ytSponsor: e.target.checked });
   $('#yt-q').onchange = e => api.call('setPrefs', { ytQuality: e.target.value });
+  $('#tw-emotes').onchange = e => api.call('setPrefs', { twitchEmotes: e.target.checked });
+  $('#tw-points').onchange = e => {
+    if (e.target.checked && !confirm('Automatisches Abholen von Kanalpunkten verstößt gegen die Regeln von Twitch und kann zu einer Kontosperre führen. Trotzdem einschalten?')) { e.target.checked = false; return; }
+    api.call('setPrefs', { twitchPoints: e.target.checked });
+  };
   $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
@@ -424,6 +435,7 @@ const CATS = [
   ['passwords', 'Passwörter', ['Passwörter']],
   ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung']],
   ['video', 'Videos und YouTube', ['YouTube', 'Videos und Serien']],
+  ['twitch', 'Twitch und Steam', ['Twitch', 'Multistream', 'Steam']],
   ['perf', 'Leistung und Gaming', ['Leistung']],
   ['import', 'Daten importieren', ['Daten importieren']],
   ['about', 'Über Sakura', ['Über Sakura']]
@@ -436,6 +448,7 @@ const ICONS = {
   privacy: '<path d="M12 3.5l7 2.6v5.4c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6.1z"/>',
   passwords: '<circle cx="8.5" cy="12" r="3.5"/><path d="M12 12h8M17 12v3M20 12v2"/>',
   tabs: '<rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M4 10.5h16M9 7V5h6v2"/>',
+  twitch: '<path d="M5 4.5h14.5v9.5l-4 4h-3.5l-3 3v-3H5z"/><path d="M11 8.5v4M15 8.5v4"/>',
   video: '<rect x="4" y="6" width="16" height="12" rx="2"/><path d="M10.5 9.5v5l4-2.5z"/>',
   perf: '<path d="M5 17a8 8 0 1 1 14 0"/><path d="M12 13l3.5-4"/>',
   import: '<path d="M12 4.5v10M7.5 10.5L12 15l4.5-4.5M5.5 19.5h13"/>',

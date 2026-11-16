@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Multistream</title>
+<style>
+  :root { --yoru: #1C1A33; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F; --err: #FFB4C0;
+    --washi-rgb: 238, 231, 226; --line: rgba(var(--washi-rgb), .1);
+    --mincho: "Yu Mincho", "YuMincho", "Noto Serif JP", Georgia, serif; --gothic: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--yoru); color: var(--washi); font: 15px/1.5 var(--gothic); }
+  main { max-width: 560px; margin: 0 auto; padding: 60px 24px; }
+  h1 { font: 400 30px var(--mincho); margin: 0 0 6px; }
+  p { color: var(--usuzumi); margin: 0 0 22px; }
+  label { display: grid; gap: 4px; margin-bottom: 12px; color: var(--usuzumi); font-size: 13px; }
+  input { height: 42px; padding: 0 14px; border: 0; outline: 0; border-radius: 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--line); }
+  input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+  button { height: 42px; padding: 0 20px; border: 0; border-radius: 10px; background: var(--sakura); color: var(--fukai); font: 600 15px var(--gothic); cursor: pointer; margin-top: 8px; }
+  #err { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Multistream</h1>
+  <p>Bis zu vier Twitch-Streams nebeneinander in einem eigenen Fenster. Ton hat der Stream, den du zuletzt anklickst.</p>
+  <form id="f" autocomplete="off">
+    <label>Kanal 1<input name="c" placeholder="z. B. papaplatte" spellcheck="false"></label>
+    <label>Kanal 2<input name="c" spellcheck="false"></label>
+    <label>Kanal 3 (optional)<input name="c" spellcheck="false"></label>
+    <label>Kanal 4 (optional)<input name="c" spellcheck="false"></label>
+    <p id="err" hidden></p>
+    <button>Streams starten</button>
+  </form>
+</main>
+<script src="themes.js"></script>
+<script>
+  const api = window.sakura;
+  api.call('prefs').then(p => { if (window.SakuraThemes) SakuraThemes.apply(document.documentElement, p || {}); });
+  const inputs = [...document.querySelectorAll('input[name=c]')];
+  const pre = decodeURIComponent(location.hash.slice(1)).split(',').filter(Boolean);
+  pre.slice(0, 4).forEach((c, i) => { inputs[i].value = c; });
+  (inputs.find(i => !i.value) || inputs[0]).focus();
+  // Auch ganze Twitch-Adressen sind erlaubt: twitch.tv/name → name
+  const clean = v => v.trim().replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '').split(/[/?#]/)[0].toLowerCase();
+  document.getElementById('f').addEventListener('submit', async e => {
+    e.preventDefault();
+    const list = inputs.map(i => clean(i.value)).filter(Boolean);
+    const r = await api.call('multistream', list);
+    const err = document.getElementById('err');
+    err.hidden = !(r && r.error);
+    if (r && r.error) err.textContent = r.error;
+  });
+</script>
+</body>
+</html>

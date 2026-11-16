@@ -32,6 +32,8 @@ object SyncModel {
         .put("downloadAsk", false)
         .put("cookieReject", true)
         .put("cookieAllow", JSONArray())
+        .put("twitchEmotes", true)
+        .put("twitchPoints", false)
         .put("youtube", true)
         .put("ytSponsor", true)
         .put("ytQuality", "hd1080")
