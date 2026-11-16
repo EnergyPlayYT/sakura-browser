@@ -36,6 +36,98 @@ if (/^https?:$/.test(location.protocol)) {
   window.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') report(e); }, true);
 }
 
+// Passwortmanager: Anmeldungen erkennen und beim Klick ins Anmeldefeld gespeicherte Konten anbieten.
+// Passwörter kommen nur nach einem Klick des Nutzers auf ein Konto auf die Seite – nie automatisch beim Laden.
+if (/^https?:$/.test(location.protocol)) {
+  const isPw = el => el instanceof HTMLInputElement && el.type === 'password';
+  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const USER_HINT = /user|mail|login|konto|account|benutzer|name|phone|tel/i;
+  function userField(pw) {
+    const scope = (pw && pw.form) || document;
+    const inputs = [...scope.querySelectorAll('input')].filter(i => ['text', 'email', 'tel', ''].includes(i.type) && visible(i) && !i.readOnly);
+    const auto = inputs.find(i => /username|email/.test(i.autocomplete || ''));
+    if (auto) return auto;
+    const before = pw ? inputs.filter(i => i.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING) : inputs;
+    return before.reverse().find(i => USER_HINT.test(i.name + ' ' + i.id + ' ' + (i.placeholder || ''))) || before[0] || null;
+  }
+  const pwFields = () => [...document.querySelectorAll('input[type="password"]')].filter(visible);
+
+  // ---------- Anmeldung erkannt → Sakura fragt „Passwort speichern?“
+  let lastSent = '';
+  function capture(from) {
+    const pw = (isPw(from) && from.value ? from : null) || pwFields().find(p => p.value && (!from || !from.form || p.form === from.form));
+    if (!pw || !pw.value) return;
+    const pws = pwFields().filter(p => p.value);
+    if (pws.length >= 3) return; // Passwort ändern: alt/neu/neu – nicht speichern
+    const user = userField(pw);
+    const key = (user ? user.value : '') + '\n' + pw.value;
+    if (key === lastSent) return;
+    lastSent = key;
+    setTimeout(() => { if (lastSent === key) lastSent = ''; }, 5000);
+    ipcRenderer.send('pw-submit', { username: user ? user.value.slice(0, 300) : '', password: pw.value.slice(0, 1000) });
+  }
+  window.addEventListener('submit', e => { if (e.isTrusted && e.target.querySelector && e.target.querySelector('input[type="password"]')) capture(e.target.querySelector('input[type="password"]')); }, true);
+  window.addEventListener('click', e => {
+    if (!e.isTrusted || !(e.target instanceof Element)) return;
+    const b = e.target.closest('button, input[type="submit"], [role="button"]');
+    if (b && pwFields().some(p => p.value)) capture(b.form ? b : null);
+  }, true);
+  window.addEventListener('keydown', e => { if (e.isTrusted && e.key === 'Enter' && isPw(e.target)) capture(e.target); }, true);
+
+  // ---------- Auswahl gespeicherter Konten unter dem Anmeldefeld
+  let box = null;
+  const closeBox = () => { if (box) { box.remove(); box = null; } };
+  function setValue(el, v) {
+    if (!el) return;
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    el.focus();
+    set.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  async function offer(field) {
+    const pw = isPw(field) ? field : pwFields().find(p => !p.form || p.form === field.form);
+    if (!pw || (!isPw(field) && userField(pw) !== field)) return;
+    const list = await ipcRenderer.invoke('pw-accounts');
+    if (!list || !list.length || document.activeElement !== field) return;
+    closeBox();
+    const host = document.createElement('div');
+    const r = field.getBoundingClientRect();
+    host.style.cssText = `position:fixed;left:${Math.round(r.left)}px;top:${Math.round(r.bottom + 4)}px;z-index:2147483647;`;
+    const sr = host.attachShadow({ mode: 'closed' });
+    sr.innerHTML = `<style>
+      .b{min-width:${Math.max(220, Math.round(r.width))}px;max-width:360px;background:#2C2950;color:#EEE7E2;border-radius:10px;padding:6px;
+        box-shadow:0 0 0 1px rgba(238,231,226,.1),0 12px 30px rgba(4,2,12,.5);font:13px "Segoe UI",Roboto,sans-serif}
+      .h{padding:4px 8px 6px;color:#A59EB8;font-size:11.5px} button{all:unset;display:block;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:7px;cursor:pointer;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis} button:hover,button:focus{background:rgba(242,179,197,.16)}</style>
+      <div class="b"><div class="h">Gespeichert in Sakura</div></div>`;
+    const b = sr.querySelector('.b');
+    for (const a of list) {
+      const btn = document.createElement('button');
+      btn.textContent = a.username || '(ohne Benutzername)';
+      btn.addEventListener('mousedown', async e => {
+        e.preventDefault();
+        if (!e.isTrusted) return;
+        const d = await ipcRenderer.invoke('pw-fill', a.id);
+        closeBox();
+        if (!d) return;
+        setValue(userField(pw), d.username);
+        setValue(pw, d.password);
+      });
+      b.appendChild(btn);
+    }
+    box = host;
+    document.documentElement.appendChild(host);
+  }
+  window.addEventListener('focusin', e => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || !e.isTrusted) return;
+    if (isPw(t) || pwFields().length) offer(t); else closeBox();
+  }, true);
+  window.addEventListener('focusout', () => setTimeout(() => { if (box && !box.matches(':focus-within')) closeBox(); }, 150), true);
+  window.addEventListener('scroll', closeBox, true);
+}
+
 // Chrome Web Store: „Zu Chrome hinzufügen“ wird zu „Zu Sakura hinzufügen“
 if (location.hostname === 'chromewebstore.google.com') {
   const ID_RE = /\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/;

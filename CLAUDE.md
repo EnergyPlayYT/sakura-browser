@@ -14,7 +14,7 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
   ui/               Browser-Oberfläche: Tabs, Adressleiste, Favoritenleiste, Menüs, Seitenleisten-Panels
   pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt
   assets/           blocklist.txt, cookie-reject.js (Cookie-Banner), youtube.js/.css (Werbung, SponsorBlock, Qualität), video.js (Weiterschauen, Intro, nächste Folge), media.js (Kino-Modus, Helligkeit, Ton, Sleep-Timer) – auch Android
-  lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), sponsorblock.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
+  lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), passwords.js (Passwortmanager, safeStorage), sponsorblock.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
                     crypto.js, adblock.js, extensions.js + crx.js (Chrome-Erweiterungen), downloads.js,
                     updater.js (electron-updater), favicons.js
   test/             Tests ohne Electron (electron-mock.js ersetzt es) → `npm test` im Ordner desktop

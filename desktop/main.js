@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification, safeStorage
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -22,6 +22,7 @@ const SB = require('./lib/sponsorblock');
 const { pickTabsToSleep } = require('./lib/sleeper');
 const Gaming = require('./lib/gaming');
 const Popups = require('./lib/popups');
+const Passwords = require('./lib/passwords');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* beim Entwickeln ohne npm install */ }
 
@@ -49,7 +50,7 @@ const startTheme = store.prefs().siteTheme;
 // Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
 app.commandLine.appendSwitch('enable-features', ['HardwareMediaKeyHandling', ...(startTheme === 'force' ? ['WebContentsForceDark'] : [])].join(','));
 
-let blocker, sync, extensions, downloads, updater, favicons, gameWatch;
+let blocker, sync, extensions, downloads, updater, favicons, gameWatch, vault;
 const windows = new Set();
 let tabCounter = 0;
 let privateCounter = 0;
@@ -903,6 +904,33 @@ function videoKey(url) {
   } catch { return null; }
 }
 
+// ---------------------------------------------------------------- Passwortmanager
+function tabOfSender(sender) {
+  for (const w of windows) { const t = w.tabs.find(x => x.view.webContents === sender); if (t) return { w, t }; }
+  return null;
+}
+const pwPrompting = new Set();
+async function offerSavePassword(sender, url, d) {
+  const f = tabOfSender(sender);
+  if (!f || f.w.isPrivate || store.prefs().passwordSave === false || !vault.available || vault.isNever(url)) return;
+  if (!d || typeof d.password !== 'string' || !d.password) return;
+  const st = vault.check(url, d.username, d.password);
+  if (!st || st === 'same' || pwPrompting.has(f.t.id)) return;
+  pwPrompting.add(f.t.id);
+  try {
+    const host = Passwords.originOf(url).replace(/^https?:\/\/(www\.)?/, '');
+    const r = await dialog.showMessageBox(f.w.win, {
+      type: 'question', title: 'Passwort speichern',
+      message: st === 'new' ? `Passwort für ${host} speichern?` : `Neues Passwort für ${host} übernehmen?`,
+      detail: `Benutzer: ${String(d.username || '') || '(ohne Benutzername)'}\nDas Passwort wird mit deinem Windows-Konto verschlüsselt gespeichert.`,
+      buttons: [st === 'new' ? 'Speichern' : 'Aktualisieren', 'Nicht jetzt', 'Nie für diese Seite'], defaultId: 0, cancelId: 1, noLink: true
+    });
+    if (r.response === 0) vault.upsert(url, d.username, d.password);
+    if (r.response === 2) vault.addNever(url);
+  } catch (e) { console.error('Passwort speichern:', e.message); }
+  finally { pwPrompting.delete(f.t.id); }
+}
+
 // ---------------------------------------------------------------- Popup-Blocker
 const clickIntents = new Map(); // webContents-ID → letzter Klick auf der Seite { at, href, interactive }
 function popupVerdict(tab, url, features) {
@@ -1460,6 +1488,41 @@ const uiCommands = {
   updateInfo: () => updater.info(),
   updateCheck: () => updater.check(),
   updateInstall: () => { saveSession(); quitting = true; store.flush(); updater.installNow(); },
+  // Passwörter (Verwaltung)
+  pwList: () => ({ available: !!(vault && vault.available), broken: !!(vault && vault.broken), entries: vault && vault.available ? vault.list() : [] }),
+  pwReveal: (w, id) => { const e = vault.reveal(String(id)); return e ? e.password : null; },
+  pwCopy: (w, id) => {
+    const e = vault.reveal(String(id));
+    if (!e) return false;
+    clipboard.writeText(e.password);
+    // nach 30 Sekunden wieder aus der Zwischenablage nehmen
+    setTimeout(() => { if (clipboard.readText() === e.password) clipboard.writeText(''); }, 30000);
+    return true;
+  },
+  pwUpdate: (w, { id, patch }) => { try { vault.update(String(id), patch || {}); return { ok: true }; } catch (e) { return { error: e.message }; } },
+  pwDelete: (w, id) => { vault.remove(String(id)); return true; },
+  pwImport: async w => {
+    const r = await dialog.showOpenDialog(w.win, { title: 'Passwort-Export wählen (CSV)', properties: ['openFile'], filters: [{ name: 'CSV-Datei', extensions: ['csv'] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+      if (!vault.available) throw new Error('Sicherer Speicher ist auf diesem System nicht verfügbar.');
+      if (fs.statSync(r.filePaths[0]).size > 20 * 1024 * 1024) throw new Error('Die Datei ist zu groß.');
+      const rows = Passwords.parsePasswordCsv(fs.readFileSync(r.filePaths[0], 'utf8'));
+      const res = vault.importMany(rows);
+      const n = x => x === 1 ? 'ein Passwort' : `${x} Passwörter`;
+      let msg = res.added || res.updated ? `${n(res.added)} übernommen${res.updated ? `, ${n(res.updated)} aktualisiert` : ''}.` : 'Keine neuen Passwörter gefunden.';
+      msg = msg[0].toUpperCase() + msg.slice(1) + ' Lösch die CSV-Datei jetzt – darin stehen deine Passwörter unverschlüsselt.';
+      return { ok: true, ...res, message: msg };
+    } catch (e) { return { error: e.message }; }
+  },
+  pwCheck: async () => {
+    try {
+      const r = await Passwords.checkLeaks(vault, (u, o) => net.fetch(u, o));
+      return { ok: true, ...r, message: !r.checked ? 'Noch keine Passwörter gespeichert.' : r.leaked
+        ? `${r.leaked === 1 ? 'Ein Passwort taucht' : r.leaked + ' Passwörter tauchen'} in bekannten Datenlecks auf. Ändere ${r.leaked === 1 ? 'es' : 'sie'} am besten bald.`
+        : `Alle ${r.checked} Passwörter geprüft – keins taucht in bekannten Datenlecks auf.` };
+    } catch (e) { return { error: e.message }; }
+  },
   popupOpenLast: w => {
     const t = w.active;
     const last = t && t.popups && t.popups.pop();
@@ -1707,6 +1770,21 @@ app.whenReady().then(async () => {
     if (!SB.isYouTube(e.senderFrame ? e.senderFrame.url : '') || store.prefs().youtube === false || store.prefs().ytSponsor === false) return [];
     return sponsorBlock.segments(id);
   });
+  // Passwortmanager: Anmeldung erkannt / Konten anbieten / nach Klick ausfüllen
+  ipcMain.on('pw-submit', (e, d) => offerSavePassword(e.sender, e.senderFrame ? e.senderFrame.url : '', d));
+  ipcMain.handle('pw-accounts', e => {
+    if (store.prefs().passwordFill === false || !tabOfSender(e.sender)) return [];
+    return vault.available ? vault.accountsFor(e.senderFrame ? e.senderFrame.url : '') : [];
+  });
+  ipcMain.handle('pw-fill', (e, id) => {
+    const f = tabOfSender(e.sender);
+    // Nur direkt nach einem echten Klick – eine Seite kann Passwörter nicht selbst abrufen
+    if (!f || !(f.t.lastInput && Date.now() - f.t.lastInput < 3000) || !vault.available) return null;
+    const entry = vault.reveal(String(id), e.senderFrame ? e.senderFrame.url : '');
+    if (!entry) return null;
+    vault.used(entry.id);
+    return { username: entry.username, password: entry.password };
+  });
   // Popup-Blocker: Was wurde zuletzt angeklickt? (preload-page.js, nur Angaben zum eigenen Klick)
   ipcMain.on('click-intent', (e, d) => {
     if (!d || typeof d !== 'object') return;
@@ -1727,6 +1805,8 @@ app.whenReady().then(async () => {
     if (!fn || !url.startsWith('sakura://')) return null;
     return fn(e.sender, arg);
   });
+
+  vault = new Passwords.Vault({ dir: userDir, safeStorage });
 
   // Erweiterungen vor den ersten Tabs laden, damit ihre Skripte sofort greifen
   prepareSession(session.defaultSession, false);

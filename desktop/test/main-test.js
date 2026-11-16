@@ -84,6 +84,23 @@ setTimeout(async()=>{
     assert.equal(opener.openHandler({url:'https://werbung.example/2', disposition:'foreground-tab', features:''}).action, 'deny'); // geht als Tab auf
     st = await call('state'); assert.equal(st.tabs.length, n0+3, 'Ausnahme: erlaubt'); await call('togglePopupAllow');
   }
+  // Passwortmanager
+  { const pwc = mock._all.find(w=>w.url==='https://github.com'); const fr={url:'https://github.com/login'};
+    const orig = mock.dialog.showMessageBox; let asked = 0; mock.dialog.showMessageBox = async () => { asked++; return { response: 0 }; };
+    mock._handlers['on:pw-submit']({sender:pwc, senderFrame:fr}, {username:'ali', password:'geheim'}); await new Promise(r=>setTimeout(r,20));
+    assert.equal(asked, 1, 'fragt „Passwort speichern?“');
+    mock._handlers['on:pw-submit']({sender:pwc, senderFrame:fr}, {username:'ali', password:'geheim'}); await new Promise(r=>setTimeout(r,20));
+    assert.equal(asked, 1, 'gleiches Passwort: nicht noch einmal fragen');
+    mock.dialog.showMessageBox = orig;
+    const acc = await mock._handlers['pw-accounts']({sender:pwc, senderFrame:fr}); assert.deepEqual(acc.map(a=>a.username), ['ali']);
+    assert.deepEqual(await mock._handlers['pw-accounts']({sender:pwc, senderFrame:{url:'https://evil.com/'}}), []);
+    pwc.emit('input-event', {}, {type:'mouseDown'});
+    assert.deepEqual(await mock._handlers['pw-fill']({sender:pwc, senderFrame:fr}, acc[0].id), {username:'ali', password:'geheim'});
+    assert.equal(await mock._handlers['pw-fill']({sender:pwc, senderFrame:{url:'https://evil.com/'}}, acc[0].id), null, 'fremde Seite');
+    const list = await call('pwList'); assert(list.available && list.entries.length===1 && !('password' in list.entries[0]));
+    assert.equal(await call('pwReveal', acc[0].id), 'geheim');
+    const raw = fs.readFileSync(path.join(mock.app.getPath('userData'),'passwoerter.bin'),'utf8'); assert(!raw.includes('geheim'));
+    await call('pwDelete', acc[0].id); assert.equal((await call('pwList')).entries.length, 0); }
   // Video und Ton
   { await call('navigate','https://kino.example/film'); await new Promise(r=>setTimeout(r,30));
     const kwc = mock._all.find(w=>w.url==='https://kino.example/film'); kwc.jsResult = { hasVideo:true, notes:[] };

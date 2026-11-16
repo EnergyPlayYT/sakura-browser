@@ -487,8 +487,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, settings: renderSettings, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (!TITLES[kind]) return;
   if (kind === 'extensions' && S.private) kind = 'settings';
@@ -847,6 +847,12 @@ async function renderSettings() {
     <p>Funktioniert auf jeder Seite mit Videos, z. B. Netflix, Prime Video, Disney+. In privaten Fenstern merkt sich Sakura nichts.</p>
   </section>
   <section class="set">
+    <h3>Passwörter</h3>
+    <label class="switch"><input type="checkbox" id="pw-save"${p.passwordSave !== false ? ' checked' : ''}><span>Anbieten, Passwörter zu speichern</span></label>
+    <label class="switch"><input type="checkbox" id="pw-fill"${p.passwordFill !== false ? ' checked' : ''}><span>Gespeicherte Konten beim Klick ins Anmeldefeld anbieten</span></label>
+    <div class="row"><button class="btn" id="pw-open">Passwörter verwalten</button></div>
+  </section>
+  <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
     <p>Neue Fenster dürfen sich nur nach deinem Klick auf einen Link oder Knopf öffnen. Blockierte Fenster zeigt das Schild – dort kannst du sie trotzdem öffnen.</p>
@@ -918,6 +924,9 @@ async function renderSettings() {
   $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
+  $('#pw-save').onchange = e => api.call('setPrefs', { passwordSave: e.target.checked });
+  $('#pw-fill').onchange = e => api.call('setPrefs', { passwordFill: e.target.checked });
+  $('#pw-open').onclick = () => openPanel('passwords');
   $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
   $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
@@ -988,6 +997,67 @@ api.on('open-import', () => {
   const go = () => { const s = $('#import-section'); if (s) s.scrollIntoView(); else setTimeout(go, 30); };
   setTimeout(go, 30);
 });
+
+// ------------------------------------------------------------ Passwörter
+async function renderPasswords(filter = '', note = null) {
+  const body = $('#panel-body');
+  const d = await api.call('pwList');
+  if (panelKind !== 'passwords') return;
+  const q = filter.toLowerCase();
+  const list = d.entries.filter(e => !q || e.host.toLowerCase().includes(q) || e.username.toLowerCase().includes(q));
+  const leaked = d.entries.filter(e => e.leaked).length;
+  body.innerHTML = !d.available
+    ? `<p class="p-empty">${d.broken ? 'Die gespeicherten Passwörter gehören zu einem anderen Windows-Konto und lassen sich hier nicht öffnen.' : 'Der sichere Speicher ist auf diesem System nicht verfügbar – Passwörter werden deshalb nicht gespeichert.'}</p>`
+    : `<input class="p-search" placeholder="Passwörter durchsuchen" value="${esc(filter)}">
+    <div class="row pw-actions"><button class="btn" id="pw-import">Aus Chrome/Firefox importieren …</button><button class="btn" id="pw-check">Auf Datenlecks prüfen</button></div>
+    <p class="${note && note.error ? 'msg-error' : 'msg-ok'}" id="pw-note"${note ? '' : ' hidden'}>${esc(note ? note.message || note.error : '')}</p>
+    ${leaked && !note ? `<p class="msg-error">${leaked === 1 ? 'Ein Passwort taucht' : leaked + ' Passwörter tauchen'} in bekannten Datenlecks auf.</p>` : ''}
+    ${list.length ? list.map(e => `<div class="p-item pw" data-id="${esc(e.id)}">
+        <span class="fav">${iconImg(e.origin, e.host)}</span>
+        <div class="txt"><div>${esc(e.host)}${e.leaked ? ' <b class="leak" title="In Datenlecks gefunden">Leck</b>' : ''}</div><small>${esc(e.username || '(ohne Benutzername)')}</small>
+          <small class="pw-val" hidden></small></div>
+        <button class="icon small" data-act="show" title="Passwort anzeigen"><svg><use href="#i-eye"/></svg></button>
+        <button class="icon small" data-act="copy" title="Passwort kopieren"><svg><use href="#i-copy"/></svg></button>
+        <button class="icon small" data-act="edit" title="Bearbeiten"><svg><use href="#i-edit"/></svg></button>
+        <button class="icon small" data-act="del" title="Löschen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+      : `<p class="p-empty">${d.entries.length ? 'Keine Treffer.' : 'Noch keine Passwörter. Melde dich auf einer Seite an – Sakura fragt dann, ob es das Passwort speichern soll. Oder importiere sie aus Chrome, Edge oder Firefox.'}</p>`}
+    <p class="pw-hint">Deine Passwörter sind mit deinem Windows-Konto verschlüsselt und bleiben auf diesem PC.</p>`;
+  if (!d.available) return;
+  const s = body.querySelector('.p-search');
+  s.oninput = () => { const pos = s.selectionStart; renderPasswords(s.value).then(() => { const n = $('#panel-body .p-search'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); };
+  $('#pw-import').onclick = async () => { const r = await api.call('pwImport'); if (r) renderPasswords(s.value, r); };
+  $('#pw-check').onclick = async () => {
+    $('#pw-check').disabled = true; $('#pw-check').textContent = 'Prüfe …';
+    renderPasswords(s.value, await api.call('pwCheck'));
+  };
+  body.onclick = async e => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    const row = b.closest('.p-item'), id = row.dataset.id;
+    if (b.dataset.act === 'show') {
+      const v = row.querySelector('.pw-val');
+      if (v.hidden) { v.textContent = await api.call('pwReveal', id) || ''; v.hidden = false; } else { v.hidden = true; v.textContent = ''; }
+    }
+    if (b.dataset.act === 'copy') { await api.call('pwCopy', id); b.title = 'Kopiert – wird nach 30 Sekunden gelöscht'; b.classList.add('done'); }
+    if (b.dataset.act === 'del') { if (confirm('Dieses Passwort löschen?')) { await api.call('pwDelete', id); renderPasswords(s.value); } }
+    if (b.dataset.act === 'edit') {
+      const entry = d.entries.find(x => x.id === id);
+      const form = document.createElement('div');
+      form.className = 'p-edit';
+      form.innerHTML = `<input name="u" value="${esc(entry.username)}" aria-label="Benutzername" placeholder="Benutzername">
+        <input name="p" type="password" placeholder="Neues Passwort (leer lassen = unverändert)" aria-label="Neues Passwort">
+        <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn primary" data-x="save">Speichern</button></div>`;
+      row.replaceWith(form);
+      form.querySelector('input').focus();
+      form.onclick = async ev => {
+        const x = ev.target.dataset.x;
+        ev.stopPropagation();
+        if (x === 'cancel') renderPasswords(s.value);
+        if (x === 'save') { await api.call('pwUpdate', { id, patch: { username: form.querySelector('[name=u]').value, password: form.querySelector('[name=p]').value } }); renderPasswords(s.value); }
+      };
+    }
+  };
+}
 
 // ------------------------------------------------------------ Video und Ton
 let mediaTick = null;

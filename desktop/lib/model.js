@@ -32,6 +32,8 @@ const DEFAULT_PREFS = {
   sleepAfter: 30,     // Hintergrund-Tabs nach so vielen Minuten schlafen legen (0 = nie)
   ramLimit: 0,        // RAM-Grenze für Sakura in MB (0 = keine)
   cpuLimit: 0,        // CPU-Grenze pro Hintergrund-Tab in % (0 = keine)
+  passwordSave: true, // anbieten, Passwörter zu speichern
+  passwordFill: true, // gespeicherte Konten beim Klick ins Anmeldefeld anbieten
   popupBlock: true,   // Werbefenster und Klickfallen blockieren
   popupAllow: [],     // Seiten, auf denen Popups erlaubt sind
   videoResume: true,  // Videos dort weiterschauen, wo man war

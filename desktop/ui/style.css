@@ -436,3 +436,10 @@ input[type=range] { accent-color: var(--sakura); }
 .sync-code code.blur { filter: blur(6px); }
 /* Langes Menü in kleinen Fenstern: scrollen statt abschneiden */
 #menu { max-height: calc(100vh - var(--tabbar) - var(--toolbar) - var(--bar) - 12px); overflow-y: auto; }
+
+/* ---------------- Passwörter ---------------- */
+.pw-actions { margin: 4px 0 8px; }
+.p-item.pw .txt small.pw-val { font: 13px Consolas, "Cascadia Mono", monospace; color: var(--washi); user-select: all; word-break: break-all; white-space: normal; }
+.p-item.pw .leak { font: 600 10px var(--gothic); color: var(--fukai); background: var(--err); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
+.p-item.pw .icon.done { color: var(--sakura); }
+.pw-hint { color: var(--usuzumi); font-size: 12px; margin-top: 12px; }
