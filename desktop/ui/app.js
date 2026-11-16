@@ -69,6 +69,9 @@ function render() {
   $('#zoom-val').textContent = S.zoom + ' %';
   $('#scripts-ind').hidden = !S.scripts;
   $('#gaming-ind').hidden = !S.gaming;
+  $('#media-btn').hidden = !S.media && !S.sleep;
+  $('#sleep-ind').hidden = !S.sleep;
+  $('#sleep-ind').textContent = S.sleep ? (S.sleep.mode === 'episode' ? 'E' : Math.max(1, Math.ceil((S.sleep.until - Date.now()) / 60000))) : '';
   $('#gaming-ind').title = S.gaming ? `Gaming-Modus: ${S.gaming} läuft – Sakura hält sich zurück` : '';
   $('#scripts-ind').title = S.scripts === 1 ? 'Ein eigenes Skript läuft auf dieser Seite' : `${S.scripts} eigene Skripte laufen auf dieser Seite`;
   renderExtActions();
@@ -338,11 +341,12 @@ function openOverlay(kind) {
   closeOverlay(true);
   overlay = kind;
   $('#backdrop').hidden = false;
-  $('#backdrop').classList.toggle('clear', kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group');
+  $('#backdrop').classList.toggle('clear', kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
   api.call('overlay', true);
 }
 function closeOverlay(keep) {
-  for (const s of ['#menu', '#shield-pop', '#panel', '#suggest', '#group-pop']) $(s).hidden = true;
+  for (const s of ['#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop']) $(s).hidden = true;
+  clearTimeout(mediaTick);
   editingGroup = null;
   $('#backdrop').hidden = true;
   overlay = null; panelKind = null;
@@ -365,6 +369,7 @@ $('#menu').addEventListener('click', e => {
   if (!b) return;
   if (b.dataset.zoom) { api.call('zoom', Number(b.dataset.zoom)); return; }
   if (b.dataset.panel) { openPanel(b.dataset.panel); return; }
+  if (b.dataset.panelPop === 'media') { openMedia(); return; }
   closeOverlay();
   api.call(b.dataset.cmd);
 });
@@ -966,6 +971,57 @@ api.on('open-import', () => {
   const go = () => { const s = $('#import-section'); if (s) s.scrollIntoView(); else setTimeout(go, 30); };
   setTimeout(go, 30);
 });
+
+// ------------------------------------------------------------ Video und Ton
+let mediaTick = null;
+const EQ_LABELS = ['Tief', 'Bass', 'Mitten', 'Höhen', 'Brillanz'];
+$('#media-btn').onclick = () => overlay === 'media' ? closeOverlay() : openMedia();
+async function openMedia() {
+  openOverlay('media');
+  const pop = $('#media-pop');
+  pop.hidden = false;
+  const m = await api.call('mediaState');
+  if (overlay !== 'media') return;
+  if (!m || !m.host) { pop.innerHTML = '<h3>Video und Ton</h3><p>Öffne eine Seite mit Video oder Musik.</p>'; return; }
+  const sleepLabel = () => !m.sleep ? 'Aus' : m.sleep.mode === 'episode' ? 'Hält am Ende der Folge an' : `Hält in ${Math.max(1, Math.ceil((m.sleep.until - Date.now()) / 60000))} Min. an`;
+  const range = (id, min, max, val, label, unit) => `<label class="m-range"><span>${label}</span><input type="range" id="${id}" min="${min}" max="${max}" value="${val}"><output>${val}${unit}</output></label>`;
+  pop.innerHTML = `
+    <h3>Video und Ton</h3>
+    <p class="m-sub">Einstellungen für ${esc(m.host)} werden gemerkt.</p>
+    <div class="m-sec"><b>Sleep-Timer</b> <span id="m-sleep-txt">${esc(sleepLabel())}</span>
+      <div class="m-chips">${[['0', 'Aus'], ['15', '15 Min.'], ['30', '30 Min.'], ['60', '1 Std.'], ['ep', 'Ende der Folge']].map(([v, l]) =>
+        `<button data-sleep="${v}" class="${(v === '0' && !m.sleep) || (m.sleep && (m.sleep.mode === 'episode' ? v === 'ep' : String(m.sleep.minutes) === v)) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    <div class="m-sec">
+      <label class="switch"><input type="checkbox" id="m-cinema"${m.cinema ? ' checked' : ''}><span>Kino-Modus – alles außer dem Video abdunkeln</span></label>
+      ${range('m-bright', 50, 150, m.brightness, 'Helligkeit', ' %')}
+    </div>
+    <div class="m-sec">
+      ${range('m-bass', 0, 12, m.bass, 'Bass-Verstärker', ' dB')}
+      <label class="switch"><input type="checkbox" id="m-dialog"${m.dialog ? ' checked' : ''}><span>Dialog-Verstärker – Stimmen deutlicher</span></label>
+      <div class="m-eq">${m.eq.map((g, i) => `<label><input type="range" min="-12" max="12" value="${g}" data-eq="${i}" orient="vertical"><small>${EQ_LABELS[i]}</small></label>`).join('')}</div>
+    </div>
+    <p class="msg-error" id="m-note" hidden></p>
+    <div class="row"><button class="btn" id="m-reset">Zurücksetzen</button></div>`;
+  const note = r => { const n = $('#m-note'); const t = r && (r.error || (r.notes || [])[0]); n.textContent = t || ''; n.hidden = !t; };
+  let t = null;
+  const send = patch => { clearTimeout(t); t = setTimeout(async () => note(await api.call('mediaSet', patch)), 120); };
+  pop.querySelectorAll('input[type=range]').forEach(r => r.addEventListener('input', () => {
+    const out = r.parentElement.querySelector('output');
+    if (out) out.textContent = r.value + (r.id === 'm-bright' ? ' %' : ' dB');
+    if (r.dataset.eq) send({ eq: [...pop.querySelectorAll('[data-eq]')].map(x => Number(x.value)) });
+    else send(r.id === 'm-bright' ? { brightness: Number(r.value) } : { bass: Number(r.value) });
+  }));
+  $('#m-cinema').onchange = async e => note(await api.call('mediaSet', { cinema: e.target.checked }));
+  $('#m-dialog').onchange = async e => note(await api.call('mediaSet', { dialog: e.target.checked }));
+  $('#m-reset').onclick = async () => { await api.call('mediaReset'); openMedia(); };
+  pop.querySelectorAll('[data-sleep]').forEach(b => b.onclick = async () => {
+    const v = b.dataset.sleep;
+    const r = await api.call('sleepSet', v === 'ep' ? { episode: true } : { minutes: Number(v) });
+    if (r && r.error) note(r); else openMedia();
+  });
+  clearTimeout(mediaTick);
+  if (m.sleep && m.sleep.mode === 'time') mediaTick = setTimeout(() => { const s = $('#m-sleep-txt'); if (s && overlay === 'media') s.textContent = sleepLabel(); }, 30000);
+}
 
 // ------------------------------------------------------------ Leistung
 const fmtMB = b => b >= 1024 ** 3 ? (b / 1024 ** 3).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' GB' : Math.round(b / 1024 ** 2).toLocaleString('de-DE') + ' MB';

@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -377,7 +377,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { runCookieReject(wc); runYouTube(wc); runVideoHelper(wc); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -385,7 +385,7 @@ class SakuraWindow {
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
     });
     wc.on('audio-state-changed', e => { tab.audible = !!e.audible; upd(); });
-    wc.on('media-started-playing', () => { tab.audible = true; upd(); });
+    wc.on('media-started-playing', () => { tab.audible = true; tab.hadMedia = true; upd(); });
     wc.on('media-paused', () => { tab.audible = false; upd(); });
     wc.on('found-in-page', (e, r) => tab.w.ui.webContents.send('find-result', { active: r.activeMatchOrdinal, total: r.matches }));
     wc.on('context-menu', (e, p) => tab.w.pageMenu(tab, p));
@@ -638,6 +638,8 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
+      media: !!(a && (a.hadMedia || a.audible)),
+      sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
       update: updater ? { state: updater.state.state, version: updater.state.version, percent: updater.state.percent } : null,
       scripts: realUrl ? M.scriptsFor(store.data.scripts, realUrl).length : 0,
       bar: barVisible() ? store.barBookmarks().slice(0, 100).map(b => ({ id: b.id, title: b.title, url: b.url, favicon: b.favicon || null })) : null
@@ -886,6 +888,84 @@ function videoKey(url) {
     for (const k of ['t', 'start', 'time_continue', 'si', 'pp']) u.searchParams.delete(k);
     return u.toString();
   } catch { return null; }
+}
+
+// ---------------------------------------------------------------- Video und Ton
+// Kino-Modus, Helligkeit, Bass/Dialog, Equalizer (assets/media.js). Helligkeit und Ton gelten pro Seite und
+// werden gemerkt (nur lokal), der Kino-Modus nur für den Tab.
+const MEDIA_DEFAULT = { brightness: 100, bass: 0, dialog: false, eq: [0, 0, 0, 0, 0] };
+let mediaScript = null;
+const hostOfUrl = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+function siteMedia(host) {
+  const s = (store.data.mediaSites || {})[host];
+  return { ...MEDIA_DEFAULT, ...(s || {}), eq: (s && Array.isArray(s.eq) ? s.eq : MEDIA_DEFAULT.eq).slice(0, 5) };
+}
+function cleanMedia(p) {
+  const out = {};
+  if ('brightness' in p) out.brightness = Math.max(30, Math.min(200, Math.round(Number(p.brightness) || 100)));
+  if ('bass' in p) out.bass = Math.max(0, Math.min(12, Math.round(Number(p.bass) || 0)));
+  if ('dialog' in p) out.dialog = !!p.dialog;
+  if ('eq' in p && Array.isArray(p.eq)) out.eq = [0, 1, 2, 3, 4].map(i => Math.max(-12, Math.min(12, Math.round(Number(p.eq[i]) || 0))));
+  if ('cinema' in p) out.cinema = !!p.cinema;
+  return out;
+}
+async function mediaCall(wc, expr) {
+  if (!wc || wc.isDestroyed() || !/^https?:/i.test(wc.getURL())) return null;
+  if (mediaScript == null) { try { mediaScript = fs.readFileSync(path.join(__dirname, 'assets', 'media.js'), 'utf8'); } catch { mediaScript = ''; } }
+  if (!mediaScript) return null;
+  try { return await wc.executeJavaScript(`${mediaScript}\n;(${expr})`, true); } catch { return null; }
+}
+function applyTabMedia(tab) {
+  const host = hostOfUrl(tab.url);
+  const st = { ...siteMedia(host), cinema: !!(tab.media && tab.media.cinema) };
+  return mediaCall(tab.view.webContents, `window.__sakuraMedia.apply(${JSON.stringify(st)})`);
+}
+/** Beim Laden: gemerkte Einstellungen der Seite anwenden (nur wenn nicht Standard) */
+function applySiteMedia(tab) {
+  const host = hostOfUrl(tab.view.webContents.getURL());
+  if (!host || !(store.data.mediaSites || {})[host]) return;
+  applyTabMedia(tab);
+}
+
+// Sleep-Timer: nach einer Zeit oder am Ende der Folge alles anhalten
+let sleepTimer = null; // { mode: 'time' | 'episode', until, timer, tabId }
+function pauseEverything() {
+  for (const w of windows) for (const t of w.tabs) {
+    const wc = t.view.webContents;
+    if (wc.isDestroyed() || t.pending) continue;
+    const js = 'document.querySelectorAll("video, audio").forEach(m => { try { m.pause(); } catch (e) {} })';
+    try { for (const f of wc.mainFrame ? wc.mainFrame.framesInSubtree : []) f.executeJavaScript(js).catch(() => {}); } catch {}
+    if (!wc.mainFrame) wc.executeJavaScript(js).catch(() => {});
+  }
+}
+function notify(title, body) {
+  try { if (Notification && Notification.isSupported()) new Notification({ title, body, icon: ICON, silent: true }).show(); } catch {}
+}
+function clearSleep() {
+  if (!sleepTimer) return;
+  clearTimeout(sleepTimer.timer);
+  if (sleepTimer.mode === 'episode') { const f = findTab(sleepTimer.tabId); if (f) mediaCall(f.t.view.webContents, 'window.__sakuraMedia.sleepAtEnd(false)'); }
+  sleepTimer = null;
+}
+async function setSleep(w, { minutes, episode } = {}) {
+  clearSleep();
+  if (episode) {
+    const t = w.active;
+    const ok = t && await mediaCall(t.view.webContents, 'window.__sakuraMedia.sleepAtEnd(true)');
+    if (!ok) { broadcastState(); return { error: 'Auf diesem Tab läuft kein Video.' }; }
+    sleepTimer = { mode: 'episode', tabId: t.id };
+  } else if (Number(minutes) > 0) {
+    const ms = Math.min(600, Number(minutes)) * 60000;
+    sleepTimer = { mode: 'time', until: Date.now() + ms, minutes: Number(minutes) };
+    sleepTimer.timer = setTimeout(() => {
+      sleepTimer = null;
+      pauseEverything();
+      notify('Sleep-Timer', 'Die Wiedergabe wurde angehalten. Gute Nacht.');
+      broadcastState();
+    }, ms);
+  }
+  broadcastState();
+  return { ok: true };
 }
 
 // YouTube: Werbung und Sponsoren überspringen, Qualität (assets/youtube.js)
@@ -1391,6 +1471,31 @@ const uiCommands = {
     catch (e) { dialog.showMessageBox(w.win, { type: 'error', message: 'Die Erweiterung konnte nicht geladen werden.', detail: e.message }); return null; }
   },
   openWebstore: w => w.newTab(WEBSTORE),
+  // Video und Ton
+  mediaState: async w => {
+    const t = w.active;
+    if (!t) return null;
+    const host = hostOfUrl(t.url);
+    const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
+    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+  },
+  mediaSet: async (w, patch) => {
+    const t = w.active;
+    const host = t && hostOfUrl(t.url);
+    if (!host) return { error: 'Auf dieser Seite nicht möglich.' };
+    const p = cleanMedia(patch || {});
+    if ('cinema' in p) { t.media = { ...(t.media || {}), cinema: p.cinema }; delete p.cinema; }
+    if (Object.keys(p).length) {
+      if (!store.data.mediaSites || typeof store.data.mediaSites !== 'object') store.data.mediaSites = {};
+      const next = { ...siteMedia(host), ...p };
+      const isDefault = next.brightness === 100 && !next.bass && !next.dialog && next.eq.every(g => !g);
+      if (isDefault) delete store.data.mediaSites[host]; else store.data.mediaSites[host] = next;
+      store.save();
+    }
+    return (await applyTabMedia(t)) || { error: 'Auf dieser Seite nicht möglich.' };
+  },
+  mediaReset: async w => { const t = w.active; const host = t && hostOfUrl(t.url); if (store.data.mediaSites) delete store.data.mediaSites[host]; store.save(); if (t) { t.media = null; await applyTabMedia(t); } return true; },
+  sleepSet: (w, opts) => setSleep(w, opts),
   // Schwebendes Video
   floatVideo: w => floatVideo(w),
   unfloat: () => unfloat(),

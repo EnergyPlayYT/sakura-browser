@@ -407,3 +407,24 @@ body.light #backdrop:not(.clear) { background: rgba(40, 30, 50, .18); }
 #gaming-ind { color: var(--sakura); }
 .perf-card.gaming { box-shadow: inset 0 0 0 1.5px var(--sakura); }
 .tab.floating .title { font-style: italic; color: var(--sakura); }
+
+/* ---------------- Video und Ton ---------------- */
+#media-pop { right: 92px; width: 340px; padding: 14px 16px; max-height: calc(100vh - 110px); overflow: auto; }
+#media-pop h3 { margin: 0; font: 17px var(--mincho); }
+.m-sub { margin: 2px 0 8px; color: var(--usuzumi); font-size: 12px; }
+.m-sec { padding: 10px 0; border-top: 1px solid var(--line); }
+.m-sec > b { font-weight: 600; }
+.m-sec > span { color: var(--usuzumi); margin-left: 6px; }
+.m-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.m-chips button { padding: 5px 10px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--line); }
+.m-chips button:hover { background: rgba(var(--washi-rgb), .06); }
+.m-chips button.on { background: var(--sakura); color: var(--fukai); box-shadow: none; }
+.m-range { display: grid; grid-template-columns: 110px 1fr 46px; align-items: center; gap: 8px; padding: 5px 0; }
+.m-range output { text-align: right; color: var(--usuzumi); font-variant-numeric: tabular-nums; }
+input[type=range] { accent-color: var(--sakura); }
+.m-eq { display: flex; justify-content: space-between; padding: 6px 4px 0; }
+.m-eq label { display: grid; justify-items: center; gap: 4px; }
+.m-eq input { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 90px; }
+.m-eq small { color: var(--usuzumi); font-size: 11px; }
+#media-btn b { position: absolute; right: 1px; bottom: 2px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px;
+  font: 600 9.5px/15px var(--gothic); text-align: center; background: var(--sakura); color: var(--fukai); }

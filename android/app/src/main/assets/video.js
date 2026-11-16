@@ -140,7 +140,7 @@
     if (c.intro !== false && clickFirst(INTRO, INTRO_TEXT)) toast('Intro übersprungen');
     // Nächste Folge nur kurz vor Schluss – sonst könnte ein Link auf der Seite zu früh weiterschalten
     const nearEnd = v.ended || (isFinite(v.duration) && v.duration >= MIN_LEN && v.currentTime > v.duration - 90);
-    if (c.next !== false && nearEnd && clickFirst(NEXT, NEXT_TEXT)) toast('Nächste Folge');
+    if (c.next !== false && !window.__sakuraNoNext && nearEnd && clickFirst(NEXT, NEXT_TEXT)) toast('Nächste Folge');
   }
   const timer = setInterval(tick, 1000);
   document.addEventListener('play', e => { if (e.target instanceof HTMLVideoElement) hook(e.target); }, true);

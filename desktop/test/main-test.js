@@ -69,6 +69,18 @@ setTimeout(async()=>{
     assert.equal(await vp({sender:ghTab, senderFrame:{url:'https://andere.de/'}}, 'get'), null);
     assert.equal(await vp({sender:{}, senderFrame:{url:'https://github.com/'}}, 'get'), null, 'fremder Absender');
     ghTab.executed=[]; ghTab.emit('dom-ready'); assert(ghTab.executed.some(c=>c.includes('__sakuraVideoConfig = {"resume":true,"intro":true,"next":true}')), 'Video-Skript läuft'); }
+  // Video und Ton
+  { await call('navigate','https://kino.example/film'); await new Promise(r=>setTimeout(r,30));
+    const kwc = mock._all.find(w=>w.url==='https://kino.example/film'); kwc.jsResult = { hasVideo:true, notes:[] };
+    assert.deepEqual(await call('mediaSet',{bass:99, eq:[20,-30,1,2,'x'], brightness:5}), { hasVideo:true, notes:[] });
+    const ms = await call('mediaState'); assert.equal(ms.host,'kino.example'); assert.equal(ms.bass,12); assert.deepEqual(ms.eq,[12,-12,1,2,0]); assert.equal(ms.brightness,30);
+    assert(kwc.executed.some(c=>c.includes('__sakuraMedia.apply({"brightness":30,"bass":12')), 'Einstellungen an die Seite');
+    kwc.executed=[]; kwc.emit('dom-ready'); assert(kwc.executed.some(c=>c.includes('__sakuraMedia.apply')), 'beim nächsten Laden automatisch');
+    await call('mediaReset'); assert.equal((await call('mediaState')).bass, 0);
+    await call('sleepSet',{minutes:30}); st = await call('state'); assert.equal(st.sleep.mode,'time'); assert(st.sleep.until > Date.now()+29*60e3);
+    await call('sleepSet',{episode:true}); st = await call('state'); assert.equal(st.sleep.mode,'episode');
+    await call('sleepSet',{minutes:0}); st = await call('state'); assert.equal(st.sleep, null);
+    kwc.jsResult = undefined; }
   // Schwebendes Video
   { st = await call('state'); const act = st.activeId; const awc = mock._all.find(x=>x.view && ui && x.url===st.url && !x.destroyed);
     const win0 = mock._all.length; awc.jsResult = true;
