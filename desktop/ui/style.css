@@ -483,3 +483,27 @@ body.streamer #suggest { display: none !important; }
 #ts-list li.sel, #ts-list li[data-i]:hover { background: rgba(var(--sakura-rgb), .14); }
 #ts-list li.cur .t { color: var(--sakura); }
 #ts-list li.ts-head { color: var(--usuzumi); font-size: 11.5px; padding: 8px 10px 4px; }
+
+/* ---------------- Flüssige Oberfläche ---------------- */
+.icon, .btn, .bm, .tab, .pop > button, #suggest li, .p-item, .theme, .m-chips button { transition: background-color .16s ease, color .16s ease, box-shadow .16s ease, opacity .16s ease; }
+.icon:active:not(:disabled), .btn:active:not(:disabled) { transform: scale(.94); }
+.icon, .btn { transition-property: background-color, color, box-shadow, opacity, transform; }
+/* neuer Tab gleitet herein */
+.tab.fresh { animation: tab-in .22s cubic-bezier(.2, .8, .2, 1); }
+@keyframes tab-in { from { opacity: 0; max-width: 0; transform: translateY(6px); } to { opacity: 1; max-width: 220px; transform: none; } }
+/* aktiver Tab: Akzentlinie wächst weich */
+.tab.active::before { animation: tab-line .25s ease-out; }
+@keyframes tab-line { from { left: 50%; right: 50%; } }
+/* Ladebalken unter der Werkzeugleiste */
+#toolbar { position: relative; }
+body.loading #toolbar::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; height: 2px; width: 30%; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--sakura), transparent); animation: loadbar 1.1s ease-in-out infinite;
+}
+@keyframes loadbar { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+/* Menüs und Seitenleiste etwas weicher */
+.pop { animation-duration: .18s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+#backdrop:not(.clear) { animation: fade .2s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+/* Animationen aus (Einstellung) */
+body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none !important; transition: none !important; }

@@ -32,6 +32,7 @@ object SyncModel {
         .put("downloadAsk", false)
         .put("cookieReject", true)
         .put("cookieAllow", JSONArray())
+        .put("animations", true)
         .put("readerSize", 20)
         .put("readerTheme", "sepia")
         .put("steamInfo", true)

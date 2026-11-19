@@ -47,6 +47,8 @@ function applyTheme(t) {
 
 function render() {
   applyTheme(S.theme);
+  document.body.classList.toggle('no-anim', S.animations === false);
+  document.body.classList.toggle('loading', !!S.loading);
   renderTabs();
   $('#back').disabled = !S.canBack;
   $('#forward').disabled = !S.canForward;
@@ -207,8 +209,10 @@ api.on('download-started', () => {
 const GROUP_COLORS = { sakura: 'Rosa', sora: 'Blau', matcha: 'Grün', yamabuki: 'Gelb', fuji: 'Lila', momiji: 'Rot', sumi: 'Grau' };
 let pendingGroupEdit = null;
 
+const seenTabs = new Set(), freshAt = new Map(); // neue Tabs gleiten herein – nur beim ersten Erscheinen
 function renderTabs() {
   const box = $('#tabs');
+  const firstRender = !seenTabs.size;
   const groups = new Map((S.groups || []).map(g => [g.id, g]));
   const shown = S.tabs.filter(t => !t.group || !groups.get(t.group) || !groups.get(t.group).collapsed);
   const pinned = shown.filter(t => t.pinned).length;
@@ -223,7 +227,13 @@ function renderTabs() {
     if (g && g.collapsed) return;
     const el = document.createElement('div');
     const next = S.tabs[i + 1];
-    el.className = 'tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
+    if (!seenTabs.has(t.id)) { seenTabs.add(t.id); if (!firstRender) freshAt.set(t.id, Date.now()); }
+    const born = freshAt.get(t.id);
+    if (born && Date.now() - born < 260) {
+      el.classList.add('fresh');
+      el.style.animationDelay = -(Date.now() - born) + 'ms'; // beim Neuzeichnen dort weitermachen, wo die Animation war
+    } else if (born) freshAt.delete(t.id);
+    el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
     if (t.container) { el.classList.add('konto'); el.style.setProperty('--kc', `var(--g-${t.container.color})`); }

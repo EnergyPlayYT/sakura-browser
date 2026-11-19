@@ -51,6 +51,8 @@ const PANEL_URLS = /^(?:chrome|sakura|about):\/?\/?(extensions|downloads|history
 const store = new Store(app.getPath('userData'));
 const startTheme = store.prefs().siteTheme;
 // Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
+// Weiches Scrollen auf Webseiten (Einstellung „Animationen“, wirkt nach einem Neustart)
+if (store.prefs().animations !== false) app.commandLine.appendSwitch('enable-smooth-scrolling');
 app.commandLine.appendSwitch('enable-features', ['HardwareMediaKeyHandling', ...(startTheme === 'force' ? ['WebContentsForceDark'] : [])].join(','));
 
 let blocker, sync, extensions, downloads, updater, favicons, gameWatch, vault, watcher;
@@ -676,6 +678,7 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
+      animations: store.prefs().animations !== false,
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
