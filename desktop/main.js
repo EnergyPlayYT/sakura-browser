@@ -9,6 +9,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const Store = require('./lib/store');
 const AdBlocker = require('./lib/adblock');
+const { GestureTracker } = require('./lib/gestures');
 const Sync = require('./lib/sync');
 const M = require('./lib/model');
 const { Extensions } = require('./lib/extensions');
@@ -428,7 +429,21 @@ class SakuraWindow {
     wc.on('media-started-playing', () => { tab.audible = true; tab.hadMedia = true; upd(); });
     wc.on('media-paused', () => { tab.audible = false; upd(); });
     wc.on('found-in-page', (e, r) => tab.w.ui.webContents.send('find-result', { active: r.activeMatchOrdinal, total: r.matches }));
-    wc.on('context-menu', (e, p) => tab.w.pageMenu(tab, p));
+    wc.on('context-menu', (e, p) => { if (Date.now() - (tab.gestureAt || 0) < 700) return; tab.w.pageMenu(tab, p); });
+    // Mausgesten (rechte Taste halten und ziehen)
+    const gesture = new GestureTracker();
+    wc.on('before-mouse-event', (e, m) => {
+      if (store.prefs().mouseGestures === false) return;
+      if (m.type === 'mouseDown') { if (m.button === 'right') gesture.down(m.x, m.y); else gesture.cancel(); }
+      else if (m.type === 'mouseMove' && gesture.active) gesture.move(m.x, m.y);
+      else if (m.type === 'mouseUp' && m.button === 'right' && gesture.active) {
+        const act = gesture.up();
+        if (!act) return;
+        tab.gestureAt = Date.now();
+        e.preventDefault();
+        runGesture(tab, act);
+      }
+    });
     wc.on('enter-html-full-screen', () => { tab.w.htmlFullscreen = true; tab.w.win.setFullScreen(true); tab.w.layout(); });
     wc.on('leave-html-full-screen', () => { tab.w.htmlFullscreen = false; tab.w.win.setFullScreen(false); tab.w.layout(); });
     attachShortcuts(wc, () => tab.w);
@@ -1495,6 +1510,19 @@ function findTab(id) {
 
 // ---------------------------------------------------------------- Sitzung merken
 let lastSession = '';
+function runGesture(tab, act) {
+  const w = tab.w, wc = tab.view.webContents;
+  if (!act.cmd) return w.ui.webContents.send('toast', 'Unbekannte Geste');
+  const h = wc.navigationHistory;
+  if (act.cmd === 'back') { if (!h.canGoBack()) return; h.goBack(); }
+  else if (act.cmd === 'forward') { if (!h.canGoForward()) return; h.goForward(); }
+  else if (act.cmd === 'reload') wc.reload();
+  else if (act.cmd === 'newTab') w.newTab(NEWTAB);
+  else if (act.cmd === 'closeTab') w.closeTab(tab.id);
+  else if (act.cmd === 'reopen') reopenClosed(w);
+  if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send('toast', act.label);
+}
+
 // Notizen zur Seite: Schlüssel = Domain (ohne www) + Pfad, ohne Parameter
 function noteKey(url) {
   try {

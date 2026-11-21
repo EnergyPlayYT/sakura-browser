@@ -27,6 +27,7 @@ const DEFAULT_PREFS = {
   cookieReject: true, // Cookie-Banner automatisch ablehnen
   cookieAllow: [],    // Seiten, auf denen Banner nicht abgelehnt werden
   animations: true,    // Animationen und weiches Scrollen
+  mouseGestures: true, // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße
   readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel
   steamInfo: true,     // Spielinfos im Steam-Shop
