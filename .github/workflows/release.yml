@@ -66,7 +66,9 @@ jobs:
             echo "Installierte Sakura-Versionen aktualisieren sich von selbst. Neu installieren: **Sakura-Setup-$V.exe** unten herunterladen."
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
-          gh release create "v$V" --title "Sakura $V" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          # Erst als Entwurf: sichtbar (und für die Auto-Updates auffindbar) wird die Version erst,
+          # wenn der Windows-Build latest.yml und den Installer hochgeladen hat
+          gh release create "v$V" --title "Sakura $V" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag --draft
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
   windows:
@@ -92,6 +94,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis portable --publish always
+      - name: Version freigeben
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release edit "v${{ needs.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   android:
     name: Android bauen

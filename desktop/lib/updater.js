@@ -2,7 +2,8 @@
 // Quelle: GitHub-Releases des Repos, aus dem Sakura gebaut wurde (siehe .github/workflows).
 const { EventEmitter } = require('events');
 
-const CHECK_EVERY = 4 * 60 * 60 * 1000; // alle 4 Stunden
+const CHECK_EVERY = 60 * 60 * 1000;  // jede Stunde
+const RETRY_AFTER = 10 * 60 * 1000;  // nach einem Fehler schon nach 10 Minuten erneut
 
 class Updater extends EventEmitter {
   constructor({ app, autoUpdater }) {
@@ -27,13 +28,13 @@ class Updater extends EventEmitter {
     au.on('update-available', info => this.set({ state: 'downloading', version: info.version, percent: 0 }));
     au.on('download-progress', p => this.set({ state: 'downloading', percent: Math.round(p.percent || 0) }));
     au.on('update-downloaded', info => this.set({ state: 'ready', version: info.version, percent: 100 }));
-    au.on('error', err => this.set({ state: 'error', message: this.describe(err) }));
+    au.on('error', err => { this.set({ state: 'error', message: this.describe(err) }); this.retrySoon(); });
   }
 
   describe(err) {
     const m = String((err && err.message) || err || '');
     if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::ERR/i.test(m)) return 'Keine Verbindung zu GitHub. Sakura versucht es später erneut.';
-    if (/404|latest\.yml|No published versions/i.test(m)) return 'Es gibt noch keine veröffentlichte Version bei GitHub.';
+    if (/404|latest\.yml|No published versions/i.test(m)) return 'Eine neue Version wird gerade gebaut. Sakura sucht in ein paar Minuten noch einmal.';
     return 'Update fehlgeschlagen: ' + m.split('\n')[0].slice(0, 200);
   }
 
@@ -56,8 +57,15 @@ class Updater extends EventEmitter {
   async check() {
     if (!this.supported || this.state.state === 'downloading' || this.state.state === 'ready') return this.info();
     this.lastCheck = Date.now();
-    try { await this.au.checkForUpdates(); } catch (e) { this.set({ state: 'error', message: this.describe(e) }); }
+    try { await this.au.checkForUpdates(); } catch (e) { this.set({ state: 'error', message: this.describe(e) }); this.retrySoon(); }
     return this.info();
+  }
+
+  /** Nach einem Fehler (z. B. Version noch im Bau, kein Internet) bald erneut versuchen statt erst in einer Stunde */
+  retrySoon() {
+    clearTimeout(this._retry);
+    this._retry = setTimeout(() => this.check(), RETRY_AFTER);
+    if (this._retry.unref) this._retry.unref(); // hält Sakura (und Tests) nicht am Leben
   }
 
   start() {
