@@ -79,6 +79,7 @@ function render() {
   document.body.classList.toggle('streamer', !!S.streamer);
   $('#streamer-ind').hidden = !S.streamer;
   $('#streamer-ind').title = S.streamer ? (S.streamer.app ? `${S.streamer.app} läuft – private Daten sind unscharf. Klicken zum Ausschalten.` : 'Private Daten sind unscharf. Klicken zum Ausschalten.') : '';
+  $('#menu-split').textContent = S.splitOn ? 'Geteilte Ansicht beenden' : 'Geteilter Bildschirm';
   $('#menu-streamer').firstChild.textContent = S.streamer ? 'Streamer-Modus ausschalten' : 'Streamer-Modus einschalten';
   $('#media-btn').hidden = !S.media && !S.sleep;
   $('#sleep-ind').hidden = !S.sleep;
@@ -244,13 +245,13 @@ function renderTabs() {
       el.classList.add('fresh');
       el.style.animationDelay = -(Date.now() - born) + 'ms'; // beim Neuzeichnen dort weitermachen, wo die Animation war
     } else if (born) freshAt.delete(t.id);
-    el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
+    el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.split && S.splitOn ? ' split' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
     if (t.container) { el.classList.add('konto'); el.style.setProperty('--kc', `var(--g-${t.container.color})`); }
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', t.id === S.activeId);
-    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '') + (t.container ? ` – Konto-Tab „${t.container.name}“` : '');
+    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '') + (t.container ? ` – Konto-Tab „${t.container.name}“` : '') + (t.split ? ' – geteilte Ansicht' : '');
     el.draggable = true;
     el.dataset.id = t.id;
     let fav;

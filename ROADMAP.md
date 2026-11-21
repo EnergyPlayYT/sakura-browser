@@ -53,7 +53,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Tracker-Übersicht: pro Seite anzeigen, wie viel Werbung und Tracker blockiert wurden.
 - [x] Notizen zur Seite: kleine Notiz an eine Webseite heften, erscheint beim nächsten Besuch wieder.
 - [x] Mausgesten: rechte Maustaste halten und ziehen (zurück, vor, Tab schließen, neu laden).
-- [ ] Geteilter Bildschirm: zwei Tabs nebeneinander in einem Fenster.
+- [x] Geteilter Bildschirm: zwei Tabs nebeneinander in einem Fenster.
 - [ ] Twitch „Nur Ton“: Stream im Hintergrund nur als Audio, spart Daten und Leistung.
 - [ ] Benachrichtigung, wenn ein gemerkter Twitch-Kanal oder YouTuber live geht.
 - [ ] Warnung vor bekannten Betrugs- und Phishing-Seiten (öffentliche Liste, täglich aktualisiert).

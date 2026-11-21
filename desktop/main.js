@@ -9,6 +9,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const Store = require('./lib/store');
 const AdBlocker = require('./lib/adblock');
+const SPLIT_GAP = 4; // Abstand zwischen den beiden Hälften
 const { GestureTracker } = require('./lib/gestures');
 const Sync = require('./lib/sync');
 const M = require('./lib/model');
@@ -240,6 +241,7 @@ class SakuraWindow {
   releaseTab(id) {
     const i = this.tabs.findIndex(t => t.id === id);
     if (i < 0) return null;
+    if (this.inSplit(id)) this.split = null;
     const [t] = this.tabs.splice(i, 1);
     this.win.contentView.removeChildView(t.view);
     if (!this.tabs.length) { setImmediate(() => { if (!this.win.isDestroyed()) this.win.close(); }); return t; }
@@ -310,7 +312,7 @@ class SakuraWindow {
   /** Tab schlafen legen: Seite entladen (spart RAM und CPU), beim Anklicken lädt sie neu */
   sleepTab(id) {
     const t = this.tabs.find(x => x.id === id);
-    if (!t || t.id === this.activeId || t.pending) return false;
+    if (!t || t.id === this.activeId || t.pending || (this.splitPair() || []).includes(t)) return false;
     const url = t.url;
     if (!/^https?:/i.test(url)) return false;
     t.pending = url; t.sleeping = true; t.audible = false; t.loading = false;
@@ -332,12 +334,57 @@ class SakuraWindow {
     const top = this.topHeight();
     this.ui.setVisible(!this.htmlFullscreen);
     this.ui.setBounds({ x: 0, y: 0, width: w, height: this.overlay ? h : top });
+    const pair = this.splitPair();
+    const half = Math.floor((w - SPLIT_GAP) / 2);
     for (const t of this.tabs) {
       if (t.floating) continue; // steckt gerade im schwebenden Fenster
-      const on = t.id === this.activeId;
+      const side = pair ? pair.indexOf(t) : -1;
+      const on = side >= 0 || t.id === this.activeId;
       t.view.setVisible(on);
-      if (on) t.view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) });
+      if (!on) continue;
+      if (side < 0) t.view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) });
+      else t.view.setBounds({ x: side ? w - half : 0, y: top, width: side ? half : w - half - SPLIT_GAP, height: Math.max(0, h - top) });
     }
+  }
+
+  // ---------- Geteilter Bildschirm: zwei Tabs nebeneinander
+  /** Die beiden Tabs (links, rechts), wenn der aktive Tab zu einer geteilten Ansicht gehört */
+  splitPair() {
+    if (!this.split) return null;
+    const a = this.tabs.find(t => t.id === this.split[0]), b = this.tabs.find(t => t.id === this.split[1]);
+    if (!a || !b || a.floating || b.floating) return null;
+    if (this.activeId !== a.id && this.activeId !== b.id) return null;
+    return this.tabs.indexOf(a) < this.tabs.indexOf(b) ? [a, b] : [b, a];
+  }
+  inSplit(id) { return !!this.split && this.split.includes(id); }
+  splitWith(id) {
+    const a = this.active;
+    if (!a || a.id === id || !this.tabs.some(t => t.id === id)) return false;
+    this.split = [a.id, id];
+    const t = this.tabs.find(x => x.id === id);
+    if (t.pending) { const u = t.pending; t.pending = null; t.sleeping = false; t.view.webContents.loadURL(u).catch(() => {}); }
+    this.layout();
+    this.sendState();
+    return true;
+  }
+  /** Aus dem Menü: aktiven Tab mit dem rechten Nachbarn teilen (oder einem neuen Tab) */
+  splitActive() {
+    const a = this.active;
+    if (!a) return false;
+    if (this.inSplit(a.id)) { this.unsplit(); return false; }
+    const i = this.tabs.indexOf(a);
+    let other = this.tabs[i + 1] || this.tabs[i - 1];
+    const fresh = !other;
+    if (fresh) { this.newTab(NEWTAB, { index: i + 1 }); other = this.tabs[i + 1]; this.activate(a.id); }
+    const ok = this.splitWith(other.id);
+    if (ok && fresh) this.activate(other.id); // gleich in der neuen Hälfte tippen
+    return ok;
+  }
+  unsplit() {
+    if (!this.split) return;
+    this.split = null;
+    this.layout();
+    this.sendState();
   }
 
   newTab(url, { background = false, index, lazy = false, title, pinned = false, group = null, container = null } = {}) {
@@ -399,6 +446,14 @@ class SakuraWindow {
     });
     const wcId = wc.id;
     wc.once('destroyed', () => blocker.forget(wcId));
+    // Geteilter Bildschirm: Klick in die andere Hälfte macht sie zum aktiven Tab
+    wc.on('focus', () => {
+      const w = tab.w;
+      if (w.activeId === tab.id || !(w.splitPair() || []).includes(tab)) return;
+      if (w.active) w.active.lastActive = Date.now();
+      w.activeId = tab.id; tab.lastActive = Date.now();
+      w.sendState();
+    });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
     wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); });
     wc.on('did-start-navigation', (d) => {
@@ -474,6 +529,7 @@ class SakuraWindow {
     const i = this.tabs.findIndex(t => t.id === id);
     if (i < 0) return;
     if (this.tabs[i].floating) dropFloat();
+    if (this.inSplit(id)) this.split = null;
     const [t] = this.tabs.splice(i, 1);
     if (!this.isPrivate && !t.url.startsWith('sakura:')) { closedTabs.push({ url: t.pending || t.url, title: t.title }); if (closedTabs.length > 50) closedTabs.shift(); }
     this.win.contentView.removeChildView(t.view);
@@ -676,8 +732,10 @@ class SakuraWindow {
         newtab: (t.pending || t.url).startsWith('sakura://newtab'),
         floating: !!t.floating,
         container: t.container ? { n: t.container, name: containerName(t.container), color: CONTAINER_COLORS[t.container - 1] } : null,
-        sleeping: !!t.pending && t.id !== this.activeId
+        sleeping: !!t.pending && t.id !== this.activeId,
+        split: this.inSplit(t.id) || undefined
       })),
+      splitOn: !!this.splitPair(),
       url: realUrl,
       secure: realUrl.startsWith('https://'),
       canBack: !!(wc && wc.navigationHistory.canGoBack()),
@@ -794,6 +852,8 @@ class SakuraWindow {
           click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1, container: k + 1 })
         })).concat(t.container ? [{ type: 'separator' }, { label: 'Als normalen Tab öffnen', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1 }) }] : [])
       }]),
+      this.inSplit(id) ? { label: 'Geteilte Ansicht beenden', click: () => this.unsplit() }
+        : { label: 'Neben aktuellem Tab anzeigen', enabled: id !== this.activeId, click: () => this.splitWith(id) },
       { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
       { label: t.floating ? 'Video zurück in den Tab' : 'Video schweben lassen', accelerator: 'CmdOrCtrl+Alt+P', click: () => t.floating ? unfloat() : floatVideo(this, id) },
@@ -1774,6 +1834,9 @@ const uiCommands = {
   savePdf: w => savePdf(w),
   screenshot: w => screenshot(w),
   screenshotFull: w => screenshot(w, true),
+  split: w => w.splitActive(),
+  splitWith: (w, id) => w.splitWith(id),
+  unsplit: w => w.unsplit(),
   translate: w => translatePage(w),
   devtools: w => w.active && w.active.view.webContents.toggleDevTools(),
   suggest: (w, q) => store.suggest(q),

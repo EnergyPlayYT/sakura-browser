@@ -130,6 +130,16 @@ setTimeout(async()=>{
     await rp('sakura://readlist/', 'readlistMark', {id: rl[0].id, read: true}); assert.equal((await call('readlist'))[0].read, true);
     await call('readlistRemove', rl[0].id); assert.equal((await call('readlist')).length, 0); }
   { const sd = await call('shieldDetails'); assert(Array.isArray(sd.hosts) && typeof sd.total === 'number'); }
+  // Geteilter Bildschirm
+  { await call('newTab', 'https://links.example/'); await new Promise(x=>setTimeout(x,30));
+    await call('newTab', 'https://rechts.example/'); await new Promise(x=>setTimeout(x,30));
+    let s2 = await call('state'); const [l, r] = s2.tabs.slice(-2);
+    await call('activate', l.id); assert.equal(await call('split'), true);
+    s2 = await call('state'); assert(s2.splitOn); assert(s2.tabs.find(t=>t.id===l.id).split && s2.tabs.find(t=>t.id===r.id).split);
+    await call('activate', s2.tabs[0].id); s2 = await call('state'); assert(!s2.splitOn, 'anderer Tab: volle Breite');
+    await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
+    await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
+    await call('closeTab', r.id); }
   // Notizen zur Seite
   { await call('navigate', 'https://notiz.example/seite/?x=1'); await new Promise(x=>setTimeout(x,30));
     assert.deepEqual(await call('noteGet'), {text:'', at:0});
