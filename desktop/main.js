@@ -13,6 +13,8 @@ const SPLIT_GAP = 4; // Abstand zwischen den beiden Hälften
 const { GestureTracker } = require('./lib/gestures');
 const { LiveWatch, channelFromUrl, youtubeChannel } = require('./lib/live');
 const { PhishGuard } = require('./lib/phishing');
+const { PinLock } = require('./lib/pinlock');
+let pinLock = null;
 let phishGuard = null;
 const phishPending = new Map(); // webContentsId → blockierte Adresse
 const Sync = require('./lib/sync');
@@ -2030,6 +2032,12 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  // PIN-Sperre für Verlauf und Passwörter
+  pinStatus: () => ({ enabled: pinLock.enabled, locked: pinLock.locked() }),
+  pinUnlock: (w, pin) => pinLock.unlock(String(pin || '')),
+  pinLockNow: () => { pinLock.lock(); return true; },
+  pinSet: (w, { pin, old } = {}) => pinLock.set(String(pin || ''), String(old || '')),
+  pinRemove: (w, pin) => pinLock.remove(String(pin || '')),
   liveToggle: async w => {
     const t = w.active;
     const ch = t && await channelOfTab(t);
@@ -2309,8 +2317,15 @@ const pageCommands = {
 const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
-  'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey'
+  'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
+  'pinStatus', 'pinSet', 'pinRemove'
 ]);
+
+// PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
+for (const k of ['history', 'removeHistory', 'pwList', 'pwReveal', 'pwCopy', 'pwUpdate', 'pwDelete', 'pwImport', 'pwCheck', 'pwClear']) {
+  const fn = uiCommands[k];
+  uiCommands[k] = (w, arg) => pinLock && pinLock.locked() ? { locked: true } : fn(w, arg);
+}
 
 // ---------------------------------------------------------------- Start
 const gotLock = app.requestSingleInstanceLock();
@@ -2335,6 +2350,7 @@ app.whenReady().then(async () => {
     return () => { clearTimeout(t); t = setTimeout(broadcastState, 250); };
   })();
   blocker.refreshExtended().catch(() => {});
+  pinLock = new PinLock(store);
   phishGuard = new PhishGuard({ userDir, fetch: u => net.fetch(u) });
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);

@@ -57,6 +57,6 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Twitch „Nur Ton“: Stream im Hintergrund nur als Audio, spart Daten und Leistung.
 - [x] Benachrichtigung, wenn ein gemerkter Twitch-Kanal oder YouTuber live geht.
 - [x] Warnung vor bekannten Betrugs- und Phishing-Seiten (öffentliche Liste, täglich aktualisiert).
-- [ ] Verlauf und Passwörter mit einer PIN sperren.
+- [x] Verlauf und Passwörter mit einer PIN sperren (PC).
 - [ ] Startseiten-Widgets: Wetter, Uhrzeit in Japan, Tageszitat (PC und Android).
 - [ ] Tab ans Handy schicken und umgekehrt (über den Sync).

@@ -1,0 +1,22 @@
+// PIN-Sperre: Hash statt PIN, Entsperren für 5 Minuten, Wartezeit nach Fehlversuchen
+const assert = require('assert');
+const { PinLock, UNLOCK_MS } = require('../lib/pinlock');
+let t = 1e9;
+const store = { data: {}, save() {} };
+const p = new PinLock(store, () => t);
+assert.equal(p.locked(), false, 'ohne PIN nie gesperrt');
+assert(p.set('12').error); assert(p.set('abcd').error);
+assert.equal(p.set('2580').ok, true);
+assert(!JSON.stringify(store.data).includes('2580'), 'PIN nicht im Klartext');
+assert.equal(p.locked(), true);
+assert.equal(p.unlock('1111').error, 'Falsche PIN.');
+assert.equal(p.unlock('2580').ok, true); assert.equal(p.locked(), false);
+t += UNLOCK_MS; assert.equal(p.locked(), true, 'nach 5 Minuten wieder zu');
+for (let i = 0; i < 5; i++) p.unlock('0000');
+assert.match(p.unlock('2580').error, /Warte 30 Sekunden/, 'auch die richtige PIN muss warten');
+t += 30e3; assert.equal(p.unlock('2580').ok, true);
+assert.equal(p.set('9999', '1234').error, 'Die bisherige PIN stimmt nicht.');
+assert.equal(p.set('9999', '2580').ok, true); assert.equal(p.check('9999'), true);
+assert.equal(p.remove('2580').error, 'Falsche PIN.'); assert.equal(p.remove('9999').ok, true);
+assert.equal(p.enabled, false);
+console.log('PIN-Sperre ok');

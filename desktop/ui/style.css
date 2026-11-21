@@ -548,3 +548,10 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .tab.split:not(.active) { background: rgba(var(--washi-rgb), .07); color: var(--washi); box-shadow: inset 0 -2px 0 rgba(var(--sakura-rgb), .5); }
 /* Live-Kanäle */
 .live-dot { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--beni); color: var(--washi); font-size: 10px; font-weight: 700; letter-spacing: .05em; vertical-align: 1px; }
+/* PIN-Sperre */
+.pin-gate { display: grid; justify-items: center; gap: 10px; padding: 40px 16px; text-align: center; }
+.pin-gate p { margin: 0; color: var(--usuzumi); }
+.pin-gate .pin-lock { width: 30px; height: 30px; color: var(--sakura); fill: none; stroke: currentColor; stroke-width: 1.6; }
+.pin-gate input { width: 160px; height: 38px; text-align: center; letter-spacing: .4em; font-size: 18px; border: 0; outline: 0; border-radius: 9px; background: var(--fukai); color: var(--washi); box-shadow: inset 0 0 0 1px var(--line); }
+.pin-gate input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
+.pin-gate p.msg-error { color: var(--beni); }

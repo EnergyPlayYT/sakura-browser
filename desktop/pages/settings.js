@@ -136,6 +136,7 @@ async function renderSettings() {
     <label class="switch"><input type="checkbox" id="pw-fill"${p.passwordFill !== false ? ' checked' : ''}${p.passwordManager === false ? ' disabled' : ''}><span>Gespeicherte Konten beim Klick ins Anmeldefeld anbieten</span></label>
     <div class="row"><button class="btn" id="pw-open">Passwörter verwalten</button></div>
   </section>
+  <section class="set" id="pin-sec"></section>
   <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
@@ -225,6 +226,7 @@ async function renderSettings() {
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   bindContainers(p);
+  bindPin();
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-on').onchange = e => {
@@ -274,6 +276,28 @@ function bindDesign(p) {
     $('#accent').value = accentOf(p.theme || 'sakura');
     $('#accent-reset').hidden = true;
     api.call('setPrefs', { accent: '' });
+  };
+}
+
+// PIN-Sperre für Verlauf und Passwörter
+async function bindPin(msg = '', ok = false) {
+  const sec = $('#pin-sec');
+  if (!sec) return;
+  const st = await api.call('pinStatus');
+  const field = (id, label) => `<label class="field">${label}<input id="${id}" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></label>`;
+  sec.innerHTML = `<h3>PIN-Sperre</h3>
+    <p>${st.enabled ? 'Verlauf und Passwörter sind mit einer PIN geschützt. Nach dem Entsperren bleiben sie 5 Minuten offen.' : 'Schütze deinen Verlauf und deine Passwörter mit einer PIN (4 bis 8 Ziffern). Praktisch, wenn andere an deinem PC sitzen.'}</p>
+    ${msg ? `<p class="${ok ? 'msg-ok' : 'msg-error'}">${esc(msg)}</p>` : ''}
+    ${st.enabled ? field('pin-old', 'Bisherige PIN') : ''}
+    ${field('pin-new', st.enabled ? 'Neue PIN' : 'PIN')}
+    <div class="row"><button class="btn primary" id="pin-save">${st.enabled ? 'PIN ändern' : 'PIN festlegen'}</button>${st.enabled ? '<button class="btn" id="pin-del">PIN entfernen</button>' : ''}</div>`;
+  $('#pin-save').onclick = async () => {
+    const r = await api.call('pinSet', { pin: $('#pin-new').value, old: $('#pin-old') ? $('#pin-old').value : '' });
+    bindPin(r && r.ok ? (st.enabled ? 'PIN geändert.' : 'PIN festgelegt – Verlauf und Passwörter sind jetzt geschützt.') : (r && r.error) || 'Das hat nicht geklappt.', !!(r && r.ok));
+  };
+  if ($('#pin-del')) $('#pin-del').onclick = async () => {
+    const r = await api.call('pinRemove', $('#pin-old').value);
+    bindPin(r && r.ok ? 'PIN entfernt.' : (r && r.error) || 'Das hat nicht geklappt.', !!(r && r.ok));
   };
 }
 

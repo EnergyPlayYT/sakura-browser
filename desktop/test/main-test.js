@@ -140,6 +140,16 @@ setTimeout(async()=>{
     await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
     await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
     await call('closeTab', r.id); }
+  // PIN-Sperre
+  { assert.deepEqual(await call('pinStatus'), {enabled:false, locked:false});
+    assert.equal((await call('pinSet', {pin:'2580'})).ok, true);
+    assert.deepEqual(await call('history'), {locked:true}); assert.deepEqual(await call('pwList'), {locked:true});
+    assert.equal((await call('pinUnlock', '1111')).error, 'Falsche PIN.');
+    assert.equal((await call('pinUnlock', '2580')).ok, true); assert(Array.isArray(await call('history')));
+    await call('pinLockNow'); assert.deepEqual(await call('history'), {locked:true});
+    const rp = (cmd, arg)=>mock._handlers.page({sender:tabWc, senderFrame:{url:'sakura://settings/', parent:null}}, 'settings', {cmd, arg});
+    assert.equal((await rp('pinStatus')).enabled, true);
+    assert.equal((await rp('pinRemove', '2580')).ok, true); assert(Array.isArray(await call('history'))); }
   // Live-Benachrichtigungen
   { await call('navigate', 'https://www.twitch.tv/papaplatte'); await new Promise(x=>setTimeout(x,30));
     let r = await call('liveToggle'); assert.equal(r.on, true); assert.equal((await call('state')).liveOn, true);

@@ -617,9 +617,31 @@ function dayLabel(ts) {
   if (diff === 1) return 'Gestern';
   return d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 }
+// PIN-Sperre: statt des Inhalts ein Eingabefeld zeigen
+function pinGate(kind, what) {
+  const body = $('#panel-body');
+  body.innerHTML = `<form class="pin-gate" autocomplete="off">
+    <svg class="pin-lock"><use href="#i-key"/></svg>
+    <p>${esc(what)} ${what === 'Deine Passwörter' ? 'sind' : 'ist'} mit einer PIN geschützt.</p>
+    <input id="pin-in" type="password" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN">
+    <button class="btn primary" type="submit">Entsperren</button>
+    <p class="msg-error" id="pin-err" hidden></p></form>`;
+  body.onclick = null;
+  const f = body.querySelector('form');
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const r = await api.call('pinUnlock', $('#pin-in').value);
+    if (r && r.ok) { RENDER()[kind](); return; }
+    $('#pin-err').textContent = (r && r.error) || 'Falsche PIN.'; $('#pin-err').hidden = false;
+    $('#pin-in').value = ''; $('#pin-in').focus();
+  };
+  setTimeout(() => $('#pin-in') && $('#pin-in').focus(), 30);
+}
+
 async function renderHistory(filter = '') {
   const body = $('#panel-body');
   const list = await api.call('history', filter);
+  if (list && list.locked) { if (panelKind === 'history') pinGate('history', 'Dein Verlauf'); return; }
   let html = `<input class="p-search" placeholder="Verlauf durchsuchen" value="${esc(filter)}">`;
   if (!filter) html += await devicesHtml();
   let last = '';
@@ -943,6 +965,7 @@ async function renderPasswords(filter = '', note = null) {
   const body = $('#panel-body');
   const d = await api.call('pwList');
   if (panelKind !== 'passwords') return;
+  if (d && d.locked) { pinGate('passwords', 'Deine Passwörter'); return; }
   const q = filter.toLowerCase();
   const list = d.entries.filter(e => !q || e.host.toLowerCase().includes(q) || e.username.toLowerCase().includes(q));
   const leaked = d.entries.filter(e => e.leaked).length;
