@@ -9,7 +9,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * Prüft einmal am Tag, ob es auf GitHub eine neuere Sakura-Version gibt.
+ * Prüft alle paar Stunden, ob es auf GitHub eine neuere Sakura-Version gibt.
  * Die Webseiten-Engine (Android System WebView) aktualisiert der Play Store ohnehin selbst –
  * hier geht es nur um die Sakura-App.
  */
@@ -25,7 +25,7 @@ class UpdateCheck(private val ctx: Context) {
     /** found wird auf dem UI-Thread aufgerufen – nur wenn es eine neuere, noch nicht abgelehnte Version gibt. */
     fun checkDaily(found: (Release) -> Unit) {
         if (repo.isEmpty()) return
-        if (System.currentTimeMillis() - sp.getLong("lastCheck", 0) < 20 * 3_600_000L) return
+        if (System.currentTimeMillis() - sp.getLong("lastCheck", 0) < 6 * 3_600_000L) return
         check(force = false, found = found, done = {})
     }
 
@@ -38,7 +38,6 @@ class UpdateCheck(private val ctx: Context) {
                 c.connectTimeout = 15000; c.readTimeout = 20000
                 if (c.responseCode != 200) { main.post { done("Es gibt noch keine veröffentlichte Version.") }; return@execute }
                 val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() })
-                sp.edit().putLong("lastCheck", System.currentTimeMillis()).apply()
                 val version = j.optString("tag_name").removePrefix("v")
                 val assets = j.optJSONArray("assets")
                 var apk = ""
@@ -47,6 +46,8 @@ class UpdateCheck(private val ctx: Context) {
                     if (a.optString("name").endsWith(".apk")) { apk = a.optString("browser_download_url"); break }
                 }
                 val newer = isNewer(version, BuildConfig.VERSION_NAME)
+                // Neue Version ohne APK = wird gerade noch gebaut → nicht als „geprüft“ merken, beim nächsten Start erneut fragen
+                if (!newer || apk.isNotEmpty()) sp.edit().putLong("lastCheck", System.currentTimeMillis()).apply()
                 val skipped = !force && sp.getString("skipped", "") == version
                 main.post {
                     if (newer && apk.isNotEmpty() && !skipped) found(Release(version, apk, j.optString("html_url")))

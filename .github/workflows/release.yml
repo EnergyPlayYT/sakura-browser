@@ -94,11 +94,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis portable --publish always
-      - name: Version freigeben
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: gh release edit "v${{ needs.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   android:
     name: Android bauen
@@ -149,5 +144,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V=v${{ needs.version.outputs.version }}
-          gh release view "$V" >/dev/null 2>&1 || gh release create "$V" --title "Sakura ${{ needs.version.outputs.version }}" --notes "Neue Sakura-Version"
-          gh release upload "$V" "$RUNNER_TEMP/Sakura-${{ needs.version.outputs.version }}.apk" --clobber
+          gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$V" --repo "$GITHUB_REPOSITORY" --title "Sakura ${{ needs.version.outputs.version }}" --notes "Neue Sakura-Version"
+          gh release upload "$V" "$RUNNER_TEMP/Sakura-${{ needs.version.outputs.version }}.apk" --clobber --repo "$GITHUB_REPOSITORY"
+
+  publish:
+    name: Version freigeben
+    # erst wenn Windows-Installer (latest.yml) und – falls möglich – die APK hochgeladen sind
+    needs: [version, windows, android]
+    if: always() && needs.windows.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Entwurf veröffentlichen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v${{ needs.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
