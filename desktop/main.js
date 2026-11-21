@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification, safeStorage
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification, safeStorage, nativeImage
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -847,6 +847,7 @@ class SakuraWindow {
         { label: 'Seite überwachen (Preis, Verfügbarkeit)', click: () => uiCommands.watchPage(this) },
         { label: 'Als PDF speichern …', click: () => savePdf(this) },
         { label: 'Bildschirmfoto speichern …', click: () => screenshot(this) },
+        { label: 'Ganze Seite als Bild …', click: () => screenshot(this, true) },
         { label: 'Drucken …', click: () => wc.print() }
       );
     }
@@ -885,10 +886,28 @@ async function savePdf(w) {
   }
 }
 
-async function screenshot(w) {
+// Ganze Seite über das DevTools-Protokoll (auch der Teil unterhalb des Fensters)
+async function captureFullPage(wc) {
+  const dbg = wc.debugger;
+  let attached = false;
+  try {
+    if (!dbg.isAttached()) { dbg.attach('1.3'); attached = true; }
+    const m = await dbg.sendCommand('Page.getLayoutMetrics');
+    const size = m.cssContentSize || m.contentSize;
+    const width = Math.max(1, Math.ceil(size.width)), height = Math.max(1, Math.min(Math.ceil(size.height), 16000));
+    const r = await dbg.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width, height, scale: 1 } });
+    return nativeImage.createFromBuffer(Buffer.from(r.data, 'base64'));
+  } finally {
+    if (attached) try { dbg.detach(); } catch {}
+  }
+}
+
+async function screenshot(w, full = false) {
   const a = w.active;
   if (!a) return;
-  const img = await a.view.webContents.capturePage();
+  let img = null;
+  if (full) try { img = await captureFullPage(a.view.webContents); } catch { img = null; }
+  if (!img || img.isEmpty()) img = await a.view.webContents.capturePage();
   const r = await dialog.showSaveDialog(w.win, {
     title: 'Bildschirmfoto speichern', defaultPath: path.join(app.getPath('pictures'), 'Sakura ' + stamp() + '.png'),
     filters: [{ name: 'PNG-Bild', extensions: ['png'] }]
@@ -1707,6 +1726,7 @@ const uiCommands = {
   print: w => w.active && w.active.view.webContents.print(),
   savePdf: w => savePdf(w),
   screenshot: w => screenshot(w),
+  screenshotFull: w => screenshot(w, true),
   translate: w => translatePage(w),
   devtools: w => w.active && w.active.view.webContents.toggleDevTools(),
   suggest: (w, q) => store.suggest(q),
