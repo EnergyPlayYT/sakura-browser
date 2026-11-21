@@ -118,6 +118,17 @@ setTimeout(async()=>{
     assert.deepEqual(await call('bookmarkFolders'), ['Reisen / Japan']);
     st = await call('state'); assert(st.bar.some(x=>x.folder==='Reisen') && !st.bar.some(x=>x.id===bid), 'Ordner statt Lesezeichen in der Leiste');
     await call('updateBookmark', {id: bid, patch: {folder: ''}}); assert.equal((await call('bookmarks')).find(b=>b.id===bid).folder, undefined); }
+  // Leseliste: nur Text, Offline-Seite darf nur ihren Eintrag lesen
+  { st = await call('state'); const lwc = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
+    lwc.isoResult = { title:'Artikel', byline:'', site:'zeitung.de', blocks:[{t:'p',x:'Hallo'},{t:'script',x:'böse'},{t:'h',x:'Teil 2'}] };
+    await call('readlistAdd'); lwc.isoResult = undefined;
+    const rl = await call('readlist'); assert.equal(rl.length, 1); assert(rl[0].offline && !('blocks' in rl[0]));
+    const rp = (url, cmd, arg)=>mock._handlers.page({sender:tabWc, senderFrame:{url, parent:null}}, cmd, arg);
+    const item = await rp('sakura://readlist/', 'readlistItem', rl[0].id);
+    assert.deepEqual(item.blocks, [{t:'p',x:'Hallo'},{t:'h',x:'Teil 2'}], 'nur erlaubte Textbausteine');
+    assert.equal(await rp('sakura://newtab/', 'readlistItem', rl[0].id), null);
+    await rp('sakura://readlist/', 'readlistMark', {id: rl[0].id, read: true}); assert.equal((await call('readlist'))[0].read, true);
+    await call('readlistRemove', rl[0].id); assert.equal((await call('readlist')).length, 0); }
   // Tab-Suche: offene und geschlossene Tabs
   { const r = await call('tabSearch'); st = await call('state');
     assert.equal(r.open.length, st.tabs.length); assert(r.open.some(t=>t.active));

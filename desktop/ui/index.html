@@ -109,6 +109,7 @@
   <button data-panel="downloads">Downloads<kbd>Strg+J</kbd></button>
   <button data-panel="performance">Leistung und Tabs<kbd>Umschalt+Esc</kbd></button>
   <button data-panel="passwords">Passwörter</button>
+  <button data-panel="readlist">Leseliste</button>
   <button data-panel="watches">Überwachte Seiten</button>
   <button data-panel="extensions">Erweiterungen</button>
   <button data-panel="scripts">Eigene Skripte</button>
@@ -122,6 +123,7 @@
   <button data-cmd="openMultistream">Twitch-Multistream …</button>
   <button data-cmd="floatVideo">Video schweben lassen<kbd>Strg+Alt+P</kbd></button>
   <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
+  <button data-cmd="readlistAdd">Zur Leseliste</button>
   <button data-cmd="translate">Seite übersetzen</button>
   <button data-cmd="watchPage">Seite überwachen</button>
   <button data-cmd="streamerToggle" id="menu-streamer">Streamer-Modus einschalten</button>
@@ -155,6 +157,7 @@
 </div>
 
 <div id="media-pop" class="pop" hidden></div>
+<div id="toast" hidden role="status"></div>
 
 <div id="tabsearch" class="pop" hidden role="dialog" aria-label="Tabs durchsuchen">
   <input id="ts-q" placeholder="Tabs durchsuchen" spellcheck="false" autocomplete="off">

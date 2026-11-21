@@ -516,3 +516,9 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .bm-folder summary svg { width: 16px; height: 16px; color: var(--sakura); }
 .bm-folder summary small { color: var(--usuzumi); margin-left: auto; }
 .bm-folder > .p-item { padding-left: 18px; }
+
+/* ---------------- Leseliste und Meldungen ---------------- */
+.p-item.rl.read .txt div { color: var(--usuzumi); }
+.rl-open { cursor: pointer; }
+#toast { position: fixed; left: 50%; top: calc(var(--tabbar) + 7px); transform: translateX(-50%); z-index: 50; max-width: 60vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 7px 16px; border-radius: 10px; background: var(--pop); color: var(--washi); box-shadow: 0 0 0 1px var(--line), 0 12px 30px rgba(4, 2, 12, .45); animation: fade .2s ease-out; }

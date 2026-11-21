@@ -517,8 +517,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -807,6 +807,32 @@ function editScript(sc) {
 
 // Einstellungen: eigene Seite sakura://settings (pages/settings.html + settings.js)
 api.on('open-import', () => api.call('openSettings', 'import'));
+
+// ------------------------------------------------------------ Leseliste
+async function renderReadlist() {
+  const body = $('#panel-body');
+  const list = (await api.call('readlist')) || [];
+  if (panelKind !== 'readlist') return;
+  body.innerHTML = list.length ? list.map(it => `<div class="p-item rl${it.read ? ' read' : ''}" data-id="${esc(it.id)}">
+      <span class="fav">${iconImg(it.url, it.title)}</span>
+      <div class="txt rl-open" title="${esc(it.url)}"><div>${esc(it.title)}</div><small>${esc(it.site || hostOf(it.url))}${it.offline ? ' · offline lesbar' : ''}${it.read ? ' · gelesen' : ''}</small></div>
+      <button class="icon small" data-act="del" title="Aus der Leseliste entfernen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : '<p class="p-empty">Deine Leseliste ist leer. Öffne einen Artikel und wähle im Menü „Zur Leseliste“ – Sakura speichert den Text, damit du ihn auch ohne Internet lesen kannst.</p>';
+  body.onclick = async e => {
+    const row = e.target.closest('.p-item');
+    if (!row) return;
+    if (e.target.closest('[data-act="del"]')) { await api.call('readlistRemove', row.dataset.id); renderReadlist(); return; }
+    if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
+  };
+}
+api.on('readlist-changed', () => { if (panelKind === 'readlist') renderReadlist(); });
+// Kurze Meldung unten
+let toastT = null;
+api.on('toast', text => {
+  const t = $('#toast');
+  t.textContent = text; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600);
+});
 
 // ------------------------------------------------------------ Überwachte Seiten
 const WATCH_LABEL = { down: 'Preis gesunken', up: 'Preis gestiegen', back: 'Wieder verfügbar', gone: 'Nicht mehr verfügbar' };

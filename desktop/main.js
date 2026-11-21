@@ -101,7 +101,7 @@ function prepareSession(ses, isPrivate) {
       if (!BG_FILE.test(name)) return new Response('Nicht gefunden', { status: 404 });
       return net.fetch(pathToFileURL(path.join(__dirname, 'backgrounds', name)).toString());
     }
-    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html', multistream: 'multistream.html' }[u.hostname];
+    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html', multistream: 'multistream.html', readlist: 'readlist.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
@@ -1089,6 +1089,31 @@ async function checkReadable(tab) {
     if (ok !== !!tab.readable) { tab.readable = ok; tab.w.sendState(); }
   } catch {}
 }
+// ---------- Leseliste: Artikel als reinen Text für später speichern (nur lokal)
+async function addToReadlist(w) {
+  const t = w.active;
+  const url = t && w.displayUrl(t.url);
+  if (!url || !/^https?:/i.test(url)) return { error: 'Öffne zuerst den Artikel, den du dir merken willst.' };
+  if (!Array.isArray(store.data.readlist)) store.data.readlist = [];
+  if (store.data.readlist.some(x => x.url === url)) return { ok: true, message: 'Schon in deiner Leseliste.' };
+  let r = null;
+  const wc = t.view.webContents;
+  try {
+    const lib = readerFile('readability'), grab = readerFile('readlist-grab.js');
+    if (lib && grab && wc.executeJavaScriptInIsolatedWorld) r = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: `${lib}\n${grab}` }]);
+  } catch {}
+  const blocks = (r && Array.isArray(r.blocks) ? r.blocks : []).filter(b => b && typeof b.x === 'string' && ['p', 'h', 'q', 'li'].includes(b.t))
+    .slice(0, 800).map(b => ({ t: b.t, x: b.x.slice(0, 5000) }));
+  store.data.readlist.unshift({
+    id: M.newId(), url, title: String((r && r.title) || t.title || url).slice(0, 300), byline: String((r && r.byline) || '').slice(0, 200),
+    site: String((r && r.site) || '').slice(0, 100), blocks, savedAt: Date.now(), read: false
+  });
+  store.data.readlist = store.data.readlist.slice(0, 300);
+  store.save();
+  broadcast('readlist-changed');
+  return { ok: true, message: blocks.length ? 'Zur Leseliste hinzugefügt – auch offline lesbar.' : 'Zur Leseliste hinzugefügt (ohne Offline-Text).' };
+}
+
 async function toggleReader(w) {
   const t = w.active;
   if (!t) return false;
@@ -1100,7 +1125,8 @@ async function toggleReader(w) {
   const prefs = JSON.stringify({ size: Math.max(14, Math.min(32, Number(p.readerSize) || 20)), theme: ['hell', 'sepia', 'dunkel'].includes(p.readerTheme) ? p.readerTheme : 'sepia' });
   try {
     if (css) await wc.insertCSS(css);
-    const ok = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: lib }, { code: `window.__sakuraReaderPrefs = ${prefs};` }, { code: view }], true);
+    // Ein einziges Skript: bei mehreren liefert Electron das Ergebnis des letzten nicht zurück
+    const ok = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: `${lib}\nwindow.__sakuraReaderPrefs = ${prefs};\n${view}` }], true);
     t.reader = ok === true || ok === 'schon';
   } catch { t.reader = false; }
   if (!t.reader) dialog.showMessageBox(w.win, { type: 'info', message: 'Diese Seite lässt sich nicht im Lesemodus anzeigen.', detail: 'Der Lesemodus funktioniert bei Artikeln und Berichten mit genug Text.' });
@@ -1856,6 +1882,10 @@ const uiCommands = {
     w.newTab('sakura://multistream/' + (/^[a-z0-9_]{2,25}$/.test(pre) ? '#' + pre : ''), { index: w.tabs.indexOf(t) + 1 });
   },
   reader: w => toggleReader(w),
+  readlistAdd: async w => { const r = await addToReadlist(w); w.ui.webContents.send('toast', r.error || r.message); return r; },
+  readlist: () => (store.data.readlist || []).map(({ blocks, ...x }) => ({ ...x, offline: !!(blocks && blocks.length) })),
+  readlistOpen: (w, id) => { if (/^[a-z0-9]+$/.test(String(id))) w.newTab('sakura://readlist/#' + id, { index: w.tabs.indexOf(w.active) + 1 }); },
+  readlistRemove: (w, id) => { store.data.readlist = (store.data.readlist || []).filter(x => x.id !== id); store.save(); return true; },
   // Einstellungen als eigene Seite
   openSettings: (w, section) => {
     const target = 'sakura://settings/' + (/^[a-z]+$/.test(section || '') ? '#' + section : '');
@@ -2001,6 +2031,17 @@ const pageCommands = {
   builtinBackgrounds: () => builtinBackgrounds(),
   isPrivate: wc => [...windows].some(w => w.isPrivate && w.tabs.some(t => t.view.webContents === wc)),
   platform: () => 'desktop',
+  // Leseliste: Offline-Ansicht (nur von sakura://readlist)
+  readlistItem: (wc, id, from = {}) => {
+    if (!from.top || !/^sakura:\/\/readlist\//.test(from.url || '')) return null;
+    return (store.data.readlist || []).find(x => x.id === String(id)) || null;
+  },
+  readlistMark: (wc, { id, read } = {}, from = {}) => {
+    if (!from.top || !/^sakura:\/\/readlist\//.test(from.url || '')) return null;
+    const it = (store.data.readlist || []).find(x => x.id === String(id));
+    if (it && it.read !== !!read) { it.read = !!read; store.save(); broadcast('readlist-changed'); }
+    return true;
+  },
   // Multistream: Fenster mit bis zu vier Twitch-Streams (nur von sakura://multistream)
   multistream: (wc, list, from = {}) => {
     if (!from.top || !/^sakura:\/\/multistream\//.test(from.url || '')) return null;

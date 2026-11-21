@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Leseliste</title>
+<style>
+  :root { --bg: #F7F1E6; --fg: #2B2433; --muted: #7A6F66; --accent: #B5466A; }
+  html.dunkel { --bg: #1C1A33; --fg: #EEE7E2; --muted: #A59EB8; --accent: #F2B3C5; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  .bar { position: sticky; top: 0; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 10px 16px; background: var(--bg);
+    border-bottom: 1px solid rgba(127, 127, 127, .2); font: 14px "Segoe UI", system-ui, sans-serif; }
+  .bar button, .bar a { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 8px; color: var(--fg); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .3); }
+  .bar a { color: var(--accent); }
+  main { max-width: 42em; margin: 0 auto; padding: 40px 24px 120px; font: 20px/1.7 Georgia, "Noto Serif", "Yu Mincho", serif; }
+  .site { font: 600 13px "Segoe UI", system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { font: 400 2em/1.2 Georgia, "Yu Mincho", serif; margin: .3em 0 .4em; }
+  .meta { color: var(--muted); font: 14px "Segoe UI", system-ui, sans-serif; margin-bottom: 2em; }
+  h2 { font: 600 1.2em/1.3 Georgia, serif; margin: 1.4em 0 .4em; }
+  blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid var(--accent); color: var(--muted); }
+  li { margin-left: 1.2em; }
+  .empty { color: var(--muted); font: 16px "Segoe UI", system-ui, sans-serif; text-align: center; padding-top: 80px; }
+</style>
+</head>
+<body>
+<div class="bar"><button id="theme">Hell/Dunkel</button><a id="orig" target="_blank" hidden>Original öffnen</a></div>
+<main id="main"></main>
+<script>
+  // Gespeicherte Artikel kommen nur als reiner Text und werden nur mit textContent eingesetzt – nichts wird ausgeführt
+  const main = document.getElementById('main');
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  document.getElementById('theme').onclick = () => document.documentElement.classList.toggle('dunkel');
+  window.sakura.call('readlistItem', location.hash.slice(1)).then(it => {
+    if (!it) { main.appendChild(el('p', 'empty', 'Dieser Artikel ist nicht mehr in deiner Leseliste.')); return; }
+    document.title = it.title || 'Leseliste';
+    if (/^https?:\/\//.test(it.url)) { const o = document.getElementById('orig'); o.href = it.url; o.hidden = false; }
+    main.appendChild(el('div', 'site', it.site || ''));
+    main.appendChild(el('h1', '', it.title || it.url));
+    main.appendChild(el('div', 'meta', [it.byline, 'Offline gespeichert ' + new Date(it.savedAt).toLocaleDateString('de-DE')].filter(Boolean).join(' · ')));
+    let ul = null;
+    for (const b of it.blocks || []) {
+      if (b.t === 'li') { if (!ul) { ul = el('ul'); main.appendChild(ul); } ul.appendChild(el('li', '', b.x)); continue; }
+      ul = null;
+      main.appendChild(el(b.t === 'h' ? 'h2' : b.t === 'q' ? 'blockquote' : 'p', '', b.x));
+    }
+    if (!(it.blocks || []).length) main.appendChild(el('p', 'empty', 'Für diese Seite wurde kein Text gespeichert. Öffne das Original.'));
+    window.sakura.call('readlistMark', { id: it.id, read: true });
+  });
+</script>
+</body>
+</html>

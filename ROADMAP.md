@@ -44,5 +44,5 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Lesemodus: Artikel ohne Werbung/Ablenkung (Mozilla Readability), Schriftgröße, Hell/Sepia/Dunkel, Vorlesen; Buch-Symbol in der Adressleiste, wenn die Seite ein Artikel ist.
 - [x] Tab-Suche: Strg+Umschalt+A durchsucht alle offenen Tabs aller Fenster.
 - [x] Lesezeichen-Ordner (PC und Android, synchronisiert); Import übernimmt Ordner.
-- [ ] Leseliste: Artikel für später merken, auch offline lesbar.
+- [x] Leseliste: Artikel für später merken, auch offline lesbar.
 
