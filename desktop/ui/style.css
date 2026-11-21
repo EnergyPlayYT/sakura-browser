@@ -555,3 +555,113 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .pin-gate input { width: 160px; height: 38px; text-align: center; letter-spacing: .4em; font-size: 18px; border: 0; outline: 0; border-radius: 9px; background: var(--fukai); color: var(--washi); box-shadow: inset 0 0 0 1px var(--line); }
 .pin-gate input:focus { box-shadow: inset 0 0 0 1.5px var(--sakura); }
 .pin-gate p.msg-error { color: var(--beni); }
+
+/* ================================================================
+   Liquid Glass – ruhiger, runder, federnd (Apple-artig)
+   Farben kommen weiter aus den Design-Variablen (pages/themes.js).
+   ================================================================ */
+:root {
+  --ease: cubic-bezier(.32, .72, 0, 1);      /* weich auslaufend */
+  --spring: cubic-bezier(.34, 1.36, .64, 1); /* leicht federnd */
+  --hi: rgba(var(--washi-rgb), .16);         /* Glanzkante oben */
+  --rim: rgba(var(--washi-rgb), .08);        /* feiner Rand */
+  --kasumi-rgb: 40, 37, 74; --pop-rgb: 44, 41, 80; --panel-rgb: 34, 31, 62; --yoru-rgb: 28, 26, 51; --fukai-rgb: 22, 20, 42;
+  --glass-shadow: 0 0 0 1px var(--rim), inset 0 1px 0 var(--hi), 0 22px 56px rgba(4, 2, 12, .42), 0 4px 14px rgba(4, 2, 12, .22);
+}
+
+body { --page-top: calc(var(--tabbar) + var(--toolbar) + var(--bar)); } /* am body, damit die Favoritenleiste mitzählt */
+
+/* Kopfbereich: eine durchgehende, ruhige Fläche */
+#tabbar { align-items: center; gap: 4px; background: var(--yoru); }
+.seal { margin: 0 10px 0 4px; border-radius: 7px; transform: none; box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .3), 0 2px 6px rgba(4, 2, 12, .3); }
+#tabs { height: 30px; align-items: center; gap: 3px; }
+.tab { height: 30px; border-radius: 10px; padding: 0 6px 0 11px;
+  transition: background-color .28s var(--ease), color .2s var(--ease), box-shadow .28s var(--ease), opacity .2s; }
+.tab::after, .tab + .tab:not(.active):not(:hover)::after { display: none; }
+.tab:hover { background: rgba(var(--washi-rgb), .06); }
+.tab.active {
+  background: linear-gradient(180deg, rgba(var(--washi-rgb), .15), rgba(var(--washi-rgb), .07));
+  box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px var(--rim), 0 3px 10px rgba(4, 2, 12, .28);
+}
+.tab.active::before { display: none; } /* ruhiger: der aktive Tab hebt sich als Glas-Kapsel ab */
+.tab .close { border-radius: 50%; transition: opacity .2s var(--ease), background-color .2s; }
+.tab .fav, .tab .fav img { border-radius: 4px; }
+.tab.fresh { animation: tab-in .42s var(--spring); }
+@keyframes tab-in { from { opacity: 0; max-width: 0; transform: scale(.85); } to { opacity: 1; max-width: 220px; transform: none; } }
+#newtab { margin: 0 0 0 2px; border-radius: 50%; }
+.tab.split:not(.active) { box-shadow: inset 0 0 0 1px rgba(var(--sakura-rgb), .35); }
+
+#toolbar, #bookmarkbar, #findbar { background: var(--yoru); border-bottom: 1px solid var(--rim); }
+#toolbar { gap: 4px; }
+.icon { border-radius: 50%; transition: background-color .22s var(--ease), color .2s, transform .35s var(--spring), opacity .2s; }
+.icon:active:not(:disabled) { transform: scale(.9); }
+.icon.small { border-radius: 50%; }
+
+/* Adressleiste: Glas-Kapsel */
+#omnibox {
+  height: 34px; border-radius: 17px; padding: 0 6px 0 14px;
+  background: linear-gradient(180deg, rgba(var(--washi-rgb), .085), rgba(var(--washi-rgb), .045));
+  box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .1), inset 0 0 0 1px var(--rim);
+  transition: box-shadow .3s var(--ease), background .3s var(--ease);
+}
+#omnibox:focus-within {
+  background: rgba(var(--fukai-rgb), .9);
+  box-shadow: inset 0 0 0 1px rgba(var(--sakura-rgb), .75), 0 0 0 4px rgba(var(--sakura-rgb), .16);
+}
+.bm { border-radius: 9px; transition: background-color .22s var(--ease); }
+
+/* Knöpfe, Felder, Schalter */
+.btn { height: 32px; padding: 0 16px; border-radius: 16px; box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .08);
+  transition: background-color .22s var(--ease), transform .35s var(--spring), filter .2s; }
+.btn.primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 14px rgba(var(--sakura-rgb), .22); }
+.btn:active:not(:disabled) { transform: scale(.95); }
+.p-search, .p-edit input, .sess-new input, #find-input, #ts-q, #note-pop textarea, .pin-gate input { border-radius: 12px; transition: box-shadow .25s var(--ease); }
+.p-search:focus, .p-edit input:focus, .sess-new input:focus, #find-input:focus, #note-pop textarea:focus, .pin-gate input:focus {
+  box-shadow: inset 0 0 0 1px rgba(var(--sakura-rgb), .75), 0 0 0 4px rgba(var(--sakura-rgb), .14);
+}
+.switch input { width: 40px; height: 24px; border-radius: 12px; transition: background-color .3s var(--ease); box-shadow: inset 0 0 0 1px var(--rim); }
+.switch input::after { width: 20px; height: 20px; top: 2px; left: 2px; box-shadow: 0 2px 5px rgba(4, 2, 12, .35); transition: transform .38s var(--spring), background-color .3s; }
+.switch input:checked::after { transform: translateX(16px); background: var(--washi); }
+
+/* Schwebende Flächen: Menüs, Popups, Vorschläge, Seitenleiste, Meldungen */
+.pop, #suggest, #panel, #toast { --tint: var(--pop-rgb); position: fixed; isolation: isolate; box-shadow: var(--glass-shadow); }
+#panel { --tint: var(--panel-rgb); }
+.pop { border-radius: 18px; padding: 6px; transform-origin: top right; animation: glass-in .38s var(--spring); }
+@keyframes glass-in { from { opacity: 0; transform: translateY(-8px) scale(.95); } }
+.pop > button { border-radius: 11px; transition: background-color .18s var(--ease); }
+.pop > button:hover, .pop > button:focus-visible { background: rgba(var(--washi-rgb), .09); }
+.pop hr { border-top-color: var(--rim); margin: 5px 10px; }
+#suggest { border-radius: 18px; top: calc(var(--tabbar) + var(--toolbar) - 2px); animation: glass-in .3s var(--ease); transform-origin: top center; }
+#suggest li { border-radius: 11px; }
+#panel {
+  top: calc(var(--page-top) + 8px); right: 8px; bottom: 8px; border-radius: 22px; overflow: hidden;
+  animation: panel-in .5s var(--ease);
+}
+@keyframes panel-in { from { opacity: 0; transform: translateX(36px) scale(.98); } }
+.p-item { border-radius: 12px; transition: background-color .2s var(--ease); }
+#toast { border-radius: 999px; padding: 8px 18px; top: calc(var(--tabbar) + 6px); animation: toast-in .5s var(--spring); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } }
+#backdrop:not(.clear) { background: rgba(var(--yoru-rgb), .32); animation: fade .35s var(--ease); }
+
+/* Glanz: feines Licht von oben links, wie bei Glas */
+.pop::after, #suggest::after, #panel::after, #toast::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: linear-gradient(140deg, rgba(var(--washi-rgb), .1), transparent 38%, transparent 70%, rgba(var(--washi-rgb), .04));
+}
+/* Echtes Durchscheinen: verschwommenes Bild der Seite hinter der Fläche */
+body.has-snap :is(.pop, #suggest, #panel) { contain: paint; }
+body.has-snap :is(.pop, #suggest, #panel)::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(rgba(var(--tint), .7), rgba(var(--tint), .7)),
+    var(--snap) 0 var(--page-top) / 100vw calc(100vh - var(--page-top)) no-repeat fixed;
+  filter: blur(22px) saturate(1.7);
+  animation: fade .3s var(--ease);
+}
+/* Schlanke, runde Scrollbalken wie bei macOS */
+.pop, #panel-body, #ts-list, #suggest { overflow-x: hidden; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(var(--washi-rgb), .16); border-radius: 5px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(var(--washi-rgb), .28); }
+::-webkit-scrollbar-button { display: none; height: 0; width: 0; }

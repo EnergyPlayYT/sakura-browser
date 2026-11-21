@@ -377,7 +377,14 @@ function openOverlay(kind) {
   $('#backdrop').classList.toggle('clear', kind === 'note' || kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
   api.call('overlay', true);
 }
+// Liquid Glass: Bild der Seite für die verschwommenen Flächen
+api.on('glass', url => {
+  if (!overlay || typeof url !== 'string' || !url.startsWith('data:image/jpeg;base64,')) return;
+  document.body.style.setProperty('--snap', `url("${url}")`);
+  document.body.classList.add('has-snap');
+});
 function closeOverlay(keep) {
+  document.body.classList.remove('has-snap');
   if (overlay === 'note') saveNote();
   for (const s of ['#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);

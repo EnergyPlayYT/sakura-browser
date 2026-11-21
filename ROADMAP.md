@@ -60,3 +60,4 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Verlauf und Passwörter mit einer PIN sperren (PC).
 - [x] Startseiten-Widgets: Wetter, Uhrzeit in Japan, Tageszitat (PC und Android).
 - [x] Tab ans Handy schicken und umgekehrt (über den Sync).
+- [x] Oberfläche im Liquid-Glass-Stil: Glas-Flächen mit durchscheinender Seite, runde Kapseln, federnde Animationen.

@@ -1338,6 +1338,19 @@ async function channelOfTab(t) {
   } catch { return null; }
 }
 
+// Liquid Glass: verkleinertes Bild der Seite, das die Oberfläche verschwommen hinter Menüs und Leisten zeigt
+// (die Oberfläche liegt als eigene Ebene über der Seite und kann sie sonst nicht durchscheinen lassen)
+async function sendGlass(w) {
+  const t = w.active;
+  if (!t || t.floating || t.view.webContents.isDestroyed()) return;
+  try {
+    const img = await t.view.webContents.capturePage();
+    if (!w.overlay || img.isEmpty() || w.ui.webContents.isDestroyed()) return;
+    const small = img.resize({ width: Math.max(1, Math.round(img.getSize().width / 4)), quality: 'good' });
+    w.ui.webContents.send('glass', 'data:image/jpeg;base64,' + small.toJPEG(72).toString('base64'));
+  } catch {}
+}
+
 // Tabs an andere Geräte senden (über den Sync)
 function sendToDeviceMenu(url, title) {
   const devs = store.otherDevices();
@@ -1905,7 +1918,7 @@ const uiCommands = {
   stop: w => w.active && w.active.view.webContents.stop(),
   home: w => w.active && w.active.view.webContents.loadURL(NEWTAB),
   focusPage: w => w.active && w.active.view.webContents.focus(),
-  overlay: (w, on) => { w.overlay = !!on; w.layout(); },
+  overlay: (w, on) => { w.overlay = !!on; w.layout(); if (on) sendGlass(w); },
   state: w => w.state(),
   toggleBookmark: w => toggleBookmarkActive(w),
   newWindow: () => new SakuraWindow(),

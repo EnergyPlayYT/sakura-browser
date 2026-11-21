@@ -31,7 +31,8 @@
     const vars = {
       '--yoru': t.yoru, '--kasumi': t.kasumi, '--fukai': t.fukai, '--washi': t.washi, '--usuzumi': t.usuzumi,
       '--sakura': accent, '--pop': t.pop, '--panel': t.panel, '--err': err,
-      '--washi-rgb': rgbStr(t.washi), '--sakura-rgb': rgbStr(accent), '--fukai-rgb': rgbStr(t.fukai), '--yoru-rgb': rgbStr(t.yoru)
+      '--washi-rgb': rgbStr(t.washi), '--sakura-rgb': rgbStr(accent), '--fukai-rgb': rgbStr(t.fukai), '--yoru-rgb': rgbStr(t.yoru),
+      '--kasumi-rgb': rgbStr(t.kasumi), '--pop-rgb': rgbStr(t.pop), '--panel-rgb': rgbStr(t.panel)
     };
     // Blütenfarben: Akzent, heller und dunkler
     const scene = {
