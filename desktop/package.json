@@ -1,7 +1,7 @@
 {
   "name": "sakura-browser",
   "productName": "Sakura",
-  "version": "1.0.38",
+  "version": "1.0.39",
   "description": "Eigener Browser im Sakura-Stil mit Werbeblocker, Privatmodus und Synchronisation",
   "main": "main.js",
   "author": "Ali",
