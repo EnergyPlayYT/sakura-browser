@@ -304,8 +304,40 @@ class Store extends EventEmitter {
   setDeviceTabs(tabs) {
     this.data.devices[this.data.deviceId] = {
       name: os.hostname() || 'Windows-PC', platform: 'windows',
-      tabs: tabs.slice(0, 60), updatedAt: Date.now()
+      tabs: tabs.slice(0, 60), sent: this.outbox(), updatedAt: Date.now()
     };
+  }
+
+  // ---------- Tabs an andere Geräte senden ----------
+  // Jedes Gerät legt gesendete Tabs in seinen eigenen Geräte-Eintrag („sent“); das Zielgerät liest sie dort ab.
+  outbox() {
+    const cutoff = Date.now() - 7 * 864e5;
+    this.data.sentTabs = (Array.isArray(this.data.sentTabs) ? this.data.sentTabs : []).filter(s => s.at > cutoff).slice(-20);
+    return this.data.sentTabs;
+  }
+  sendTab(to, url, title) {
+    if (!to || to === this.data.deviceId || !/^https?:\/\//i.test(url || '')) return false;
+    this.outbox().push({ id: M.newId(), to: String(to), url: String(url).slice(0, 4000), title: String(title || url).slice(0, 200), at: Date.now() });
+    this.data.sentTabs = this.data.sentTabs.slice(-20);
+    const me = this.data.devices[this.data.deviceId];
+    if (me) me.sent = this.data.sentTabs;
+    this.changed('sent');
+    return true;
+  }
+  /** Neue Tabs, die andere Geräte an dieses geschickt haben (jeder nur einmal) */
+  takeInbox() {
+    const seen = new Set(Array.isArray(this.data.seenSent) ? this.data.seenSent : []);
+    const cutoff = Date.now() - 7 * 864e5, out = [];
+    for (const [id, d] of Object.entries(this.data.devices || {})) {
+      if (id === this.data.deviceId || !d || !Array.isArray(d.sent)) continue;
+      for (const s of d.sent) {
+        if (!s || s.to !== this.data.deviceId || seen.has(s.id) || !(s.at > cutoff) || !/^https?:\/\//i.test(s.url || '')) continue;
+        seen.add(s.id);
+        out.push({ url: s.url, title: String(s.title || s.url), from: String(d.name || 'Anderes Gerät') });
+      }
+    }
+    if (out.length) { this.data.seenSent = [...seen].slice(-300); this.save(); }
+    return out;
   }
   otherDevices() {
     return Object.entries(this.data.devices)

@@ -59,4 +59,4 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Warnung vor bekannten Betrugs- und Phishing-Seiten (öffentliche Liste, täglich aktualisiert).
 - [x] Verlauf und Passwörter mit einer PIN sperren (PC).
 - [x] Startseiten-Widgets: Wetter, Uhrzeit in Japan, Tageszitat (PC und Android).
-- [ ] Tab ans Handy schicken und umgekehrt (über den Sync).
+- [x] Tab ans Handy schicken und umgekehrt (über den Sync).

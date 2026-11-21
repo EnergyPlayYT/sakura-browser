@@ -861,6 +861,7 @@ class SakuraWindow {
       { type: 'separator' },
       { label: 'Neu laden', click: () => t.view.webContents.reload() },
       { label: 'Duplizieren', click: () => this.newTab(this.displayUrl(t.pending || t.url) || NEWTAB, { index: i + 1, container: t.container }) },
+      ...(this.isPrivate ? [] : [sendToDeviceMenu(this.displayUrl(t.pending || t.url), t.title)]),
       ...(this.isPrivate ? [] : [{
         label: 'In Konto-Tab öffnen',
         submenu: [...Array(CONTAINERS)].map((_, k) => ({
@@ -940,6 +941,7 @@ class SakuraWindow {
         { label: 'Neu laden', click: () => wc.reload() },
         { type: 'separator' },
         { label: 'Seite übersetzen', click: () => translatePage(this) },
+        ...(this.isPrivate ? [] : [sendToDeviceMenu(this.displayUrl(tab.url), tab.title)]),
         { label: 'Seite überwachen (Preis, Verfügbarkeit)', click: () => uiCommands.watchPage(this) },
         { label: 'Als PDF speichern …', click: () => savePdf(this) },
         { label: 'Bildschirmfoto speichern …', click: () => screenshot(this) },
@@ -1334,6 +1336,39 @@ async function channelOfTab(t) {
     const d = await t.view.webContents.executeJavaScript('(() => { const v = window.ytInitialPlayerResponse && window.ytInitialPlayerResponse.videoDetails; return v ? { id: String(v.channelId || ""), name: String(v.author || "") } : null; })()', false);
     return d ? youtubeChannel(d.id, d.name) : null;
   } catch { return null; }
+}
+
+// Tabs an andere Geräte senden (über den Sync)
+function sendToDeviceMenu(url, title) {
+  const devs = store.otherDevices();
+  const ok = /^https?:\/\//i.test(url || '');
+  if (!devs.length) return { label: 'An Gerät senden', submenu: [{ label: 'Keine anderen Geräte – richte den Sync ein', enabled: false }] };
+  return {
+    label: 'An Gerät senden', enabled: ok,
+    submenu: devs.map(d => ({
+      label: (d.name || 'Gerät') + (d.platform === 'android' ? ' (Handy)' : ''),
+      click: () => {
+        store.sendTab(d.id, url, title);
+        const w = [...windows].find(x => x.win.isFocused()) || [...windows][0];
+        if (w) w.ui.webContents.send('toast', `An ${d.name || 'das Gerät'} gesendet – kommt beim nächsten Abgleich an.`);
+      }
+    }))
+  };
+}
+function deliverInbox() {
+  const items = store.takeInbox();
+  if (!items.length) return;
+  const w = [...windows].find(x => !x.isPrivate) || new SakuraWindow();
+  for (const it of items) {
+    w.newTab(it.url, { background: true, title: it.title });
+    try {
+      if (Notification && Notification.isSupported()) {
+        const n = new Notification({ title: `Tab von ${it.from}`, body: it.title, icon: ICON, silent: true });
+        n.on('click', () => { const t = w.tabs.find(x => w.displayUrl(x.pending || x.url) === it.url); if (t) w.activate(t.id); w.win.focus(); });
+        n.show();
+      }
+    } catch {}
+  }
 }
 
 function notify(title, body) {
@@ -2386,6 +2421,7 @@ app.whenReady().then(async () => {
   sync.on('status', s => broadcast('sync-status', s));
   store.on('change', (kind) => {
     if (kind === 'prefs' || kind === 'all') for (const w of windows) { w.layout(); w.applyTheme(); } // Favoritenleiste, Design (auch per Abgleich)
+    if (kind === 'all') deliverInbox(); // Tabs, die andere Geräte geschickt haben
     if (kind !== 'tabs') broadcastState();
   });
 

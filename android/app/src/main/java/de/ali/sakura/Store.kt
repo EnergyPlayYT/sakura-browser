@@ -201,7 +201,54 @@ class Store(ctx: Context) {
     fun setDeviceTabs(name: String, tabs: JSONArray) {
         val devices = data.optJSONObject("devices") ?: JSONObject().also { data.put("devices", it) }
         val limited = JSONArray(SyncModel.objects(tabs).take(60))
-        devices.put(deviceId, JSONObject().put("name", name).put("platform", "android").put("tabs", limited).put("updatedAt", now()))
+        devices.put(deviceId, JSONObject().put("name", name).put("platform", "android").put("tabs", limited)
+            .put("sent", outbox()).put("updatedAt", now()))
+    }
+
+    // ---------- Tabs an andere Geräte senden (gleiches Verfahren wie am PC: Ausgang im eigenen Geräte-Eintrag)
+    private fun outbox(): JSONArray {
+        val cutoff = now() - 7 * 86_400_000L
+        val keep = SyncModel.objects(data.optJSONArray("sentTabs") ?: JSONArray()).filter { it.optLong("at") > cutoff }.takeLast(20)
+        val arr = JSONArray(keep)
+        data.put("sentTabs", arr)
+        return arr
+    }
+
+    fun sendTab(to: String, url: String, title: String): Boolean {
+        if (to.isEmpty() || to == deviceId || !Regex("(?i)^https?://").containsMatchIn(url)) return false
+        val list = SyncModel.objects(outbox()).toMutableList()
+        list.add(JSONObject().put("id", SyncModel.newId()).put("to", to).put("url", url.take(4000))
+            .put("title", title.ifBlank { url }.take(200)).put("at", now()))
+        val arr = JSONArray(list.takeLast(20))
+        data.put("sentTabs", arr)
+        data.optJSONObject("devices")?.optJSONObject(deviceId)?.put("sent", arr)
+        changed("sent")
+        return true
+    }
+
+    /** Neue Tabs von anderen Geräten (jeder nur einmal): Liste aus (Adresse, Titel, Absender) */
+    fun takeInbox(): List<Triple<String, String, String>> {
+        val seenArr = data.optJSONArray("seenSent") ?: JSONArray()
+        val seen = LinkedHashSet<String>()
+        for (i in 0 until seenArr.length()) seen.add(seenArr.optString(i))
+        val cutoff = now() - 7 * 86_400_000L
+        val out = mutableListOf<Triple<String, String, String>>()
+        val devices = data.optJSONObject("devices") ?: return out
+        for (id in devices.keys()) {
+            if (id == deviceId) continue
+            val d = devices.optJSONObject(id) ?: continue
+            val sent = d.optJSONArray("sent") ?: continue
+            for (s in SyncModel.objects(sent)) {
+                val sid = s.optString("id")
+                val url = s.optString("url")
+                if (s.optString("to") != deviceId || sid.isEmpty() || seen.contains(sid) || s.optLong("at") <= cutoff) continue
+                if (!Regex("(?i)^https?://").containsMatchIn(url)) continue
+                seen.add(sid)
+                out.add(Triple(url, s.optString("title").ifBlank { url }, d.optString("name").ifBlank { "Anderes Gerät" }))
+            }
+        }
+        if (out.isNotEmpty()) { data.put("seenSent", JSONArray(seen.toList().takeLast(300))); save() }
+        return out
     }
 
     fun otherDevices(): JSONArray {

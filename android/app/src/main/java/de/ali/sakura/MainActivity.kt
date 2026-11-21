@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
             if (kind == "prefs" || kind == "all") { blocker.syncPrefs(); applyDarkAll(); refreshStartPages() } // Design auf der Startseite übernehmen
             updateUi()
         }
-        sync.onMerged = { refreshStartPages() }
+        sync.onMerged = { refreshStartPages(); deliverInbox() }
         sync.tabsProvider = { Pair(deviceName(), openTabsForSync()) }
         blocker.refreshExtended(false)
         assetLoader = WebViewAssetLoader.Builder()
@@ -515,6 +515,30 @@ class MainActivity : ComponentActivity() {
         if (u.startsWith("http")) t.web.loadUrl("https://translate.google.com/translate?sl=auto&tl=de&u=" + Uri.encode(u))
     }
 
+    /** Tabs, die andere Geräte hierher geschickt haben, im Hintergrund öffnen */
+    private fun deliverInbox() {
+        val items = store.takeInbox()
+        if (items.isEmpty()) return
+        for ((url, _, _) in items) newTab(url, background = true)
+        val (_, title, from) = items.last()
+        toast(if (items.size == 1) "Tab von $from: ${title.take(60)}" else "${items.size} Tabs von anderen Geräten geöffnet")
+        updateUi()
+    }
+
+    /** Liste der anderen Geräte zum Senden des aktuellen Tabs */
+    private fun sendToDevice(t: Tab) {
+        val devs = SyncModel.objects(store.otherDevices())
+        if (devs.isEmpty()) { toast("Keine anderen Geräte – richte zuerst den Sync ein"); return }
+        val names = devs.map { it.optString("name").ifBlank { "Gerät" } + if (it.optString("platform") == "windows") " (PC)" else "" }
+        AlertDialog.Builder(this).setTitle("An Gerät senden")
+            .setItems(names.toTypedArray()) { _, i ->
+                val d = devs[i]
+                if (store.sendTab(d.optString("id"), realUrl(t), t.title)) toast("An ${d.optString("name").ifBlank { "das Gerät" }} gesendet")
+                else toast("Diese Seite kann nicht gesendet werden")
+            }
+            .setNegativeButton("Abbrechen", null).show()
+    }
+
     private fun refreshStartPages() {
         for (t in tabs) if (t.url.startsWith(NEWTAB)) t.web.evaluateJavascript("window.sakuraRefresh && sakuraRefresh()", null)
     }
@@ -879,6 +903,7 @@ class MainActivity : ComponentActivity() {
             m.menu.add(0, 10, 5, "Seite übersetzen")
             m.menu.add(0, 5, 6, "Zur Startseite hinzufügen")
             m.menu.add(0, 6, 7, "Teilen …")
+            if (!t.isPrivate) m.menu.add(0, 12, 7, "An Gerät senden …")
             m.menu.add(0, 7, 8, "Desktop-Version").apply { isCheckable = true; isChecked = t.desktop }
         }
         m.menu.add(0, 11, 9, "Eigene Skripte")
@@ -902,6 +927,7 @@ class MainActivity : ComponentActivity() {
                         .putExtra(Intent.EXTRA_SUBJECT, it.title).putExtra(Intent.EXTRA_TEXT, realUrl(it)), "Teilen"))
                 }
                 7 -> t?.let { toggleDesktop(it) }
+                12 -> t?.let { sendToDevice(it) }
                 8 -> openManage("settings")
             }
             true
