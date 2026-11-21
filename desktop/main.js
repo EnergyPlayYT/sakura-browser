@@ -12,6 +12,9 @@ const AdBlocker = require('./lib/adblock');
 const SPLIT_GAP = 4; // Abstand zwischen den beiden Hälften
 const { GestureTracker } = require('./lib/gestures');
 const { LiveWatch, channelFromUrl, youtubeChannel } = require('./lib/live');
+const { PhishGuard } = require('./lib/phishing');
+let phishGuard = null;
+const phishPending = new Map(); // webContentsId → blockierte Adresse
 const Sync = require('./lib/sync');
 const M = require('./lib/model');
 const { Extensions } = require('./lib/extensions');
@@ -478,6 +481,11 @@ class SakuraWindow {
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
+      if (isMain && code === -20 && phishPending.get(wc.id) === failedUrl) { // -20 = von Sakura blockiert
+        phishPending.delete(wc.id);
+        wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&c=phish');
+        return;
+      }
       if (!isMain || code === -3 || failedUrl.startsWith('sakura:')) return; // -3 = abgebrochen
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
     });
@@ -2249,6 +2257,11 @@ const uiCommands = {
 
 // Befehle der Startseite (nur von sakura:// erlaubt)
 const pageCommands = {
+  // Warnseite: „Trotzdem öffnen“ gibt die Domain bis zum Neustart frei
+  phishAllow: (wc, url, from = {}) => {
+    if (!from.top || !/^sakura:\/\/error\//.test(from.url || '') || !phishGuard) return false;
+    try { const u = new URL(String(url)); if (!/^https?:$/.test(u.protocol)) return false; phishGuard.allow(u.hostname); return true; } catch { return false; }
+  },
   shortcuts: () => store.shortcuts(),
   saveShortcut: (wc, item) => {
     const url = M.toUrl(item.url, 'google');
@@ -2322,6 +2335,11 @@ app.whenReady().then(async () => {
     return () => { clearTimeout(t); t = setTimeout(broadcastState, 250); };
   })();
   blocker.refreshExtended().catch(() => {});
+  phishGuard = new PhishGuard({ userDir, fetch: u => net.fetch(u) });
+  blocker.phish = phishGuard;
+  blocker.onPhish = (id, url) => phishPending.set(id, url);
+  setTimeout(() => phishGuard.refresh().catch(() => {}), 15000);
+  setInterval(() => phishGuard.refresh().catch(() => {}), 6 * 3600e3);
 
   favicons = new Favicons({ dir: path.join(userDir, 'Favicons'), store, fetchFn: (u, o) => net.fetch(u, o) });
   downloads = new Downloads({ store, dir: app.getPath('downloads'), shell });

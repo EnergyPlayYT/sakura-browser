@@ -24,6 +24,7 @@ class AdBlocker {
     this.hosts = new Map();  // webContentsId → Map(Domain → Anzahl) für die Tracker-Übersicht
     this.total = Number(store.data && store.data.blockedTotal) || 0; // insgesamt, bleibt erhalten
     this.onCount = () => {};
+    this.phish = null; this.onPhish = () => {}; // Phishing-Schutz (lib/phishing.js)
     parseList(fs.readFileSync(path.join(baseDir, 'blocklist.txt'), 'utf8'), this.base);
     // Eigene Ergänzungen: %APPDATA%/Sakura/eigene-filter.txt
     try { parseList(fs.readFileSync(path.join(userDir, 'eigene-filter.txt'), 'utf8'), this.base); } catch {}
@@ -62,7 +63,16 @@ class AdBlocker {
   attach(ses, getPageUrl) {
     ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (d, cb) => {
       const p = this.store.prefs();
-      if (!p.adblock || d.resourceType === 'mainFrame') return cb({});
+      if (d.resourceType === 'mainFrame') {
+        // Betrugsseiten: Laden abbrechen, Sakura zeigt dann die Warnseite
+        if (this.phish && p.phishWarn !== false) {
+          let h = '';
+          try { h = new URL(d.url).hostname; } catch {}
+          if (h && this.phish.isPhishing(h)) { this.onPhish(d.webContentsId, d.url); return cb({ cancel: true }); }
+        }
+        return cb({});
+      }
+      if (!p.adblock) return cb({});
       let host;
       try { host = new URL(d.url).hostname; } catch { return cb({}); }
       if (!this.isBlocked(host)) return cb({});

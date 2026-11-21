@@ -73,6 +73,7 @@ async function renderSettings() {
   <section class="set">
     <h3>Werbeblocker</h3>
     <label class="switch"><input type="checkbox" id="ab-on"${p.adblock ? ' checked' : ''}><span>Werbung und Tracker blockieren</span></label>
+    <label class="switch"><input type="checkbox" id="phish"${p.phishWarn !== false ? ' checked' : ''}><span>Vor bekannten Betrugs- und Phishing-Seiten warnen</span></label>
     <label class="switch"><input type="checkbox" id="ab-ext"${p.adblockExtended ? ' checked' : ''}><span>Erweiterte Liste verwenden (rund 80.000 Domains, wird wöchentlich geladen)</span></label>
     <p id="ab-info">${p.blocklistSize.toLocaleString('de-DE')} Domains auf der Sperrliste.</p>
     <label class="field">Ausnahmen – auf diesen Seiten nichts blockieren (eine pro Zeile)
@@ -235,6 +236,7 @@ async function renderSettings() {
   $('#pw-open').onclick = () => openPanel('passwords');
   $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
   $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
+  $('#phish').onchange = e => api.call('setPrefs', { phishWarn: e.target.checked });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
   $('#bgs').onchange = e => api.call('setPrefs', { backgrounds: lines(e.target.value) });

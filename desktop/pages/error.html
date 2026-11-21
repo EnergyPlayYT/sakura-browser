@@ -12,6 +12,8 @@
   p { color: #A59EB8; margin: 0 0 10px; word-break: break-word; }
   code { color: #EEE7E2; }
   button { margin-top: 18px; height: 38px; padding: 0 18px; border: 0; border-radius: 9px; background: #F2B3C5; color: #16142A; font: 600 14px inherit; cursor: pointer; }
+  .seal.warn { transform: none; border-radius: 50%; }
+  .link { display: inline-block; margin: 22px 0 0 14px; color: #A59EB8; background: none; height: auto; padding: 0; font-weight: 400; text-decoration: underline; }
   button:focus-visible { outline: 2px solid #EEE7E2; outline-offset: 2px; }
 </style>
 </head>
@@ -22,6 +24,7 @@
   <p id="host"></p>
   <p id="hint"></p>
   <button id="retry">Erneut versuchen</button>
+  <button id="anyway" class="link" hidden>Trotzdem öffnen (nicht empfohlen)</button>
 </main>
 <script>
   const q = new URLSearchParams(location.search);
@@ -37,12 +40,25 @@
     '-201': ['Zertifikat abgelaufen oder Uhrzeit falsch', 'Prüf, ob Datum und Uhrzeit deines Geräts stimmen.'],
     '-202': ['Unsicheres Zertifikat', 'Die Verbindung ist nicht vertrauenswürdig. Gib hier keine Daten ein.']
   };
-  const h = hints[String(code)];
+  if (q.get('c') === 'phish') {
+    hints.phish = ['Achtung: Betrugsverdacht', `${host} steht auf einer Liste bekannter Betrugs- und Phishing-Seiten. Solche Seiten versuchen, Passwörter, Bankdaten oder Zahlungen zu stehlen. Gib hier nichts ein.`];
+    document.querySelector('.seal').classList.add('warn');
+    document.querySelector('.seal').textContent = '!';
+    const r = document.getElementById('retry');
+    r.textContent = 'Zurück in Sicherheit';
+    r.onclick = () => { if (history.length > 1) history.back(); else location.href = 'sakura://newtab/'; };
+    const a = document.getElementById('anyway');
+    if (window.sakura && /^https?:/i.test(u)) {
+      a.hidden = false;
+      a.onclick = async () => { if (await window.sakura.call('phishAllow', u)) location.replace(u); };
+    }
+  }
+  const h = hints[q.get('c') === 'phish' ? 'phish' : String(code)];
   if (h) { document.getElementById('h').textContent = h[0]; document.getElementById('hint').textContent = h[1]; }
   else document.getElementById('hint').textContent = d ? `Fehler: ${d}` : '';
   document.getElementById('host').textContent = u;
   document.title = h ? h[0] : 'Seite nicht erreichbar';
-  document.getElementById('retry').onclick = () => { if (/^https?:/i.test(u)) location.href = u; };
+  if (q.get('c') !== 'phish') document.getElementById('retry').onclick = () => { if (/^https?:/i.test(u)) location.href = u; };
 </script>
 </body>
 </html>
