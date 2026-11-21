@@ -461,7 +461,7 @@ class SakuraWindow {
     });
     wc.on('did-navigate', (e, u) => {
       if (tab.sleeping) return;
-      tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false;
+      tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false; tab.audioOnly = false;
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
       const note = !tab.w.isPrivate && noteFor(u);
@@ -515,6 +515,10 @@ class SakuraWindow {
     if (t.floating) { unfloat(); return; } // Klick auf den Tab holt das Video zurück
     const prev = this.active;
     if (prev) prev.lastActive = Date.now(); // zuletzt benutzt = als er verlassen wurde
+    // Twitch im Hintergrund nur als Ton (Einstellung), zurück auf Bild beim Wiederkommen
+    if (prev && prev !== t && store.prefs().twitchBgAudio && prev.audible && !prev.audioOnly && isTwitch(prev.url))
+      setTwitchAudio(prev, true).then(r => { if (r && r.ok) prev.autoAudio = true; });
+    if (t.autoAudio) { t.autoAudio = false; setTwitchAudio(t, false); }
     t.lastActive = Date.now();
     this.activeId = id;
     if (t.group && this.groups.get(t.group) && this.groups.get(t.group).collapsed) this.groups.get(t.group).collapsed = false;
@@ -1337,6 +1341,20 @@ function runTwitch(wc) {
   wc.executeJavaScript(`window.__sakuraTwitchConfig = ${cfg};\n${twitchScript}`, false).catch(() => {});
 }
 
+// Twitch „Nur Ton“ (assets/twitch-audio.js)
+let twitchAudioScript = null;
+async function setTwitchAudio(tab, on) {
+  const wc = tab.view.webContents;
+  if (!isTwitch(wc.getURL())) return { error: 'Nur auf Twitch möglich.' };
+  if (twitchAudioScript == null) { try { twitchAudioScript = fs.readFileSync(path.join(__dirname, 'assets', 'twitch-audio.js'), 'utf8'); } catch { twitchAudioScript = ''; } }
+  let mode = null;
+  try { mode = await wc.executeJavaScript(`${twitchAudioScript}\nwindow.__sakuraTwitchAudio(${on ? 'true' : 'false'})`, true); } catch {}
+  if (mode === 'kein-player' || mode == null) return { error: 'Auf dieser Seite läuft gerade kein Stream.' };
+  tab.audioOnly = !!on;
+  tab.w.sendState();
+  return { ok: true, mode };
+}
+
 // Steam-Shop: Spieler online, Spielzeit, Preisvergleich (assets/steam.js)
 const isSteamStore = url => { try { const u = new URL(url); return u.protocol === 'https:' && u.hostname === 'store.steampowered.com'; } catch { return false; } };
 let steamScript = null;
@@ -1975,8 +1993,9 @@ const uiCommands = {
     if (!t) return null;
     const host = hostOfUrl(t.url);
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
-    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  twitchAudio: async (w, on) => w.active ? setTwitchAudio(w.active, !!on) : null,
   mediaSet: async (w, patch) => {
     const t = w.active;
     const host = t && hostOfUrl(t.url);

@@ -92,6 +92,7 @@ async function renderSettings() {
   <section class="set">
     <h3>Twitch</h3>
     <label class="switch"><input type="checkbox" id="tw-emotes"${p.twitchEmotes !== false ? ' checked' : ''}><span>Emotes von 7TV, BTTV und FFZ im Chat anzeigen</span></label>
+    <label class="switch"><input type="checkbox" id="tw-bgaudio"${p.twitchBgAudio ? ' checked' : ''}><span>Streams im Hintergrund-Tab nur als Ton abspielen (spart Daten)</span></label>
     <label class="switch"><input type="checkbox" id="tw-points"${p.twitchPoints ? ' checked' : ''}><span>Kanalpunkte-Bonus automatisch abholen</span></label>
     <p class="msg-error">Achtung: Automatisches Abholen verstößt gegen die Regeln von Twitch. Twitch kann dein Konto dafür sperren. Nutzung auf eigenes Risiko.</p>
   </section>
@@ -214,6 +215,7 @@ async function renderSettings() {
     e.target.value = '';
   };
   $('#tw-emotes').onchange = e => api.call('setPrefs', { twitchEmotes: e.target.checked });
+  $('#tw-bgaudio').onchange = e => api.call('setPrefs', { twitchBgAudio: e.target.checked });
   $('#tw-points').onchange = e => {
     if (e.target.checked && !confirm('Automatisches Abholen von Kanalpunkten verstößt gegen die Regeln von Twitch und kann zu einer Kontosperre führen. Trotzdem einschalten?')) { e.target.checked = false; return; }
     api.call('setPrefs', { twitchPoints: e.target.checked });

@@ -38,6 +38,7 @@ object SyncModel {
         .put("readerTheme", "sepia")
         .put("steamInfo", true)
         .put("twitchEmotes", true)
+        .put("twitchBgAudio", false)
         .put("twitchPoints", false)
         .put("youtube", true)
         .put("ytSponsor", true)
