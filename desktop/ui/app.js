@@ -413,7 +413,17 @@ $('#shield').onclick = () => {
   $('#shield-pop').hidden = false;
   fillShield();
 };
+async function fillShieldDetails() {
+  const d = await api.call('shieldDetails');
+  if (!d || overlay !== 'shield') return;
+  const ul = $('#shield-hosts');
+  const on = S.adblock && !S.allowed && d.hosts.length;
+  ul.hidden = !on;
+  ul.innerHTML = on ? d.hosts.map(h => `<li><span>${esc(h.host)}</span><b>${h.n}</b></li>`).join('') : '';
+  $('#shield-total').textContent = d.total ? `Insgesamt hat Sakura schon ${d.total.toLocaleString('de-DE')} Werbe- und Tracker-Anfragen blockiert.` : '';
+}
 function fillShield() {
+  fillShieldDetails();
   const n = S.blocked || 0;
   $('#shield-text').textContent = !S.adblock ? 'Der Werbeblocker ist ausgeschaltet.'
     : S.allowed ? `Auf ${S.host} ist der Werbeblocker pausiert.`

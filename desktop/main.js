@@ -396,6 +396,8 @@ class SakuraWindow {
       if (!tab.w.isPrivate && tab.favicon) favicons.remember(wc.getURL(), tab.favicon);
       upd();
     });
+    const wcId = wc.id;
+    wc.once('destroyed', () => blocker.forget(wcId));
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
     wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); });
     wc.on('did-start-navigation', (d) => {
@@ -1927,6 +1929,11 @@ const uiCommands = {
     return true;
   },
   sessionRemove: (w, id) => { store.data.savedSessions = (store.data.savedSessions || []).filter(x => x.id !== id); store.save(); return true; },
+  // Tracker-Übersicht: welche Domains auf dieser Seite blockiert wurden
+  shieldDetails: w => {
+    const wc = w.active && !w.active.view.webContents.isDestroyed() ? w.active.view.webContents : null;
+    return { hosts: wc ? blocker.details(wc.id) : [], total: blocker.total };
+  },
   readlistAdd: async w => { const r = await addToReadlist(w); w.ui.webContents.send('toast', r.error || r.message); return r; },
   readlist: () => (store.data.readlist || []).map(({ blocks, ...x }) => ({ ...x, offline: !!(blocks && blocks.length) })),
   readlistOpen: (w, id) => { if (/^[a-z0-9]+$/.test(String(id))) w.newTab('sakura://readlist/#' + id, { index: w.tabs.indexOf(w.active) + 1 }); },

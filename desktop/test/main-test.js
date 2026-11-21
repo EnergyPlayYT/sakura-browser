@@ -129,6 +129,7 @@ setTimeout(async()=>{
     assert.equal(await rp('sakura://newtab/', 'readlistItem', rl[0].id), null);
     await rp('sakura://readlist/', 'readlistMark', {id: rl[0].id, read: true}); assert.equal((await call('readlist'))[0].read, true);
     await call('readlistRemove', rl[0].id); assert.equal((await call('readlist')).length, 0); }
+  { const sd = await call('shieldDetails'); assert(Array.isArray(sd.hosts) && typeof sd.total === 'number'); }
   // Sitzungen speichern und in neuem Fenster öffnen
   { st = await call('state'); const n = st.tabs.length;
     const r = await call('sessionSave', '  Hausaufgaben  '); assert.equal(r.name, 'Hausaufgaben'); assert.equal(r.count, n);

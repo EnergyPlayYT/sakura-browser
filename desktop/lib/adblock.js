@@ -21,6 +21,8 @@ class AdBlocker {
     this.base = new Set();
     this.extended = new Set();
     this.counts = new Map(); // webContentsId → Anzahl
+    this.hosts = new Map();  // webContentsId → Map(Domain → Anzahl) für die Tracker-Übersicht
+    this.total = Number(store.data && store.data.blockedTotal) || 0; // insgesamt, bleibt erhalten
     this.onCount = () => {};
     parseList(fs.readFileSync(path.join(baseDir, 'blocklist.txt'), 'utf8'), this.base);
     // Eigene Ergänzungen: %APPDATA%/Sakura/eigene-filter.txt
@@ -73,13 +75,24 @@ class AdBlocker {
       }
       if (d.webContentsId) {
         this.counts.set(d.webContentsId, (this.counts.get(d.webContentsId) || 0) + 1);
+        let hm = this.hosts.get(d.webContentsId);
+        if (!hm) this.hosts.set(d.webContentsId, hm = new Map());
+        if (hm.size < 500 || hm.has(host)) hm.set(host, (hm.get(host) || 0) + 1);
         this.onCount(d.webContentsId);
       }
+      this.total++;
+      if (this.store.data) this.store.data.blockedTotal = this.total;
       cb({ cancel: true });
     });
   }
 
-  reset(id) { this.counts.set(id, 0); }
+  reset(id) { this.counts.set(id, 0); this.hosts.delete(id); }
+  forget(id) { this.counts.delete(id); this.hosts.delete(id); }
+  /** Blockierte Domains einer Seite, häufigste zuerst */
+  details(id, max = 12) {
+    const hm = this.hosts.get(id);
+    return hm ? [...hm].sort((a, b) => b[1] - a[1]).slice(0, max).map(([host, n]) => ({ host, n })) : [];
+  }
   count(id) { return this.counts.get(id) || 0; }
 }
 
