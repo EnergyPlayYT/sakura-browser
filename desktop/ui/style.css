@@ -507,3 +507,12 @@ body.loading #toolbar::after {
 @keyframes fade { from { opacity: 0; } }
 /* Animationen aus (Einstellung) */
 body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none !important; transition: none !important; }
+
+/* ---------------- Lesezeichen-Ordner ---------------- */
+.bm.folder svg { width: 16px; height: 16px; color: var(--sakura); flex: none; }
+.bm-folder { margin: 6px 0; }
+.bm-folder summary { display: flex; align-items: center; gap: 8px; padding: 6px 4px; color: var(--washi); list-style: none; }
+.bm-folder summary::-webkit-details-marker { display: none; }
+.bm-folder summary svg { width: 16px; height: 16px; color: var(--sakura); }
+.bm-folder summary small { color: var(--usuzumi); margin-left: auto; }
+.bm-folder > .p-item { padding-left: 18px; }

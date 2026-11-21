@@ -22,6 +22,12 @@ const OPERA = [
   { key: 'operagx', name: 'Opera GX', dir: ['Opera Software', 'Opera GX Stable'] }
 ];
 
+const OTHER = 'Weitere Lesezeichen';
+/** Ordnerpfad zusammensetzen: „Reisen“ + „Japan“ → „Reisen / Japan“ */
+const joinFolder = (base, name) => {
+  const n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return (!n ? base : base ? `${base} / ${n}` : n).slice(0, 120);
+};
 const isWeb = u => /^https?:\/\//i.test(String(u || ''));
 const exists = p => { try { fs.accessSync(p); return true; } catch { return false; } };
 const readJson = p => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
@@ -94,13 +100,14 @@ function readChromiumBookmarks(file) {
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; }
   const roots = (data && data.roots) || {};
   const out = [];
-  const walk = (node, bar) => {
+  // folder: Ordnerpfad („Reisen / Japan“); Lesezeichen außerhalb der Leiste landen in „Weitere Lesezeichen“
+  const walk = (node, bar, folder) => {
     if (!node || out.length >= BOOKMARKS_MAX) return;
-    if (node.type === 'url') { if (isWeb(node.url)) out.push({ title: String(node.name || '').trim() || node.url, url: node.url, bar }); return; }
-    for (const c of node.children || []) walk(c, bar);
+    if (node.type === 'url') { if (isWeb(node.url)) out.push({ title: String(node.name || '').trim() || node.url, url: node.url, bar, folder }); return; }
+    for (const c of node.children || []) walk(c, bar, c.type === 'folder' ? joinFolder(folder, c.name) : folder);
   };
-  walk(roots.bookmark_bar, true);
-  for (const [k, v] of Object.entries(roots)) if (k !== 'bookmark_bar' && v && typeof v === 'object') walk(v, false);
+  walk(roots.bookmark_bar, true, '');
+  for (const [k, v] of Object.entries(roots)) if (k !== 'bookmark_bar' && v && typeof v === 'object') walk(v, false, OTHER);
   return out;
 }
 
@@ -132,20 +139,20 @@ function readFirefoxBookmarks(file) {
     }
     for (const list of children.values()) list.sort((a, b) => Number(a.position) - Number(b.position));
     const out = [];
-    const walk = (id, bar, depth) => {
+    const walk = (id, bar, depth, folder) => {
       if (depth > 50) return;
       for (const c of children.get(id) || []) {
         if (out.length >= BOOKMARKS_MAX) return;
-        if (Number(c.type) === 1) { if (isWeb(c.url)) out.push({ title: String(c.title || '').trim() || c.url, url: c.url, bar }); }
-        else if (Number(c.type) === 2) walk(Number(c.id), bar, depth + 1);
+        if (Number(c.type) === 1) { if (isWeb(c.url)) out.push({ title: String(c.title || '').trim() || c.url, url: c.url, bar, folder }); }
+        else if (Number(c.type) === 2) walk(Number(c.id), bar, depth + 1, joinFolder(folder, c.title));
       }
     };
     const root = id => [...byId.values()].find(r => r.guid === id);
     const toolbar = root('toolbar_____');
-    if (toolbar) walk(Number(toolbar.id), true, 0);
+    if (toolbar) walk(Number(toolbar.id), true, 0, '');
     for (const g of ['menu________', 'unfiled_____', 'mobile______']) {
       const r = root(g);
-      if (r) walk(Number(r.id), false, 0);
+      if (r) walk(Number(r.id), false, 0, OTHER);
     }
     return out;
   });
@@ -207,22 +214,28 @@ function decode(s) {
 /** Liest eine Lesezeichen-HTML-Datei. Der Ordner „Favoritenleiste“ (PERSONAL_TOOLBAR_FOLDER) kommt in die Leiste. */
 function parseBookmarksHtml(html) {
   const out = [];
-  const stack = []; // pro offenem <DL>: gehört es zur Favoritenleiste?
-  let nextIsBar = false;
+  const stack = []; // pro offenem <DL>: { bar, folder }
+  let nextIsBar = false, nextName = '';
   const re = /<(\/?)(dl|h3|a)\b([^>]*)>(?:([^<]*)<\/\2>)?/gi;
   let m;
   while ((m = re.exec(html)) && out.length < BOOKMARKS_MAX) {
     const closing = m[1] === '/', tag = m[2].toLowerCase(), attrs = m[3] || '';
-    const inBar = stack.length ? stack[stack.length - 1] : false;
+    const top = stack.length ? stack[stack.length - 1] : { bar: false, folder: '' };
     if (tag === 'dl') {
       if (closing) stack.pop();
-      else { stack.push(inBar || nextIsBar); nextIsBar = false; }
+      else {
+        // der äußerste <DL> und der Ordner „Favoritenleiste“ selbst sind keine eigenen Ordner
+        const folder = stack.length < 1 || nextIsBar ? top.folder : joinFolder(top.folder, nextName);
+        stack.push({ bar: top.bar || nextIsBar, folder });
+        nextIsBar = false; nextName = '';
+      }
     } else if (tag === 'h3' && !closing) {
       nextIsBar = /PERSONAL_TOOLBAR_FOLDER\s*=\s*"?true/i.test(attrs);
+      nextName = decode(m[4] || '').trim();
     } else if (tag === 'a' && !closing) {
       const href = /\bHREF\s*=\s*"([^"]*)"/i.exec(attrs) || /\bHREF\s*=\s*'([^']*)'/i.exec(attrs);
       const url = href && decode(href[1]).trim();
-      if (isWeb(url)) out.push({ title: decode(m[4] || '').trim() || url, url, bar: inBar });
+      if (isWeb(url)) out.push({ title: decode(m[4] || '').trim() || url, url, bar: top.bar, folder: top.folder });
     }
   }
   return out;

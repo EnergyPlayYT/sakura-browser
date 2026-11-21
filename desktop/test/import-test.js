@@ -84,6 +84,7 @@ assert.deepEqual(I.findProfiles({}), []);
 // ---------- Chrome lesen
 const chrome = I.readProfile(profiles[0], {}, now);
 assert.deepEqual(chrome.bookmarks.map(b => [b.title, b.bar]), [['YouTube', true], ['Wiki', true], ['Andere', false], ['Doppelt', false], ['Handy', false]]);
+assert.deepEqual(chrome.bookmarks.map(b => b.folder), ['', 'Ordner', 'Weitere Lesezeichen', 'Weitere Lesezeichen', 'Weitere Lesezeichen'], 'Ordner übernommen');
 assert.deepEqual(chrome.history.map(h => h.url), ['https://github.com/', 'https://news.example/']);
 assert(Math.abs(chrome.history[0].visitedAt - (now - 3600e3)) < 5, 'Zeit seit 1601 richtig umgerechnet');
 
@@ -141,9 +142,9 @@ const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 </DL><p>`;
 const parsed = I.parseBookmarksHtml(html);
 assert.deepEqual(parsed, [
-  { title: 'A & B', url: 'https://a.example/?x=1&y=2', bar: true },
-  { title: 'B über ☺', url: 'https://b.example/', bar: true },
-  { title: 'C', url: 'https://c.example/', bar: false },
-  { title: 'https://d.example/', url: 'https://d.example/', bar: false }
+  { title: 'A & B', url: 'https://a.example/?x=1&y=2', bar: true, folder: '' },
+  { title: 'B über ☺', url: 'https://b.example/', bar: true, folder: 'Unterordner' },
+  { title: 'C', url: 'https://c.example/', bar: false, folder: 'Andere' },
+  { title: 'https://d.example/', url: 'https://d.example/', bar: false, folder: 'Andere' }
 ]);
 console.log('Import aus anderen Browsern bestanden');

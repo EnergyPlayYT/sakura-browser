@@ -108,6 +108,16 @@ function renderBar() {
     box.innerHTML = '<span class="bm-empty">Leg hier Lesezeichen ab: Klick in der Adressleiste auf den Stern oder drück Strg+D.</span>';
   }
   for (const b of S.bar) {
+    if (b.folder) {
+      const f = document.createElement('button');
+      f.className = 'bm folder';
+      f.title = `Ordner „${b.folder}“`;
+      f.dataset.id = b.id;
+      f.innerHTML = `<svg><use href="#i-folder"/></svg><span>${esc(b.folder)}</span>`;
+      f.addEventListener('click', () => api.call('bmFolderMenu', b.folder));
+      box.appendChild(f);
+      continue;
+    }
     const el = document.createElement('button');
     el.className = 'bm';
     el.title = `${b.title}\n${b.url}`;
@@ -543,10 +553,16 @@ async function renderBookmarks(filter = '') {
   const all = await api.call('bookmarks');
   const q = filter.toLowerCase();
   const list = all.filter(b => !q || (b.title || '').toLowerCase().includes(q) || b.url.toLowerCase().includes(q));
+  const acts = `<button class="icon small" data-act="edit" title="Bearbeiten"><svg><use href="#i-edit"/></svg></button>
+       <button class="icon small" data-act="del" title="Löschen"><svg><use href="#i-trash"/></svg></button>`;
+  // Ohne Ordner zuerst, dann jeder Ordner als Gruppe
+  const groups = new Map([['', []]]);
+  for (const b of list) { const f = b.folder || ''; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(b); }
+  const folders = [...groups.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b, 'de'));
+  const html = groups.get('').map(b => itemHtml(b, acts)).join('') +
+    folders.map(f => `<details class="bm-folder" open><summary><svg><use href="#i-folder"/></svg>${esc(f)} <small>${groups.get(f).length}</small></summary>${groups.get(f).map(b => itemHtml(b, acts)).join('')}</details>`).join('');
   body.innerHTML = `<input class="p-search" placeholder="Lesezeichen durchsuchen" value="${esc(filter)}">` +
-    (list.length ? list.map(b => itemHtml(b,
-      `<button class="icon small" data-act="edit" title="Bearbeiten"><svg><use href="#i-edit"/></svg></button>
-       <button class="icon small" data-act="del" title="Löschen"><svg><use href="#i-trash"/></svg></button>`)).join('')
+    (list.length ? html
       : `<p class="p-empty">${all.length ? 'Keine Treffer.' : 'Noch keine Lesezeichen. Klick in der Adressleiste auf den Stern oder drück Strg+D, um die aktuelle Seite zu speichern.'}</p>`);
   const s = body.querySelector('.p-search');
   s.oninput = () => { const pos = s.selectionStart; renderBookmarks(s.value).then(() => { const n = $('#panel-body .p-search'); n.focus(); n.setSelectionRange(pos, pos); }); };
@@ -561,7 +577,9 @@ async function renderBookmarks(filter = '') {
     if (b.dataset.act === 'edit') {
       const form = document.createElement('div');
       form.className = 'p-edit';
+      const folderOpts = [...new Set(all.map(x => x.folder).filter(Boolean))].map(f => `<option value="${esc(f)}">`).join('');
       form.innerHTML = `<input name="title" value="${esc(bm.title)}" aria-label="Name"><input name="url" value="${esc(bm.url)}" aria-label="Adresse">
+        <input name="folder" value="${esc(bm.folder || '')}" placeholder="Ordner (leer = kein Ordner)" aria-label="Ordner" list="bm-folder-list"><datalist id="bm-folder-list">${folderOpts}</datalist>
         <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn primary" data-x="save">Speichern</button></div>`;
       row.replaceWith(form);
       form.querySelector('input').focus();
@@ -569,7 +587,7 @@ async function renderBookmarks(filter = '') {
         const x = ev.target.dataset.x;
         ev.stopPropagation();
         if (x === 'cancel') renderBookmarks(s.value);
-        if (x === 'save') api.call('updateBookmark', { id: bm.id, patch: { title: form.querySelector('[name=title]').value, url: form.querySelector('[name=url]').value } }).then(() => renderBookmarks(s.value));
+        if (x === 'save') api.call('updateBookmark', { id: bm.id, patch: { title: form.querySelector('[name=title]').value, url: form.querySelector('[name=url]').value, folder: form.querySelector('[name=folder]').value } }).then(() => renderBookmarks(s.value));
       };
     }
   };

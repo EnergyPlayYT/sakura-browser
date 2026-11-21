@@ -70,6 +70,7 @@ class Store extends EventEmitter {
     if (!b) return;
     if (typeof patch.title === 'string') b.title = patch.title.slice(0, 300);
     if (typeof patch.url === 'string' && patch.url.trim()) b.url = patch.url.trim();
+    if (typeof patch.folder === 'string') { const f = patch.folder.replace(/\s+/g, ' ').trim().slice(0, 120); if (f) b.folder = f; else delete b.folder; }
     b.updatedAt = Date.now();
     this.changed('bookmarks');
   }
@@ -111,12 +112,17 @@ class Store extends EventEmitter {
       have.add(url);
       this.data.bookmarks.push({
         id: M.newId(), url, title: String(it.title || url).slice(0, 300), order: order++,
+        ...(it.folder ? { folder: String(it.folder).slice(0, 120) } : {}),
         createdAt: now - added, updatedAt: now
       });
       added++;
     }
     if (added) this.changed('bookmarks');
     return added;
+  }
+  /** Alle Ordnernamen (für Auswahl und Leiste) */
+  bookmarkFolders() {
+    return [...new Set(this.bookmarks().map(b => b.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
   }
   toggleBookmark(url, title, favicon) {
     const b = this.findBookmark(url);

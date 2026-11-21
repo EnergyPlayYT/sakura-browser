@@ -127,7 +127,15 @@ async function bookmarks(filter = '') {
   const list = all.filter(b => !q || (b.title || '').toLowerCase().includes(q) || b.url.toLowerCase().includes(q));
   const keep = document.activeElement && document.activeElement.classList.contains('search');
   main.innerHTML = `<input class="search" placeholder="Lesezeichen durchsuchen" value="${esc(filter)}">` +
-    (list.length ? list.map(b => item(b, `<button class="ib" data-act="edit" aria-label="Bearbeiten">✎</button><button class="ib" data-act="del" aria-label="Löschen">✕</button>`)).join('')
+    (list.length ? (() => {
+      // Ohne Ordner zuerst, dann jeder Ordner als Gruppe (Ordner legst du am PC an)
+      const acts = `<button class="ib" data-act="edit" aria-label="Bearbeiten">✎</button><button class="ib" data-act="del" aria-label="Löschen">✕</button>`;
+      const groups = new Map([['', []]]);
+      for (const b of list) { const f = b.folder || ''; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(b); }
+      const folders = [...groups.keys()].filter(Boolean).sort((x, y) => x.localeCompare(y, 'de'));
+      return groups.get('').map(b => item(b, acts)).join('') +
+        folders.map(f => `<details open><summary class="day">${esc(f)} (${groups.get(f).length})</summary>${groups.get(f).map(b => item(b, acts)).join('')}</details>`).join('');
+    })()
       : `<p class="empty">${all.length ? 'Keine Treffer.' : 'Noch keine Lesezeichen. Tipp in der Adressleiste auf den Stern, um eine Seite zu speichern.'}</p>`);
   const s = main.querySelector('.search');
   if (keep) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }

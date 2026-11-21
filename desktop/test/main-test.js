@@ -111,6 +111,13 @@ setTimeout(async()=>{
   { assert.equal((await call('state')).streamer, null);
     assert.equal(await call('streamerToggle'), true); st = await call('state'); assert.deepEqual(st.streamer, {app:null, manual:true});
     assert.equal(await call('streamerToggle'), false); assert.equal((await call('prefs')).streamerMode, 'auto'); }
+  // Lesezeichen-Ordner: Leiste zeigt Ordner als einen Knopf
+  { const bms = await call('bookmarks'); const bid = bms[0].id;
+    await call('updateBookmark', {id: bid, patch: {folder: '  Reisen   / Japan '}});
+    assert.equal((await call('bookmarks')).find(b=>b.id===bid).folder, 'Reisen / Japan');
+    assert.deepEqual(await call('bookmarkFolders'), ['Reisen / Japan']);
+    st = await call('state'); assert(st.bar.some(x=>x.folder==='Reisen') && !st.bar.some(x=>x.id===bid), 'Ordner statt Lesezeichen in der Leiste');
+    await call('updateBookmark', {id: bid, patch: {folder: ''}}); assert.equal((await call('bookmarks')).find(b=>b.id===bid).folder, undefined); }
   // Tab-Suche: offene und geschlossene Tabs
   { const r = await call('tabSearch'); st = await call('state');
     assert.equal(r.open.length, st.tabs.length); assert(r.open.some(t=>t.active));

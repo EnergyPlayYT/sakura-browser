@@ -685,7 +685,7 @@ class SakuraWindow {
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
       update: updater ? { state: updater.state.state, version: updater.state.version, percent: updater.state.percent } : null,
       scripts: realUrl ? M.scriptsFor(store.data.scripts, realUrl).length : 0,
-      bar: barVisible() ? store.barBookmarks().slice(0, 100).map(b => ({ id: b.id, title: b.title, url: b.url, favicon: b.favicon || null })) : null
+      bar: barVisible() ? barItems() : null
     };
   }
 
@@ -1576,6 +1576,39 @@ function toggleBar() {
   broadcastState();
 }
 
+/** Favoritenleiste: Lesezeichen ohne Ordner direkt, jeder Ordner als ein Knopf (an der Stelle seines ersten Lesezeichens) */
+function barItems() {
+  const out = [], seen = new Set();
+  for (const b of store.barBookmarks()) {
+    if (!b.folder) { out.push({ id: b.id, title: b.title, url: b.url, favicon: b.favicon || null }); continue; }
+    const top = b.folder.split(' / ')[0];
+    if (seen.has(top)) continue;
+    seen.add(top);
+    out.push({ id: 'ordner:' + top, folder: top });
+    if (out.length >= 100) break;
+  }
+  return out.slice(0, 100);
+}
+function folderMenu(w, top) {
+  const list = store.barBookmarks().filter(b => b.folder && (b.folder === top || b.folder.startsWith(top + ' / ')));
+  if (!list.length) return;
+  // Unterordner als Untermenüs
+  const build = prefix => {
+    const items = [], subs = new Set();
+    for (const b of list) {
+      if (b.folder === prefix) items.push({ label: (b.title || b.url).slice(0, 60), click: () => w.navigate(b.url) });
+      else if (b.folder.startsWith(prefix + ' / ')) subs.add(prefix + ' / ' + b.folder.slice(prefix.length + 3).split(' / ')[0]);
+    }
+    return [...[...subs].map(sub => ({ label: sub.split(' / ').pop(), submenu: build(sub) })), ...items];
+  };
+  const mine = list.filter(b => b.folder === top);
+  Menu.buildFromTemplate([
+    ...build(top),
+    { type: 'separator' },
+    { label: `Alle ${mine.length} in Tabs öffnen`, enabled: mine.length > 0 && mine.length <= 30, click: () => mine.forEach(b => w.newTab(b.url, { background: true })) }
+  ]).popup();
+}
+
 function bookmarkMenu(w, id) {
   const b = store.bookmarks().find(x => x.id === id);
   if (!b) return;
@@ -1658,11 +1691,15 @@ const uiCommands = {
     else w.navigate(url);
   },
   bmMenu: (w, id) => bookmarkMenu(w, id),
+  bmFolderMenu: (w, name) => folderMenu(w, String(name || '')),
+  bookmarkFolders: () => store.bookmarkFolders(),
   bmMove: (w, { id, index }) => { store.moveBookmark(id, index); broadcastState(); },
   bmOverflow: (w, ids) => {
     const all = store.bookmarks();
-    const items = ids.map(id => all.find(b => b.id === id)).filter(Boolean);
-    Menu.buildFromTemplate(items.map(b => ({ label: (b.title || b.url).slice(0, 60), click: () => w.navigate(b.url) }))).popup();
+    const items = ids.map(id => String(id).startsWith('ordner:') ? { folder: String(id).slice(7) } : all.find(b => b.id === id)).filter(Boolean);
+    Menu.buildFromTemplate(items.map(b => b.folder
+      ? { label: b.folder, submenu: all.filter(x => x.folder && (x.folder === b.folder || x.folder.startsWith(b.folder + ' / '))).slice(0, 60).map(x => ({ label: (x.title || x.url).slice(0, 60), click: () => w.navigate(x.url) })) }
+      : { label: (b.title || b.url).slice(0, 60), click: () => w.navigate(b.url) })).popup();
   },
   toggleBar: () => toggleBar(),
   updateBookmark: (w, { id, patch }) => { store.updateBookmark(id, patch); broadcastState(); },
