@@ -27,6 +27,8 @@ const DEFAULT_PREFS = {
   cookieReject: true, // Cookie-Banner automatisch ablehnen
   cookieAllow: [],    // Seiten, auf denen Banner nicht abgelehnt werden
   animations: true,    // Animationen und weiches Scrollen
+  ntWidgets: true,     // Startseite: Uhrzeit in Japan, Wetter, Tageszitat
+  weatherCity: '',     // Ort für das Wetter auf der Startseite
   phishWarn: true,     // vor bekannten Betrugsseiten warnen
   mouseGestures: true, // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße

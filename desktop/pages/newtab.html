@@ -29,6 +29,18 @@
   #clock { font: 300 clamp(84px, 14vw, 168px)/0.95 var(--mincho); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 0; }
   #clock .sep { color: var(--sakura); opacity: .85; padding: 0 .02em; }
   #date { font: 400 20px var(--mincho); color: var(--usuzumi); margin: 10px 0 34px 6px; }
+  #widgets { display: flex; flex-wrap: wrap; gap: 8px; margin: -22px 0 26px 4px; }
+  #widgets[hidden] { display: none; }
+  .wd { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 13px; border-radius: 16px; font: 13.5px var(--gothic); color: var(--washi);
+    background: rgba(var(--fukai-rgb), .55); backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px rgba(var(--washi-rgb), .1); border: 0; }
+  .wd small { color: var(--usuzumi); font-size: 12.5px; }
+  .wd b { font-weight: 600; color: var(--sakura); }
+  button.wd { cursor: pointer; } button.wd:hover { box-shadow: inset 0 0 0 1px rgba(var(--sakura-rgb), .5); }
+  #city-form { display: inline-flex; gap: 6px; width: auto; }
+  #city-form input { height: 32px; width: 150px; padding: 0 12px; border: 0; outline: 0; border-radius: 16px; font: 13.5px var(--gothic); color: var(--washi); background: rgba(var(--fukai-rgb), .8); box-shadow: inset 0 0 0 1.5px var(--sakura); }
+  #quote { position: absolute; left: max(7vw, 28px); right: 28px; bottom: 26px; margin: 0; font: 400 15px/1.5 var(--mincho); color: var(--usuzumi); max-width: 640px; }
+  #quote[hidden] { display: none; }
+  #quote span { color: var(--washi); margin-right: 10px; letter-spacing: .06em; }
 
   form { position: relative; width: min(560px, 100% - 28px); }
   #q {
@@ -78,6 +90,7 @@
   @media (max-width: 640px) {
     main { padding: 0 20px 10vh; justify-content: flex-end; }
     #clock { font-size: 92px; }
+    #quote { position: static; margin-top: 22px; font-size: 14px; }
     #date { margin-bottom: 22px; font-size: 18px; }
     #tiles { grid-template-columns: repeat(4, 1fr); gap: 10px 4px; margin-top: 24px; width: 100%; }
     form { width: 100%; }
@@ -96,11 +109,13 @@
   <p id="greet"></p>
   <h1 id="clock" aria-live="off"></h1>
   <p id="date"></p>
+  <div id="widgets" hidden></div>
   <form id="search" autocomplete="off">
     <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
     <input id="q" placeholder="Suchen oder Adresse eingeben" spellcheck="false" aria-label="Suchen oder Adresse eingeben">
   </form>
   <div id="tiles"></div>
+  <p id="quote" hidden></p>
 </main>
 
 <dialog id="dlg">
@@ -143,6 +158,87 @@ function tick() {
   setTimeout(tick, 1000 - d.getMilliseconds() + 5);
 }
 tick();
+
+// ---------- Widgets: Uhrzeit in Japan, Wetter (Open-Meteo, ohne Schlüssel), Tageszitat
+const QUOTES = [
+  ['七転び八起き', 'Siebenmal fallen, achtmal aufstehen.'],
+  ['花より団子', 'Lieber Klöße als Blüten – das Nützliche vor dem Schönen.'],
+  ['猿も木から落ちる', 'Auch Affen fallen von Bäumen – jeder macht Fehler.'],
+  ['石の上にも三年', 'Drei Jahre auf einem Stein – Geduld bringt ans Ziel.'],
+  ['一期一会', 'Jede Begegnung gibt es nur einmal.'],
+  ['継続は力なり', 'Dranbleiben ist Stärke.'],
+  ['急がば回れ', 'Hast du es eilig, nimm den Umweg.'],
+  ['塵も積もれば山となる', 'Auch Staub wird zum Berg, wenn er sich sammelt.'],
+  ['十人十色', 'Zehn Menschen, zehn Farben.'],
+  ['笑う門には福来る', 'Wo gelacht wird, kommt das Glück hinein.'],
+  ['井の中の蛙大海を知らず', 'Der Frosch im Brunnen kennt das Meer nicht.'],
+  ['案ずるより産むが易し', 'Tun ist leichter als sich sorgen.'],
+  ['出る杭は打たれる', 'Der Pfahl, der heraussteht, wird eingeschlagen.'],
+  ['雨降って地固まる', 'Nach dem Regen wird der Boden fest.'],
+  ['千里の道も一歩から', 'Auch eine Reise von tausend Meilen beginnt mit einem Schritt.'],
+  ['能ある鷹は爪を隠す', 'Der kluge Falke versteckt seine Krallen.'],
+  ['時は金なり', 'Zeit ist Geld.'],
+  ['覆水盆に返らず', 'Verschüttetes Wasser kehrt nicht ins Tablett zurück.'],
+  ['猫に小判', 'Goldmünzen für die Katze – Perlen vor die Säue.'],
+  ['桜は花に顕る', 'Die Kirsche zeigt sich erst in ihrer Blüte.'],
+  ['明日は明日の風が吹く', 'Morgen weht der Wind von morgen.']
+];
+const WMO = { 0: 'klar', 1: 'fast klar', 2: 'leicht bewölkt', 3: 'bewölkt', 45: 'Nebel', 48: 'Raureifnebel', 51: 'leichter Niesel', 53: 'Niesel', 55: 'starker Niesel',
+  56: 'gefrierender Niesel', 57: 'gefrierender Niesel', 61: 'leichter Regen', 63: 'Regen', 65: 'starker Regen', 66: 'gefrierender Regen', 67: 'gefrierender Regen',
+  71: 'leichter Schnee', 73: 'Schnee', 75: 'starker Schnee', 77: 'Schneegriesel', 80: 'Regenschauer', 81: 'Regenschauer', 82: 'heftige Schauer',
+  85: 'Schneeschauer', 86: 'Schneeschauer', 95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'Gewitter mit Hagel' };
+let widgetPrefs = null, editingCity = false;
+const cacheGet = k => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v && Date.now() - v.at < 30 * 60e3 ? v.data : null; } catch { return null; } };
+const cacheSet = (k, data) => { try { localStorage.setItem(k, JSON.stringify({ at: Date.now(), data })); } catch {} };
+async function weather(city) {
+  const key = 'sakura-weather:' + city.toLowerCase();
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  const g = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=de&name=' + encodeURIComponent(city))).json();
+  const loc = g && g.results && g.results[0];
+  if (!loc) return { error: 'Ort nicht gefunden' };
+  const f = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${Number(loc.latitude)}&longitude=${Number(loc.longitude)}&current=temperature_2m,weather_code&timezone=auto`)).json();
+  const c = f && f.current;
+  if (!c) return { error: 'Wetter nicht verfügbar' };
+  const data = { name: String(loc.name || city), temp: Math.round(Number(c.temperature_2m)), text: WMO[c.weather_code] || '' };
+  cacheSet(key, data);
+  return data;
+}
+function tokyoTime() { return new Date().toLocaleTimeString('de-DE', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' }); }
+async function renderWidgets() {
+  const box = $('#widgets');
+  if (!widgetPrefs || widgetPrefs.ntWidgets === false) { box.hidden = true; $('#quote').hidden = true; return; }
+  box.hidden = false;
+  const city = String(widgetPrefs.weatherCity || '').trim();
+  box.innerHTML = `<span class="wd" title="Uhrzeit in Tokio"><small>東京</small><b id="wd-tokyo">${tokyoTime()}</b></span>` +
+    (editingCity ? `<form id="city-form"><input id="city-in" maxlength="60" placeholder="Dein Ort, z. B. Berlin" value="${esc(city)}" aria-label="Ort für das Wetter"></form>`
+      : `<button class="wd" id="wd-weather" title="Ort ändern">${city ? `<small>${esc(city)}</small> …` : '<small>Wetter:</small> Ort festlegen'}</button>`);
+  if (editingCity) {
+    const inp = $('#city-in'); inp.focus(); inp.select();
+    $('#city-form').onsubmit = async e => {
+      e.preventDefault();
+      const v = inp.value.trim().slice(0, 60);
+      await api.call('setWidgetPrefs', { weatherCity: v });
+      widgetPrefs.weatherCity = v; editingCity = false; renderWidgets();
+    };
+    inp.onkeydown = e => { if (e.key === 'Escape') { editingCity = false; renderWidgets(); } };
+  } else {
+    $('#wd-weather').onclick = () => { editingCity = true; renderWidgets(); };
+    if (city) {
+      weather(city).then(w => {
+        const b = $('#wd-weather');
+        if (!b) return;
+        b.innerHTML = w.error ? `<small>${esc(city)}:</small> ${esc(w.error)}` : `<small>${esc(w.name)}</small><b>${esc(w.temp)} °C</b>${esc(w.text)}`;
+      }).catch(() => { const b = $('#wd-weather'); if (b) b.innerHTML = `<small>${esc(city)}:</small> offline`; });
+    }
+  }
+  const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60e3) / 864e5);
+  const [jp, de] = QUOTES[day % QUOTES.length];
+  $('#quote').innerHTML = `<span>${esc(jp)}</span>${esc(de)}`;
+  $('#quote').hidden = false;
+}
+setInterval(() => { const t = $('#wd-tokyo'); if (t) t.textContent = tokyoTime(); }, 15000);
+api.call('prefs').then(p => { widgetPrefs = p || {}; renderWidgets(); });
 
 // ---------- Suche
 $('#search').addEventListener('submit', e => { e.preventDefault(); const v = $('#q').value.trim(); if (v) api.call('navigate', v); });
@@ -378,7 +474,7 @@ if (window.sakura && window.sakura.onTheme) window.sakura.onTheme(() => applyThe
   if (await api.call('isPrivate')) $('#private').hidden = false;
 })();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadTiles(); });
-window.sakuraRefresh = () => { loadTiles(); applyTheme().then(startPhotos); }; // Android ruft das nach einer Synchronisation auf
+window.sakuraRefresh = () => { loadTiles(); applyTheme().then(startPhotos); api.call('prefs').then(p => { widgetPrefs = p || {}; renderWidgets(); }); }; // Android ruft das nach einer Synchronisation auf
 </script>
 </body>
 </html>

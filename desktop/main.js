@@ -2265,6 +2265,15 @@ const uiCommands = {
 
 // Befehle der Startseite (nur von sakura:// erlaubt)
 const pageCommands = {
+  // Startseite: nur die Widget-Einstellungen
+  setWidgetPrefs: (wc, arg, from = {}) => {
+    if (!from.top || !/^sakura:\/\/newtab\//.test(from.url || '') || !arg || typeof arg !== 'object') return null;
+    const patch = {};
+    if ('weatherCity' in arg) patch.weatherCity = String(arg.weatherCity || '').trim().slice(0, 60);
+    if ('ntWidgets' in arg) patch.ntWidgets = !!arg.ntWidgets;
+    store.setPrefs(patch);
+    return { ok: true };
+  },
   // Warnseite: „Trotzdem öffnen“ gibt die Domain bis zum Neustart frei
   phishAllow: (wc, url, from = {}) => {
     if (!from.top || !/^sakura:\/\/error\//.test(from.url || '') || !phishGuard) return false;

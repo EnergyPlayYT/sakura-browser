@@ -35,6 +35,8 @@ object SyncModel {
         .put("animations", true)
         .put("mouseGestures", true)
         .put("phishWarn", true)
+        .put("ntWidgets", true)
+        .put("weatherCity", "")
         .put("readerSize", 20)
         .put("readerTheme", "sepia")
         .put("steamInfo", true)

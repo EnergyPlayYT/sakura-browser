@@ -155,6 +155,10 @@ async function renderSettings() {
   </section>
   <section class="set">
     <h3>Startseite</h3>
+    <label class="switch"><input type="checkbox" id="nt-widgets"${p.ntWidgets !== false ? ' checked' : ''}><span>Widgets zeigen: Uhrzeit in Japan, Wetter, Tageszitat</span></label>
+    <label class="field">Ort für das Wetter
+      <input id="nt-city" type="text" maxlength="60" placeholder="z. B. Berlin" value="${esc(p.weatherCity || '')}">
+    </label>
     <label class="switch"><input type="checkbox" id="bg-builtin"${p.bgBuiltin !== false ? ' checked' : ''}><span>Sakura-Hintergrundbilder zeigen</span></label>
     <p>Die Bilder wechseln automatisch mit einem weichen Übergang. Ohne Bilder zeigt die Startseite die gezeichnete Nachtszene mit Kirschblüten.</p>
     <label class="field">Eigene Hintergrundbilder (Bild-Adressen, eine pro Zeile)
@@ -238,6 +242,8 @@ async function renderSettings() {
   $('#pw-open').onclick = () => openPanel('passwords');
   $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
   $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
+  $('#nt-widgets').onchange = e => api.call('setPrefs', { ntWidgets: e.target.checked });
+  $('#nt-city').onchange = e => api.call('setPrefs', { weatherCity: e.target.value.trim().slice(0, 60) });
   $('#phish').onchange = e => api.call('setPrefs', { phishWarn: e.target.checked });
   $('#ck-on').onchange = e => api.call('setPrefs', { cookieReject: e.target.checked });
   $('#ck-allow').onchange = e => api.call('setPrefs', { cookieAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });

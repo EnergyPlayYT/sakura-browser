@@ -769,6 +769,14 @@ class MainActivity : ComponentActivity() {
                     }
                 } else send(JSONObject().put("ok", true).put("blocklistSize", blocker.size))
             }
+            "setWidgetPrefs" -> {
+                // Startseite darf nur die eigenen Widget-Einstellungen ändern
+                val p = JSONObject()
+                if (obj.has("weatherCity")) p.put("weatherCity", obj.optString("weatherCity").trim().take(60))
+                if (obj.has("ntWidgets")) p.put("ntWidgets", obj.optBoolean("ntWidgets"))
+                store.setPrefs(p)
+                send(JSONObject().put("ok", true))
+            }
             "navigate" -> {
                 SyncModel.toUrl(str, store.prefs().optString("searchEngine"))?.let { tab.web.loadUrl(it) }
                 send(null)
