@@ -55,7 +55,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Mausgesten: rechte Maustaste halten und ziehen (zurück, vor, Tab schließen, neu laden).
 - [x] Geteilter Bildschirm: zwei Tabs nebeneinander in einem Fenster.
 - [x] Twitch „Nur Ton“: Stream im Hintergrund nur als Audio, spart Daten und Leistung.
-- [ ] Benachrichtigung, wenn ein gemerkter Twitch-Kanal oder YouTuber live geht.
+- [x] Benachrichtigung, wenn ein gemerkter Twitch-Kanal oder YouTuber live geht.
 - [ ] Warnung vor bekannten Betrugs- und Phishing-Seiten (öffentliche Liste, täglich aktualisiert).
 - [ ] Verlauf und Passwörter mit einer PIN sperren.
 - [ ] Startseiten-Widgets: Wetter, Uhrzeit in Japan, Tageszitat (PC und Android).

@@ -79,6 +79,7 @@ function render() {
   document.body.classList.toggle('streamer', !!S.streamer);
   $('#streamer-ind').hidden = !S.streamer;
   $('#streamer-ind').title = S.streamer ? (S.streamer.app ? `${S.streamer.app} läuft – private Daten sind unscharf. Klicken zum Ausschalten.` : 'Private Daten sind unscharf. Klicken zum Ausschalten.') : '';
+  $('#menu-live').textContent = S.liveOn ? 'Keine Live-Meldungen mehr' : 'Bei Livegang benachrichtigen';
   $('#menu-split').textContent = S.splitOn ? 'Geteilte Ansicht beenden' : 'Geteilter Bildschirm';
   $('#menu-streamer').firstChild.textContent = S.streamer ? 'Streamer-Modus ausschalten' : 'Streamer-Modus einschalten';
   $('#media-btn').hidden = !S.media && !S.sleep;
@@ -405,6 +406,7 @@ $('#menu').addEventListener('click', e => {
   if (b.dataset.panelPop === 'media') { openMedia(); return; }
   if ('tabsearch' in b.dataset) { openTabSearch(); return; }
   if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
+  if (b.dataset.cmd === 'liveToggle') { closeOverlay(); api.call('liveToggle').then(r => r && showToast(r.error || r.message)); return; }
   closeOverlay();
   api.call(b.dataset.cmd);
 });
@@ -531,8 +533,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -839,6 +841,27 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Live-Kanäle
+async function renderLive() {
+  const body = $('#panel-body');
+  const list = (await api.call('liveList')) || [];
+  if (panelKind !== 'live') return;
+  body.innerHTML = `<div class="row pw-actions"><button class="btn" id="live-now"${list.length ? '' : ' disabled'}>Jetzt prüfen</button></div>` +
+    (list.length ? list.map(c => `<div class="p-item live${c.live ? ' on' : ''}" data-key="${esc(c.key)}">
+      <span class="fav">${iconImg(c.url, c.name)}</span>
+      <div class="txt" data-url="${esc(c.url)}" title="${esc(c.url)}"><div>${c.live ? '<span class="live-dot">LIVE</span>' : ''}${esc(c.name)}</div>
+        <small>${c.kind === 'twitch' ? 'Twitch' : 'YouTube'} · ${c.live ? esc(c.title || 'gerade live') : 'offline'}${c.checked ? ' · geprüft ' + esc(timeAgo(c.checked)) : ''}</small></div>
+      <button class="icon small" data-act="del" title="Nicht mehr melden"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : '<p class="p-empty">Noch keine Kanäle. Öffne einen Twitch-Kanal, einen YouTube-Kanal oder ein YouTube-Video und wähle im Menü „Bei Livegang benachrichtigen“. Sakura prüft alle 3 Minuten.</p>');
+  const now = $('#live-now');
+  now.onclick = async () => { now.disabled = true; now.textContent = 'Prüfe …'; await api.call('liveCheckNow'); renderLive(); };
+  body.onclick = async e => {
+    if (openFromPanel(e)) return;
+    const b = e.target.closest('button[data-act="del"]');
+    if (b) { await api.call('liveRemove', b.closest('.p-item').dataset.key); renderLive(); }
+  };
+}
+
 // ------------------------------------------------------------ Notizen
 async function renderNotes() {
   const body = $('#panel-body');

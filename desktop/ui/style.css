@@ -546,3 +546,5 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .p-item.note .note-txt { color: var(--washi); white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0; }
 /* Geteilter Bildschirm: der Partner-Tab bleibt sichtbar markiert */
 .tab.split:not(.active) { background: rgba(var(--washi-rgb), .07); color: var(--washi); box-shadow: inset 0 -2px 0 rgba(var(--sakura-rgb), .5); }
+/* Live-Kanäle */
+.live-dot { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--beni); color: var(--washi); font-size: 10px; font-weight: 700; letter-spacing: .05em; vertical-align: 1px; }

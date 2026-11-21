@@ -140,6 +140,13 @@ setTimeout(async()=>{
     await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
     await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
     await call('closeTab', r.id); }
+  // Live-Benachrichtigungen
+  { await call('navigate', 'https://www.twitch.tv/papaplatte'); await new Promise(x=>setTimeout(x,30));
+    let r = await call('liveToggle'); assert.equal(r.on, true); assert.equal((await call('state')).liveOn, true);
+    assert.deepEqual((await call('liveList')).map(c=>c.key), ['twitch:papaplatte']);
+    r = await call('liveToggle'); assert.equal(r.on, false); assert.equal((await call('liveList')).length, 0);
+    await call('navigate', 'https://example.org/'); await new Promise(x=>setTimeout(x,30));
+    assert((await call('liveToggle')).error); }
   // Notizen zur Seite
   { await call('navigate', 'https://notiz.example/seite/?x=1'); await new Promise(x=>setTimeout(x,30));
     assert.deepEqual(await call('noteGet'), {text:'', at:0});

@@ -11,6 +11,7 @@ const Store = require('./lib/store');
 const AdBlocker = require('./lib/adblock');
 const SPLIT_GAP = 4; // Abstand zwischen den beiden Hälften
 const { GestureTracker } = require('./lib/gestures');
+const { LiveWatch, channelFromUrl, youtubeChannel } = require('./lib/live');
 const Sync = require('./lib/sync');
 const M = require('./lib/model');
 const { Extensions } = require('./lib/extensions');
@@ -761,6 +762,7 @@ class SakuraWindow {
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
       animations: store.prefs().animations !== false,
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
+      liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
@@ -1299,6 +1301,31 @@ function pauseEverything() {
     if (!wc.mainFrame) wc.executeJavaScript(js).catch(() => {});
   }
 }
+// Live-Benachrichtigungen
+let liveWatch = null;
+function liveNotify(c) {
+  try {
+    if (!Notification || !Notification.isSupported()) return;
+    const n = new Notification({ title: `${c.name} ist jetzt live`, body: c.title || (c.kind === 'twitch' ? 'Auf Twitch' : 'Auf YouTube'), icon: ICON });
+    n.on('click', () => {
+      const win = [...windows].find(x => !x.isPrivate) || new SakuraWindow();
+      win.newTab(liveWatch.liveUrl(c)); win.win.focus();
+    });
+    n.show();
+  } catch {}
+}
+/** Kanal des aktiven Tabs (Twitch-Kanal, YouTube-Kanal oder Kanal eines YouTube-Videos) */
+async function channelOfTab(t) {
+  const url = t.view.webContents.getURL();
+  const ch = channelFromUrl(url);
+  if (ch) return ch;
+  if (!/^https:\/\/(www\.|m\.)?youtube\.com\/watch/.test(url)) return null;
+  try {
+    const d = await t.view.webContents.executeJavaScript('(() => { const v = window.ytInitialPlayerResponse && window.ytInitialPlayerResponse.videoDetails; return v ? { id: String(v.channelId || ""), name: String(v.author || "") } : null; })()', false);
+    return d ? youtubeChannel(d.id, d.name) : null;
+  } catch { return null; }
+}
+
 function notify(title, body) {
   try { if (Notification && Notification.isSupported()) new Notification({ title, body, icon: ICON, silent: true }).show(); } catch {}
 }
@@ -1995,6 +2022,19 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  liveToggle: async w => {
+    const t = w.active;
+    const ch = t && await channelOfTab(t);
+    if (!ch) return { error: 'Öffne einen Twitch-Kanal oder ein YouTube-Video bzw. einen YouTube-Kanal.' };
+    if (liveWatch.has(ch.key)) { liveWatch.remove(ch.key); w.sendState(); return { on: false, message: `Keine Live-Meldungen mehr für ${ch.name}.` }; }
+    if (!liveWatch.add(ch)) return { error: 'Du kannst höchstens 50 Kanäle beobachten.' };
+    w.sendState();
+    liveWatch.check().catch(() => {});
+    return { on: true, message: `Sakura meldet sich, wenn ${ch.name} live geht.` };
+  },
+  liveList: () => liveWatch.list().map(c => ({ key: c.key, kind: c.kind, name: c.name, url: liveWatch.liveUrl(c), live: !!c.live, title: c.title || '', checked: c.checked || 0 })),
+  liveRemove: (w, key) => { liveWatch.remove(String(key)); broadcastState(); return true; },
+  liveCheckNow: async () => { await liveWatch.check(); return true; },
   twitchAudio: async (w, on) => w.active ? setTwitchAudio(w.active, !!on) : null,
   mediaSet: async (w, patch) => {
     const t = w.active;
@@ -2394,6 +2434,9 @@ app.whenReady().then(async () => {
   });
 
   vault = new Passwords.Vault({ dir: userDir, safeStorage });
+  liveWatch = new LiveWatch({ store, fetch: (u, o) => net.fetch(u, o), notify: liveNotify });
+  setTimeout(() => liveWatch.check().catch(() => {}), 20000);
+  setInterval(() => liveWatch.check().catch(() => {}), 3 * 60000);
   watcher = new Watcher({ store, extract: extractPage });
   watcher.on('change', (w, change) => { watchNotify(w, change); broadcast('watches-changed'); });
   // Alle 10 Minuten nachsehen, welche Seiten wieder dran sind
