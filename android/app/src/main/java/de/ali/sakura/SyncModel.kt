@@ -68,14 +68,7 @@ object SyncModel {
         .put("updatedAt", updatedAt)
 
     fun emptyData(): JSONObject {
-        val shortcuts = JSONArray()
-        listOf(
-            "YouTube" to "https://www.youtube.com", "Gmail" to "https://mail.google.com",
-            "Wikipedia" to "https://de.wikipedia.org", "GitHub" to "https://github.com",
-            "Netlify" to "https://app.netlify.com", "Firebase" to "https://console.firebase.google.com"
-        ).forEachIndexed { i, (t, u) ->
-            shortcuts.put(JSONObject().put("id", "d$i").put("title", t).put("url", u).put("order", i).put("updatedAt", 1))
-        }
+        val shortcuts = JSONArray() // keine vorgegebenen Kacheln – jeder legt seine eigenen an
         return JSONObject()
             .put("bookmarks", JSONArray())
             .put("shortcuts", shortcuts)

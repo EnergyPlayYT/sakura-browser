@@ -36,7 +36,7 @@ assert.equal(s.bookmarks().length,0);
 s.visit('https://a.de/x','X'); s.visit('https://a.de/x','X2');
 assert.equal(s.history().length,1); assert.equal(s.history()[0].title,'X2');
 assert.equal(s.suggest('a.de')[0].url,'https://a.de/x');
-s.saveShortcut({title:'T',url:'https://t.de'}); assert.equal(s.shortcuts().length,7);
+s.saveShortcut({title:'T',url:'https://t.de'}); assert.equal(s.shortcuts().length,1);
 const ids=s.shortcuts().map(x=>x.id).reverse(); s.orderShortcuts(ids); assert.equal(s.shortcuts()[0].title,'T');
 s.clearHistory(); assert.equal(s.history().length,0);
 s.flush(); const s2=new Store(dir); assert.equal(s2.shortcuts()[0].title,'T');
@@ -70,7 +70,7 @@ global.fetch = async (url, opt={}) => {
   const salt = serverDoc.fields.salt.stringValue;
   const key = await C.deriveKey('Kirschblüte', salt);
   const payload = JSON.parse(C.decrypt(key, enc));
-  assert.equal(payload.shortcuts.filter(x=>!x.deleted).length,7);
+  assert.equal(payload.shortcuts.filter(x=>!x.deleted).length,1);
   // zweites Gerät fügt Lesezeichen hinzu
   payload.bookmarks.push({id:'remote1',url:'https://remote.de',title:'R',createdAt:Date.now(),updatedAt:Date.now()});
   serverDoc.fields.payload.stringValue = C.encrypt(key, JSON.stringify(payload));

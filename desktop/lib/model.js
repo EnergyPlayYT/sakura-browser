@@ -62,14 +62,8 @@ const DEFAULT_PREFS = {
   updatedAt: 0
 };
 
-const DEFAULT_SHORTCUTS = [
-  ['YouTube', 'https://www.youtube.com'],
-  ['Gmail', 'https://mail.google.com'],
-  ['Wikipedia', 'https://de.wikipedia.org'],
-  ['GitHub', 'https://github.com'],
-  ['Netlify', 'https://app.netlify.com'],
-  ['Firebase', 'https://console.firebase.google.com']
-];
+// Keine vorgegebenen Kacheln: Sakura ist für alle – jeder legt seine eigenen an
+const DEFAULT_SHORTCUTS = [];
 
 function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
