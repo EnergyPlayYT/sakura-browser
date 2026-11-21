@@ -72,6 +72,7 @@ function render() {
   $('#zoom-val').textContent = S.zoom + ' %';
   $('#scripts-ind').hidden = !S.scripts;
   $('#reader-btn').hidden = !S.readable;
+  $('#note-btn').hidden = !S.note;
   $('#reader-btn').classList.toggle('on', !!S.reader);
   $('#reader-btn').title = S.reader ? 'Lesemodus beenden (F9)' : 'Lesemodus (F9)';
   $('#gaming-ind').hidden = !S.gaming;
@@ -371,11 +372,12 @@ function openOverlay(kind) {
   closeOverlay(true);
   overlay = kind;
   $('#backdrop').hidden = false;
-  $('#backdrop').classList.toggle('clear', kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
+  $('#backdrop').classList.toggle('clear', kind === 'note' || kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
   api.call('overlay', true);
 }
 function closeOverlay(keep) {
-  for (const s of ['#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
+  if (overlay === 'note') saveNote();
+  for (const s of ['#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);
   editingGroup = null;
   $('#backdrop').hidden = true;
@@ -401,6 +403,7 @@ $('#menu').addEventListener('click', e => {
   if (b.dataset.panel) { openPanel(b.dataset.panel); return; }
   if (b.dataset.panelPop === 'media') { openMedia(); return; }
   if ('tabsearch' in b.dataset) { openTabSearch(); return; }
+  if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
   closeOverlay();
   api.call(b.dataset.cmd);
 });
@@ -527,8 +530,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -835,6 +838,24 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Notizen
+async function renderNotes() {
+  const body = $('#panel-body');
+  const list = (await api.call('notes')) || [];
+  if (panelKind !== 'notes') return;
+  body.innerHTML = list.length ? list.map(n => `<div class="p-item note" data-key="${esc(n.key)}">
+      <span class="fav">${iconImg(n.url, n.title)}</span>
+      <div class="txt" data-url="${esc(n.url)}" title="${esc(n.url)}"><div>${esc(n.title)}</div><small class="note-txt">${esc(n.text)}</small><small>${esc(hostOf(n.url))} · ${esc(timeAgo(n.at))}</small></div>
+      <button class="icon small" data-act="del" title="Notiz löschen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : '<p class="p-empty">Noch keine Notizen. Öffne eine Seite und wähle im Menü „Notiz zur Seite …“ – beim nächsten Besuch erinnert dich Sakura daran.</p>';
+  body.onclick = async e => {
+    if (openFromPanel(e)) return;
+    const b = e.target.closest('button[data-act="del"]');
+    if (b) { await api.call('noteRemove', b.closest('.p-item').dataset.key); renderNotes(); }
+  };
+}
+api.on('notes-changed', () => { if (panelKind === 'notes') renderNotes(); });
+
 // ------------------------------------------------------------ Sitzungen
 async function renderSessions(note = '') {
   const body = $('#panel-body');
@@ -862,11 +883,12 @@ async function renderSessions(note = '') {
 api.on('readlist-changed', () => { if (panelKind === 'readlist') renderReadlist(); });
 // Kurze Meldung unten
 let toastT = null;
-api.on('toast', text => {
+function showToast(text) {
   const t = $('#toast');
   t.textContent = text; t.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600);
-});
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, Math.min(7000, 2600 + String(text).length * 30));
+}
+api.on('toast', showToast);
 
 // ------------------------------------------------------------ Überwachte Seiten
 const WATCH_LABEL = { down: 'Preis gesunken', up: 'Preis gestiegen', back: 'Wieder verfügbar', gone: 'Nicht mehr verfügbar' };
@@ -1097,6 +1119,31 @@ async function renderPerformance() {
 }
 $('#gaming-ind').onclick = () => openPanel('performance');
 $('#reader-btn').onclick = () => api.call('reader');
+
+// ------------------------------------------------------------ Notiz zur Seite
+let noteLoaded = null, noteT = null;
+async function openNote() {
+  const n = await api.call('noteGet');
+  if (!n) { closeOverlay(); showToast('Notizen gehen nur auf normalen Webseiten.'); return; }
+  openOverlay('note');
+  $('#note-pop').hidden = false;
+  noteLoaded = n.text;
+  $('#note-text').value = n.text;
+  $('#note-info').textContent = n.at ? 'Gespeichert ' + timeAgo(n.at) : '';
+  $('#note-del').hidden = !n.text;
+  $('#note-text').focus();
+}
+function saveNote() {
+  clearTimeout(noteT);
+  const v = $('#note-text').value;
+  if (noteLoaded === null || v === noteLoaded) return;
+  noteLoaded = v;
+  api.call('noteSet', v);
+}
+$('#note-btn').onclick = openNote;
+$('#note-text').oninput = () => { clearTimeout(noteT); noteT = setTimeout(saveNote, 600); $('#note-del').hidden = !$('#note-text').value; };
+$('#note-ok').onclick = () => closeOverlay();
+$('#note-del').onclick = () => { $('#note-text').value = ''; closeOverlay(); };
 $('#streamer-ind').onclick = () => api.call('streamerToggle');
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.shiftKey) { e.preventDefault(); openPanel('performance'); } });
 

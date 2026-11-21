@@ -61,6 +61,7 @@
     <span id="secure" class="lead"><svg><use href="#i-search"/></svg></span>
     <input id="address" spellcheck="false" placeholder="Suchen oder Adresse eingeben">
     <button type="button" id="reader-btn" class="icon small" hidden title="Lesemodus (F9)"><svg><use href="#i-book"/></svg></button>
+    <button type="button" id="note-btn" class="icon small" hidden title="Notiz zu dieser Seite"><svg><use href="#i-edit"/></svg></button>
     <span id="scripts-ind" hidden title="Eigene Skripte laufen auf dieser Seite"><svg><use href="#i-code"/></svg></span>
     <span id="zoom" hidden></span>
     <button type="button" id="star" class="icon small" title="Lesezeichen setzen (Strg+D)"><svg><use href="#i-star"/></svg></button>
@@ -111,6 +112,7 @@
   <button data-panel="passwords">Passwörter</button>
   <button data-panel="readlist">Leseliste</button>
   <button data-panel="sessions">Sitzungen</button>
+  <button data-panel="notes">Notizen</button>
   <button data-panel="watches">Überwachte Seiten</button>
   <button data-panel="extensions">Erweiterungen</button>
   <button data-panel="scripts">Eigene Skripte</button>
@@ -125,6 +127,7 @@
   <button data-cmd="floatVideo">Video schweben lassen<kbd>Strg+Alt+P</kbd></button>
   <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
   <button data-cmd="readlistAdd">Zur Leseliste</button>
+  <button data-cmd="noteOpen">Notiz zur Seite …</button>
   <button data-cmd="translate">Seite übersetzen</button>
   <button data-cmd="watchPage">Seite überwachen</button>
   <button data-cmd="streamerToggle" id="menu-streamer">Streamer-Modus einschalten</button>
@@ -161,6 +164,11 @@
 </div>
 
 <div id="media-pop" class="pop" hidden></div>
+<div id="note-pop" class="pop" hidden role="dialog" aria-label="Notiz zu dieser Seite">
+  <h3>Notiz zu dieser Seite</h3>
+  <textarea id="note-text" maxlength="5000" placeholder="Schreib hier etwas – Sakura zeigt es dir beim nächsten Besuch wieder."></textarea>
+  <div class="row"><small id="note-info"></small><button class="btn" id="note-del">Löschen</button><button class="btn primary" id="note-ok">Fertig</button></div>
+</div>
 <div id="toast" hidden role="status"></div>
 
 <div id="tabsearch" class="pop" hidden role="dialog" aria-label="Tabs durchsuchen">

@@ -130,6 +130,14 @@ setTimeout(async()=>{
     await rp('sakura://readlist/', 'readlistMark', {id: rl[0].id, read: true}); assert.equal((await call('readlist'))[0].read, true);
     await call('readlistRemove', rl[0].id); assert.equal((await call('readlist')).length, 0); }
   { const sd = await call('shieldDetails'); assert(Array.isArray(sd.hosts) && typeof sd.total === 'number'); }
+  // Notizen zur Seite
+  { await call('navigate', 'https://notiz.example/seite/?x=1'); await new Promise(x=>setTimeout(x,30));
+    assert.deepEqual(await call('noteGet'), {text:'', at:0});
+    assert.equal(await call('noteSet', 'Hier war der Gutschein'), true);
+    let st2 = await call('state'); assert.equal(st2.note, true);
+    const ns = await call('notes'); assert.equal(ns[0].key, 'notiz.example/seite'); assert.equal(ns[0].text, 'Hier war der Gutschein');
+    await call('noteSet', '   '); assert.equal((await call('notes')).length, 0, 'leere Notiz wird gelöscht');
+    await call('navigate', 'sakura://newtab/'); await new Promise(x=>setTimeout(x,30)); assert.equal(await call('noteGet'), null); }
   // Sitzungen speichern und in neuem Fenster öffnen
   { st = await call('state'); const n = st.tabs.length;
     const r = await call('sessionSave', '  Hausaufgaben  '); assert.equal(r.name, 'Hausaufgaben'); assert.equal(r.count, n);

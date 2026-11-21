@@ -51,7 +51,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Bildschirmfoto der ganzen Seite (auch der Teil unterhalb, per Chromium-DevTools-Protokoll).
 - [x] Sitzungen speichern: alle offenen Tabs unter einem Namen merken und später wieder öffnen.
 - [x] Tracker-Übersicht: pro Seite anzeigen, wie viel Werbung und Tracker blockiert wurden.
-- [ ] Notizen zur Seite: kleine Notiz an eine Webseite heften, erscheint beim nächsten Besuch wieder.
+- [x] Notizen zur Seite: kleine Notiz an eine Webseite heften, erscheint beim nächsten Besuch wieder.
 - [ ] Mausgesten: rechte Maustaste halten und ziehen (zurück, vor, Tab schließen, neu laden).
 - [ ] Geteilter Bildschirm: zwei Tabs nebeneinander in einem Fenster.
 - [ ] Twitch „Nur Ton“: Stream im Hintergrund nur als Audio, spart Daten und Leistung.

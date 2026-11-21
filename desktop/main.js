@@ -408,6 +408,8 @@ class SakuraWindow {
       tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false;
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
+      const note = !tab.w.isPrivate && noteFor(u);
+      if (note && tab.id === tab.w.activeId) tab.w.ui.webContents.send('toast', 'Deine Notiz: ' + (note.text.length > 90 ? note.text.slice(0, 90) + ' …' : note.text));
     });
     wc.on('did-navigate-in-page', (e, u, isMain) => {
       if (!isMain) return;
@@ -682,6 +684,7 @@ class SakuraWindow {
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
       animations: store.prefs().animations !== false,
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
+      note: !this.isPrivate && !!noteFor(realUrl), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
@@ -1492,6 +1495,16 @@ function findTab(id) {
 
 // ---------------------------------------------------------------- Sitzung merken
 let lastSession = '';
+// Notizen zur Seite: Schlüssel = Domain (ohne www) + Pfad, ohne Parameter
+function noteKey(url) {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol)) return null;
+    return u.hostname.replace(/^www\./, '') + (u.pathname.replace(/\/+$/, '') || '');
+  } catch { return null; }
+}
+function noteFor(url) { const k = noteKey(url); return k && store.data.notes && store.data.notes[k] || null; }
+
 function windowSnapshot(w) {
   return {
     active: Math.max(0, w.tabs.findIndex(t => t.id === w.activeId)),
@@ -1929,6 +1942,27 @@ const uiCommands = {
     return true;
   },
   sessionRemove: (w, id) => { store.data.savedSessions = (store.data.savedSessions || []).filter(x => x.id !== id); store.save(); return true; },
+  // Notizen zur Seite
+  noteGet: w => {
+    const a = w.active, url = a ? w.displayUrl(a.url) : '';
+    if (w.isPrivate || !noteKey(url)) return null;
+    const n = noteFor(url);
+    return { text: n ? n.text : '', at: n ? n.at : 0 };
+  },
+  noteSet: (w, text) => {
+    const a = w.active, url = a ? w.displayUrl(a.url) : '', k = noteKey(url);
+    if (w.isPrivate || !k) return false;
+    text = String(text || '').slice(0, 5000);
+    if (!store.data.notes || typeof store.data.notes !== 'object') store.data.notes = {};
+    if (text.trim()) store.data.notes[k] = { text, url, title: a.title || url, at: Date.now() };
+    else delete store.data.notes[k];
+    store.save();
+    w.sendState();
+    broadcast('notes-changed');
+    return true;
+  },
+  notes: () => Object.entries(store.data.notes || {}).map(([key, n]) => ({ key, url: n.url, title: n.title, text: n.text, at: n.at })).sort((a, b) => b.at - a.at),
+  noteRemove: (w, key) => { if (store.data.notes) delete store.data.notes[key]; store.save(); broadcastState(); return true; },
   // Tracker-Übersicht: welche Domains auf dieser Seite blockiert wurden
   shieldDetails: w => {
     const wc = w.active && !w.active.view.webContents.isDestroyed() ? w.active.view.webContents : null;
