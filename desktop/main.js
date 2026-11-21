@@ -1490,12 +1490,16 @@ function findTab(id) {
 
 // ---------------------------------------------------------------- Sitzung merken
 let lastSession = '';
-function saveSession() {
-  const snap = [...windows].filter(w => !w.isPrivate && !w.win.isDestroyed()).map(w => ({
+function windowSnapshot(w) {
+  return {
     active: Math.max(0, w.tabs.findIndex(t => t.id === w.activeId)),
     tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined })),
     groups: [...w.groups.values()]
-  })).filter(x => x.tabs.length);
+  };
+}
+
+function saveSession() {
+  const snap = [...windows].filter(w => !w.isPrivate && !w.win.isDestroyed()).map(windowSnapshot).filter(x => x.tabs.length);
   if (!snap.length) return;
   const json = JSON.stringify(snap);
   if (json === lastSession) return;
@@ -1902,6 +1906,27 @@ const uiCommands = {
     w.newTab('sakura://multistream/' + (/^[a-z0-9_]{2,25}$/.test(pre) ? '#' + pre : ''), { index: w.tabs.indexOf(t) + 1 });
   },
   reader: w => toggleReader(w),
+  // Gespeicherte Sitzungen: alle Tabs eines Fensters unter einem Namen
+  sessions: () => (store.data.savedSessions || []).map(x => ({ id: x.id, name: x.name, at: x.at, count: x.snap.tabs.length, titles: x.snap.tabs.slice(0, 4).map(t => t.title || t.url) })),
+  sessionSave: (w, name) => {
+    if (w.isPrivate) return { error: 'In privaten Fenstern speichert Sakura keine Sitzungen.' };
+    const snap = windowSnapshot(w);
+    if (!snap.tabs.length) return { error: 'Keine Tabs zum Speichern.' };
+    const d = new Date();
+    name = String(name || '').trim().slice(0, 80) || `Sitzung vom ${d.toLocaleDateString('de-DE')}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+    if (!Array.isArray(store.data.savedSessions)) store.data.savedSessions = [];
+    store.data.savedSessions.unshift({ id: M.newId(), name, at: Date.now(), snap });
+    store.data.savedSessions = store.data.savedSessions.slice(0, 50);
+    store.save();
+    return { ok: true, name, count: snap.tabs.length };
+  },
+  sessionOpen: (w, id) => {
+    const x = (store.data.savedSessions || []).find(s => s.id === id);
+    if (!x) return false;
+    new SakuraWindow({ restore: x.snap });
+    return true;
+  },
+  sessionRemove: (w, id) => { store.data.savedSessions = (store.data.savedSessions || []).filter(x => x.id !== id); store.save(); return true; },
   readlistAdd: async w => { const r = await addToReadlist(w); w.ui.webContents.send('toast', r.error || r.message); return r; },
   readlist: () => (store.data.readlist || []).map(({ blocks, ...x }) => ({ ...x, offline: !!(blocks && blocks.length) })),
   readlistOpen: (w, id) => { if (/^[a-z0-9]+$/.test(String(id))) w.newTab('sakura://readlist/#' + id, { index: w.tabs.indexOf(w.active) + 1 }); },

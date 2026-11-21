@@ -517,8 +517,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -823,6 +823,30 @@ async function renderReadlist() {
     if (!row) return;
     if (e.target.closest('[data-act="del"]')) { await api.call('readlistRemove', row.dataset.id); renderReadlist(); return; }
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
+  };
+}
+// ------------------------------------------------------------ Sitzungen
+async function renderSessions(note = '') {
+  const body = $('#panel-body');
+  const list = (await api.call('sessions')) || [];
+  if (panelKind !== 'sessions') return;
+  body.innerHTML = `<div class="row sess-new"><input id="sess-name" type="text" maxlength="80" placeholder="Name, z. B. Hausaufgaben" aria-label="Name der Sitzung"><button class="btn primary" id="sess-save">Offene Tabs speichern</button></div>` +
+    (note ? `<p class="p-note">${esc(note)}</p>` : '') +
+    (list.length ? list.map(x => `<div class="p-item sess" data-id="${esc(x.id)}">
+      <div class="txt sess-open" title="In neuem Fenster öffnen"><div>${esc(x.name)}</div><small>${x.count === 1 ? '1 Tab' : x.count + ' Tabs'} · ${esc(timeAgo(x.at))} · ${esc(x.titles.join(', '))}</small></div>
+      <button class="icon small" data-act="del" title="Sitzung löschen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : '<p class="p-empty">Noch keine Sitzung gespeichert. Gib oben einen Namen ein und speichere alle offenen Tabs dieses Fensters – später öffnest du sie mit einem Klick wieder.</p>');
+  const save = async () => {
+    const r = await api.call('sessionSave', $('#sess-name').value);
+    renderSessions(r && r.ok ? `„${r.name}“ gespeichert (${r.count === 1 ? '1 Tab' : r.count + ' Tabs'}).` : (r && r.error) || '');
+  };
+  $('#sess-save').onclick = save;
+  $('#sess-name').onkeydown = e => { if (e.key === 'Enter') save(); };
+  body.onclick = async e => {
+    const row = e.target.closest('.p-item');
+    if (!row) return;
+    if (e.target.closest('[data-act="del"]')) { await api.call('sessionRemove', row.dataset.id); renderSessions(); return; }
+    if (e.target.closest('.sess-open')) { api.call('sessionOpen', row.dataset.id); closeOverlay(); }
   };
 }
 api.on('readlist-changed', () => { if (panelKind === 'readlist') renderReadlist(); });

@@ -129,6 +129,15 @@ setTimeout(async()=>{
     assert.equal(await rp('sakura://newtab/', 'readlistItem', rl[0].id), null);
     await rp('sakura://readlist/', 'readlistMark', {id: rl[0].id, read: true}); assert.equal((await call('readlist'))[0].read, true);
     await call('readlistRemove', rl[0].id); assert.equal((await call('readlist')).length, 0); }
+  // Sitzungen speichern und in neuem Fenster öffnen
+  { st = await call('state'); const n = st.tabs.length;
+    const r = await call('sessionSave', '  Hausaufgaben  '); assert.equal(r.name, 'Hausaufgaben'); assert.equal(r.count, n);
+    assert.match((await call('sessionSave', '')).name, /^Sitzung vom /);
+    const ss = await call('sessions'); assert.equal(ss.length, 2); assert.equal(ss[1].name, 'Hausaufgaben');
+    const nw = mock.BaseWindow.all.length;
+    assert.equal(await call('sessionOpen', ss[1].id), true); assert.equal(await call('sessionOpen', 'gibtsnicht'), false);
+    assert.equal(mock.BaseWindow.all.length, nw + 1, 'neues Fenster'); mock.BaseWindow.all.at(-1).close(); await new Promise(x=>setTimeout(x,20));
+    for (const x of ss) await call('sessionRemove', x.id); assert.equal((await call('sessions')).length, 0); }
   // Tab-Suche: offene und geschlossene Tabs
   { const r = await call('tabSearch'); st = await call('state');
     assert.equal(r.open.length, st.tabs.length); assert(r.open.some(t=>t.active));
