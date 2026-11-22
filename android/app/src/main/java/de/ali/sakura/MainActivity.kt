@@ -745,9 +745,50 @@ class MainActivity : ComponentActivity() {
                 .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
             CookieManager.getInstance().getCookie(url)?.let { req.addRequestHeader("Cookie", it) }
             (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
-            toast("Download gestartet: $name")
+            toast("Download gestartet: $name – siehe Menü → Downloads")
         } catch (e: Exception) {
             toast("Download nicht möglich")
+        }
+    }
+
+    // ---------- Downloads-Übersicht (Verwaltung → Downloads)
+    private val downloadManager get() = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+    /** Alle Downloads, die Sakura gestartet hat (die Downloadverwaltung zeigt jeder App nur ihre eigenen) */
+    private fun downloadsList(): JSONArray {
+        val out = mutableListOf<JSONObject>()
+        try {
+            downloadManager.query(DownloadManager.Query()).use { c ->
+                val iId = c.getColumnIndex(DownloadManager.COLUMN_ID)
+                val iTitle = c.getColumnIndex(DownloadManager.COLUMN_TITLE)
+                val iStatus = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val iTotal = c.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                val iDone = c.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                val iTime = c.getColumnIndex(DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP)
+                while (c.moveToNext()) {
+                    val state = when (c.getInt(iStatus)) {
+                        DownloadManager.STATUS_SUCCESSFUL -> "done"
+                        DownloadManager.STATUS_FAILED -> "failed"
+                        DownloadManager.STATUS_PAUSED -> "paused"
+                        else -> "running"
+                    }
+                    out.add(JSONObject().put("id", c.getLong(iId).toString()).put("title", c.getString(iTitle) ?: "")
+                        .put("state", state).put("total", c.getLong(iTotal)).put("received", c.getLong(iDone)).put("at", c.getLong(iTime)))
+                }
+            }
+        } catch (_: Exception) { }
+        return JSONArray(out.sortedByDescending { it.optLong("at") })
+    }
+
+    private fun openDownload(id: Long) {
+        val uri = try { downloadManager.getUriForDownloadedFile(id) } catch (_: Exception) { null }
+        if (uri == null) { toast("Die Datei gibt es nicht mehr"); return }
+        val mime = downloadManager.getMimeTypeForDownloadedFile(id) ?: "*/*"
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            toast("Keine App zum Öffnen dieser Datei gefunden")
         }
     }
 
@@ -816,6 +857,14 @@ class MainActivity : ComponentActivity() {
             "removeBookmark" -> { store.removeBookmark(str); send(null) }
             "history" -> send(store.history(str))
             "removeHistory" -> { store.removeHistory(str); send(null) }
+            "downloads" -> send(downloadsList())
+            "downloadOpen" -> { str.toLongOrNull()?.let { openDownload(it) }; send(null) }
+            "downloadRemove" -> { str.toLongOrNull()?.let { try { downloadManager.remove(it) } catch (_: Exception) { } }; send(null) }
+            "downloadsFolder" -> {
+                try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                catch (_: ActivityNotFoundException) { toast("Öffne den Ordner „Download“ in der Dateien-App") }
+                send(null)
+            }
             "clearHistory" -> {
                 store.clearHistory()
                 tabs.forEach { it.web.clearHistory(); it.web.clearCache(true) }
@@ -898,6 +947,7 @@ class MainActivity : ComponentActivity() {
         m.menu.add(0, 2, 1, "Neuer privater Tab")
         m.menu.add(0, 3, 2, "Lesezeichen")
         m.menu.add(0, 4, 3, "Verlauf")
+        m.menu.add(0, 13, 3, "Downloads")
         if (t != null && realUrl(t).isNotEmpty()) {
             m.menu.add(0, 9, 4, "Auf der Seite suchen")
             m.menu.add(0, 10, 5, "Seite übersetzen")
@@ -914,6 +964,7 @@ class MainActivity : ComponentActivity() {
                 2 -> newTab(NEWTAB, isPrivate = true)
                 3 -> openManage("bookmarks")
                 4 -> openManage("history")
+                13 -> openManage("downloads")
                 9 -> openFind()
                 10 -> t?.let { translate(it) }
                 11 -> openManage("scripts")

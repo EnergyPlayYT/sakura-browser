@@ -15,7 +15,8 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--yoru); color: var(--washi); font: 15px/1.5 var(--gothic); }
   nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; padding: 12px 12px 0; background: var(--yoru); border-bottom: 1px solid var(--line); }
-  nav a { flex: 1; text-align: center; padding: 10px 2px 12px; font-size: 15px !important; color: var(--usuzumi); text-decoration: none; font: 17px var(--mincho); position: relative; }
+  nav { overflow-x: auto; scrollbar-width: none; } nav::-webkit-scrollbar { display: none; }
+  nav a { flex: 1 0 auto; text-align: center; padding: 10px 8px 12px; font-size: 15px !important; color: var(--usuzumi); text-decoration: none; font: 17px var(--mincho); position: relative; }
   nav a.on { color: var(--washi); }
   nav a.on::after { content: ""; position: absolute; left: 30%; right: 30%; bottom: -1px; height: 2px; border-radius: 2px; background: var(--sakura); }
   main { padding: 12px 12px 48px; max-width: 680px; margin: 0 auto; }
@@ -75,6 +76,10 @@
   .theme span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .accent { display: flex; align-items: center; gap: 12px; color: var(--usuzumi); }
   .accent input { width: 52px; height: 36px; padding: 0; background: none; box-shadow: none; }
+  .dl .bar { height: 4px; margin-top: 6px; border-radius: 2px; background: rgba(var(--washi-rgb), .12); overflow: hidden; }
+  .dl .bar i { display: block; height: 100%; background: var(--sakura); border-radius: 2px; transition: width .4s; }
+  .dl .txt small.failed { color: var(--err); }
+  .dl .fav { font-size: 11px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -82,6 +87,7 @@
 <nav>
   <a href="#bookmarks" id="t-bookmarks">Lesezeichen</a>
   <a href="#history" id="t-history">Verlauf</a>
+  <a href="#downloads" id="t-downloads">Downloads</a>
   <a href="#scripts" id="t-scripts">Skripte</a>
   <a href="#settings" id="t-settings">Einstellungen</a>
 </nav>
@@ -111,8 +117,9 @@ applyTheme();
 function route() {
   const k = (location.hash || '#bookmarks').slice(1);
   for (const a of document.querySelectorAll('nav a')) a.classList.toggle('on', a.id === 't-' + k);
-  document.title = { bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', scripts: 'Eigene Skripte' }[k] || 'Sakura';
-  ({ bookmarks, history, settings, scripts }[k] || bookmarks)();
+  document.title = { bookmarks: 'Lesezeichen', history: 'Verlauf', downloads: 'Downloads', settings: 'Einstellungen', scripts: 'Eigene Skripte' }[k] || 'Sakura';
+  clearTimeout(dlTimer);
+  ({ bookmarks, history, downloads, settings, scripts }[k] || bookmarks)();
 }
 addEventListener('hashchange', route);
 
@@ -193,6 +200,41 @@ async function history(filter = '') {
     const b = e.target.closest('[data-act=del]');
     if (b) { const row = b.closest('.item'); api.call('removeHistory', row.dataset.id).then(() => row.remove()); }
   };
+}
+
+// ---------------- Downloads (Android-Downloadverwaltung, nur die von Sakura)
+let dlTimer = null;
+const fmtSize = b => !(b > 0) ? '' : b >= 1073741824 ? (b / 1073741824).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' GB'
+  : b >= 1048576 ? (b / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+const ext = t => { const m = /\.([a-z0-9]{1,4})$/i.exec(String(t || '')); return m ? m[1].toUpperCase() : 'DATEI'; };
+async function downloads() {
+  const list = (await api.call('downloads')) || [];
+  if (location.hash !== '#downloads') return;
+  let html = '';
+  for (const d of list) {
+    const pct = d.total > 0 ? Math.min(100, Math.round(d.received / d.total * 100)) : 0;
+    const info = d.state === 'done' ? [fmtSize(d.total), new Date(d.at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ')
+      : d.state === 'failed' ? 'Fehlgeschlagen' : d.state === 'paused' ? 'Wartet auf Verbindung …'
+      : `${pct} %${d.total > 0 ? ' · ' + fmtSize(d.received) + ' von ' + fmtSize(d.total) : ''}`;
+    html += `<div class="item dl" data-id="${esc(d.id)}" data-state="${esc(d.state)}"><span class="fav">${esc(ext(d.title))}</span>
+      <div class="txt"><div>${esc(d.title || 'Download')}</div><small class="${d.state === 'failed' ? 'failed' : ''}">${esc(info)}</small>
+      ${d.state === 'running' || d.state === 'paused' ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</div>
+      <button class="ib" data-act="del" aria-label="${d.state === 'done' ? 'Datei löschen' : 'Abbrechen'}">✕</button></div>`;
+  }
+  if (!list.length) html = '<p class="empty">Noch keine Downloads. Was du in Sakura herunterlädst, erscheint hier und landet im Ordner „Download“ deines Handys.</p>';
+  html += `<section><button class="btn" id="dl-folder">Download-Ordner öffnen</button></section>`;
+  main.innerHTML = html;
+  $('#dl-folder').onclick = () => api.call('downloadsFolder');
+  main.onclick = async e => {
+    const row = e.target.closest('.item');
+    if (!row) return;
+    if (e.target.closest('[data-act=del]')) {
+      if (row.dataset.state === 'done' && !confirm('Datei vom Handy löschen?')) return;
+      await api.call('downloadRemove', row.dataset.id); downloads(); return;
+    }
+    if (row.dataset.state === 'done') api.call('downloadOpen', row.dataset.id);
+  };
+  if (list.some(d => d.state === 'running' || d.state === 'paused')) dlTimer = setTimeout(downloads, 1000);
 }
 
 async function devicesHtml() {
