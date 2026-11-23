@@ -13,7 +13,7 @@
     "test": "node test/run-all.js"
   },
   "devDependencies": {
-    "electron": "45.3.2",
+    "electron": "45.4.1",
     "electron-builder": "^26.0.12"
   },
   "build": {
