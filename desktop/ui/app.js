@@ -404,11 +404,24 @@ $('#menu-btn').onclick = () => {
   if (overlay === 'menu') return closeOverlay();
   openOverlay('menu');
   $('#menu').hidden = false;
-  $('#menu button').focus();
+  menuPage('main', 0);
 };
+// Menü in Seiten: Hauptseite mit Gruppen, jede Gruppe gleitet als eigene Seite herein
+function menuPage(name, dir = 1) {
+  for (const pg of document.querySelectorAll('#menu .mpage')) {
+    const on = pg.dataset.page === name;
+    pg.hidden = !on;
+    pg.classList.remove('in-fwd', 'in-back');
+    if (on && dir) { void pg.offsetWidth; pg.classList.add(dir > 0 ? 'in-fwd' : 'in-back'); }
+  }
+  const first = $(`#menu .mpage[data-page="${name}"] button`);
+  if (first) first.focus({ preventScroll: true });
+}
 $('#menu').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
+  if (b.dataset.sub) { menuPage(b.dataset.sub, 1); return; }
+  if ('back' in b.dataset) { menuPage('main', -1); return; }
   if (b.dataset.zoom) { api.call('zoom', Number(b.dataset.zoom)); return; }
   if (b.dataset.panel) { openPanel(b.dataset.panel); return; }
   if (b.dataset.panelPop === 'media') { openMedia(); return; }

@@ -9,6 +9,7 @@
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
   <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
   <symbol id="i-reload" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
@@ -98,51 +99,75 @@
 <ul id="suggest" hidden role="listbox"></ul>
 
 <div id="menu" class="pop" hidden role="menu">
-  <button data-cmd="newTab">Neuer Tab<kbd>Strg+T</kbd></button>
-  <button data-cmd="newWindow">Neues Fenster<kbd>Strg+N</kbd></button>
-  <button data-cmd="containerMenu">Neuer Konto-Tab …</button>
-  <button data-cmd="newPrivateWindow">Neues privates Fenster<kbd>Strg+Umschalt+N</kbd></button>
-  <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
-  <button data-tabsearch>Tabs durchsuchen<kbd>Strg+Umschalt+A</kbd></button>
-  <hr>
-  <button data-panel="bookmarks">Lesezeichen<kbd>Strg+Umschalt+O</kbd></button>
-  <button data-cmd="toggleBar" id="menu-bar">Favoritenleiste ausblenden<kbd>Strg+Umschalt+B</kbd></button>
-  <button data-panel="history">Verlauf und andere Geräte<kbd>Strg+H</kbd></button>
-  <button data-panel="downloads">Downloads<kbd>Strg+J</kbd></button>
-  <button data-panel="performance">Leistung und Tabs<kbd>Umschalt+Esc</kbd></button>
-  <button data-panel="passwords">Passwörter</button>
-  <button data-panel="readlist">Leseliste</button>
-  <button data-panel="sessions">Sitzungen</button>
-  <button data-panel="notes">Notizen</button>
-  <button data-panel="live">Live-Kanäle</button>
-  <button data-panel="watches">Überwachte Seiten</button>
-  <button data-panel="extensions">Erweiterungen</button>
-  <button data-panel="scripts">Eigene Skripte</button>
-  <button data-cmd="openImport">Aus anderem Browser importieren …</button>
-  <hr>
-  <div class="zoomrow">Zoom
-    <span><button data-zoom="-0.5" class="icon small">−</button><output id="zoom-val">100 %</output><button data-zoom="0.5" class="icon small">+</button></span>
+  <div class="mpage" data-page="main">
+    <div class="mquick">
+      <button data-cmd="newTab" title="Strg+T"><svg><use href="#i-plus"/></svg><span>Neuer Tab</span></button>
+      <button data-cmd="newPrivateWindow" title="Strg+Umschalt+N"><svg><use href="#i-moon"/></svg><span>Privat</span></button>
+      <button data-panel="history" title="Strg+H"><svg><use href="#i-clock"/></svg><span>Verlauf</span></button>
+      <button data-panel="downloads" title="Strg+J"><svg><use href="#i-download"/></svg><span>Downloads</span></button>
+    </div>
+    <div class="zoomrow">Zoom
+      <span><button data-zoom="-0.5" class="icon small">−</button><output id="zoom-val">100 %</output><button data-zoom="0.5" class="icon small">+</button></span>
+    </div>
+    <hr>
+    <button data-sub="tabs" class="mgroup"><svg><use href="#i-copy"/></svg>Tabs und Fenster<svg class="chev"><use href="#i-chev"/></svg></button>
+    <button data-sub="library" class="mgroup"><svg><use href="#i-star"/></svg>Bibliothek<svg class="chev"><use href="#i-chev"/></svg></button>
+    <button data-sub="page" class="mgroup"><svg><use href="#i-book"/></svg>Diese Seite<svg class="chev"><use href="#i-chev"/></svg></button>
+    <button data-sub="media" class="mgroup"><svg><use href="#i-film"/></svg>Video und Streams<svg class="chev"><use href="#i-chev"/></svg></button>
+    <button data-sub="tools" class="mgroup"><svg><use href="#i-puzzle"/></svg>Werkzeuge<svg class="chev"><use href="#i-chev"/></svg></button>
+    <hr>
+    <button data-panel="settings">Einstellungen</button>
+    <button data-panel="about" id="menu-about">Über Sakura und Updates</button>
   </div>
-  <button data-cmd="openFind">Auf der Seite suchen<kbd>Strg+F</kbd></button>
-  <button data-panel-pop="media">Video und Ton …</button>
-  <button data-cmd="openMultistream">Twitch-Multistream …</button>
-  <button data-cmd="liveToggle" id="menu-live">Bei Livegang benachrichtigen</button>
-  <button data-cmd="split" id="menu-split">Geteilter Bildschirm</button>
-  <button data-cmd="floatVideo">Video schweben lassen<kbd>Strg+Alt+P</kbd></button>
-  <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
-  <button data-cmd="readlistAdd">Zur Leseliste</button>
-  <button data-cmd="noteOpen">Notiz zur Seite …</button>
-  <button data-cmd="translate">Seite übersetzen</button>
-  <button data-cmd="watchPage">Seite überwachen</button>
-  <button data-cmd="streamerToggle" id="menu-streamer">Streamer-Modus einschalten</button>
-  <button data-cmd="savePdf">Als PDF speichern …<kbd>Strg+S</kbd></button>
-  <button data-cmd="screenshot">Bildschirmfoto speichern …</button>
-  <button data-cmd="screenshotFull">Ganze Seite als Bild …</button>
-  <button data-cmd="print">Drucken …<kbd>Strg+P</kbd></button>
-  <button data-cmd="devtools">Entwicklertools<kbd>F12</kbd></button>
-  <hr>
-  <button data-panel="settings">Einstellungen und Synchronisation</button>
-  <button data-panel="about" id="menu-about">Über Sakura und Updates</button>
+  <div class="mpage" data-page="tabs" hidden>
+    <button data-back class="mback"><svg><use href="#i-back"/></svg>Tabs und Fenster</button>
+    <button data-cmd="newWindow">Neues Fenster<kbd>Strg+N</kbd></button>
+    <button data-cmd="containerMenu">Neuer Konto-Tab …</button>
+    <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
+    <button data-tabsearch>Tabs durchsuchen<kbd>Strg+Umschalt+A</kbd></button>
+    <button data-cmd="split" id="menu-split">Geteilter Bildschirm</button>
+    <button data-panel="sessions">Sitzungen</button>
+    <button data-panel="performance">Leistung und Tabs<kbd>Umschalt+Esc</kbd></button>
+  </div>
+  <div class="mpage" data-page="library" hidden>
+    <button data-back class="mback"><svg><use href="#i-back"/></svg>Bibliothek</button>
+    <button data-panel="bookmarks">Lesezeichen<kbd>Strg+Umschalt+O</kbd></button>
+    <button data-cmd="toggleBar" id="menu-bar">Favoritenleiste ausblenden<kbd>Strg+Umschalt+B</kbd></button>
+    <button data-panel="readlist">Leseliste</button>
+    <button data-panel="notes">Notizen</button>
+    <button data-panel="passwords">Passwörter</button>
+    <button data-panel="watches">Überwachte Seiten</button>
+  </div>
+  <div class="mpage" data-page="page" hidden>
+    <button data-back class="mback"><svg><use href="#i-back"/></svg>Diese Seite</button>
+    <button data-cmd="openFind">Auf der Seite suchen<kbd>Strg+F</kbd></button>
+    <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
+    <button data-cmd="readlistAdd">Zur Leseliste</button>
+    <button data-cmd="noteOpen">Notiz zur Seite …</button>
+    <button data-cmd="translate">Seite übersetzen</button>
+    <button data-cmd="watchPage">Seite überwachen</button>
+    <hr>
+    <button data-cmd="savePdf">Als PDF speichern …<kbd>Strg+S</kbd></button>
+    <button data-cmd="screenshot">Bildschirmfoto speichern …</button>
+    <button data-cmd="screenshotFull">Ganze Seite als Bild …</button>
+    <button data-cmd="print">Drucken …<kbd>Strg+P</kbd></button>
+  </div>
+  <div class="mpage" data-page="media" hidden>
+    <button data-back class="mback"><svg><use href="#i-back"/></svg>Video und Streams</button>
+    <button data-panel-pop="media">Video und Ton …</button>
+    <button data-cmd="floatVideo">Video schweben lassen<kbd>Strg+Alt+P</kbd></button>
+    <button data-cmd="openMultistream">Twitch-Multistream …</button>
+    <button data-cmd="liveToggle" id="menu-live">Bei Livegang benachrichtigen</button>
+    <button data-panel="live">Live-Kanäle</button>
+    <button data-cmd="streamerToggle" id="menu-streamer">Streamer-Modus einschalten</button>
+  </div>
+  <div class="mpage" data-page="tools" hidden>
+    <button data-back class="mback"><svg><use href="#i-back"/></svg>Werkzeuge</button>
+    <button data-panel="extensions">Erweiterungen</button>
+    <button data-panel="scripts">Eigene Skripte</button>
+    <button data-cmd="openImport">Aus anderem Browser importieren …</button>
+    <button data-cmd="devtools">Entwicklertools<kbd>F12</kbd></button>
+  </div>
 </div>
 
 <div id="group-pop" class="pop" hidden>

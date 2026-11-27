@@ -669,3 +669,37 @@ body.has-snap :is(.pop, #suggest, #panel)::before {
 #remote-tag { align-self: center; margin-right: 8px; padding: 3px 11px; border-radius: 99px; font: 600 12px var(--gothic); color: var(--washi);
   background: color-mix(in srgb, var(--beni) 32%, transparent); box-shadow: inset 0 0 0 1px var(--beni); animation: remote-pulse 2.4s ease-in-out infinite; }
 @keyframes remote-pulse { 50% { box-shadow: inset 0 0 0 1px var(--beni), 0 0 0 4px color-mix(in srgb, var(--beni) 18%, transparent); } }
+
+/* ---------------- Menü: Hauptseite + Unterseiten (wie iOS) ---------------- */
+#menu { width: 300px; min-width: 0; padding: 8px; overflow-x: hidden; }
+#menu .mpage { display: flex; flex-direction: column; }
+#menu .mpage[hidden] { display: none; }
+#menu .mpage.in-fwd { animation: mpage-fwd .34s var(--ease); }
+#menu .mpage.in-back { animation: mpage-back .34s var(--ease); }
+@keyframes mpage-fwd { from { opacity: 0; transform: translateX(28px); } }
+@keyframes mpage-back { from { opacity: 0; transform: translateX(-28px); } }
+#menu .mpage > button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 24px; padding: 9px 12px; border-radius: 11px; text-align: left;
+  transition: background-color .18s var(--ease); }
+#menu .mpage > button:hover, #menu .mpage > button:focus-visible { background: rgba(var(--washi-rgb), .09); }
+#menu hr { margin: 6px 8px; }
+/* Schnellknöpfe oben */
+.mquick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 2px 0 6px; }
+.mquick button { display: grid; justify-items: center; gap: 6px; padding: 10px 2px 8px; border-radius: 14px; font-size: 11.5px; color: var(--usuzumi);
+  transition: background-color .2s var(--ease), color .2s, transform .35s var(--spring); }
+.mquick button svg { width: 20px; height: 20px; padding: 9px; box-sizing: content-box; border-radius: 50%; color: var(--washi);
+  background: rgba(var(--washi-rgb), .09); box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px var(--rim); transition: background-color .2s var(--ease); }
+.mquick button:hover { color: var(--washi); }
+.mquick button:hover svg { background: rgba(var(--sakura-rgb), .22); }
+.mquick button:active { transform: scale(.93); }
+/* Gruppen mit Pfeil */
+#menu .mgroup { justify-content: flex-start; gap: 12px; }
+#menu .mgroup svg { width: 17px; height: 17px; color: var(--sakura); flex: none; }
+#menu .mgroup svg.chev { margin-left: auto; width: 15px; height: 15px; color: var(--usuzumi); }
+/* Kopf der Unterseite */
+#menu .mback { justify-content: flex-start; gap: 8px; font: 400 16px var(--mincho); color: var(--washi); padding: 8px 10px 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--rim); border-radius: 11px 11px 0 0; }
+#menu .mback svg { width: 17px; height: 17px; color: var(--sakura); }
+#menu .zoomrow { padding: 2px 6px 2px 12px; color: var(--washi); }
+#menu .mpage > .mgroup { justify-content: flex-start; gap: 12px; }
+#menu .mpage > .mback { justify-content: flex-start; gap: 8px; border-radius: 11px 11px 0 0; }
+#menu .mpage > .mback:hover { background: rgba(var(--washi-rgb), .06); }
