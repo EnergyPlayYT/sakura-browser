@@ -287,6 +287,38 @@ function bindDesign(p) {
   };
 }
 
+// Update direkt aus den Einstellungen: suchen, laden (mit Fortschritt), installieren
+let updTimer = null;
+function showUpdate(u) {
+  const msg = $('#upd-msg'), bar = $('#upd-bar'), go = $('#upd-go');
+  if (!msg || !u) return;
+  clearTimeout(updTimer);
+  const st = u.state;
+  const text = st === 'checking' ? 'Suche nach Updates …'
+    : st === 'downloading' ? `Lade Version ${u.version || ''} … ${u.percent || 0} %`
+    : st === 'ready' ? `Version ${u.version} ist bereit.`
+    : st === 'current' ? 'Du hast schon die neueste Version.'
+    : st === 'error' || st === 'unsupported' ? u.message : '';
+  msg.textContent = text; msg.hidden = !text;
+  msg.className = st === 'error' || st === 'unsupported' ? 'msg-error' : st === 'ready' || st === 'current' ? 'msg-ok' : '';
+  bar.hidden = st !== 'downloading';
+  bar.firstElementChild.style.width = (u.percent || 0) + '%';
+  go.disabled = st === 'checking' || st === 'downloading' || st === 'unsupported';
+  go.textContent = st === 'ready' ? 'Jetzt neu starten und installieren' : st === 'checking' ? 'Suche …' : st === 'downloading' ? 'Wird geladen …' : 'Nach Updates suchen';
+  if (st === 'checking' || st === 'downloading') updTimer = setTimeout(async () => showUpdate(await api.call('updateInfo')), 800);
+}
+function bindUpdate(info) {
+  const go = $('#upd-go');
+  if (!go) return;
+  go.onclick = async () => {
+    const u = await api.call('updateInfo');
+    if (u && u.state === 'ready') { go.disabled = true; go.textContent = 'Startet neu …'; api.call('updateInstall'); return; }
+    showUpdate({ ...(u || {}), state: 'checking' });
+    showUpdate(await api.call('updateCheck'));
+  };
+  if (info && info.state !== 'idle') showUpdate(info);
+}
+
 // Fernsteuerung: Programme auf diesem PC (z. B. Claude über „Chrome DevTools MCP“) dürfen Sakura bedienen
 async function bindRemote() {
   const sec = $('#remote-sec');
@@ -583,8 +615,11 @@ async function render() {
   const info = await api.call('updateInfo').catch(() => null);
   $('#content').insertAdjacentHTML('beforeend', `<section class="set"><h3>Über Sakura</h3>
     <p>Version ${esc(info && info.current || '')}. Sakura aktualisiert sich von selbst.</p>
-    <div class="row"><button class="btn" id="about-open">Updates und Infos anzeigen</button></div></section>`);
+    <p id="upd-msg" hidden></p>
+    <div class="upd-bar" id="upd-bar" hidden><i></i></div>
+    <div class="row"><button class="btn primary" id="upd-go">Nach Updates suchen</button><button class="btn" id="about-open">Mehr Infos</button></div></section>`);
   $('#about-open').onclick = () => openPanel('about');
+  bindUpdate(info);
   tagSections();
   showCat(location.hash.slice(1) || 'sync');
 }
