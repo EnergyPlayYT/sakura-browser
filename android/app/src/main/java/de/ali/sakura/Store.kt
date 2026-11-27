@@ -195,6 +195,69 @@ class Store(ctx: Context) {
         changed("scripts")
     }
 
+    // ---------- Leseliste (nur auf diesem Gerät, wie am PC)
+    private fun readlistArr(): JSONArray = data.optJSONArray("readlist") ?: JSONArray().also { data.put("readlist", it) }
+
+    fun readlist(): JSONArray {
+        val out = JSONArray()
+        for (o in SyncModel.objects(readlistArr())) {
+            val c = JSONObject(o.toString())
+            val n = c.optJSONArray("blocks")?.length() ?: 0
+            c.remove("blocks")
+            out.put(c.put("offline", n > 0))
+        }
+        return out
+    }
+
+    /** Ergebnis: Meldung für den Nutzer */
+    fun readlistAdd(url: String, title: String, grab: JSONObject?): String {
+        val list = SyncModel.objects(readlistArr())
+        if (list.any { it.optString("url") == url }) return "Schon in deiner Leseliste."
+        val blocks = JSONArray()
+        grab?.optJSONArray("blocks")?.let { arr ->
+            for (b in SyncModel.objects(arr)) {
+                val t = b.optString("t")
+                val x = b.optString("x").take(5000)
+                if (t in listOf("p", "h", "q", "li") && x.isNotBlank()) blocks.put(JSONObject().put("t", t).put("x", x))
+                if (blocks.length() >= 800) break
+            }
+        }
+        val item = JSONObject().put("id", SyncModel.newId()).put("url", url)
+            .put("title", (grab?.optString("title")?.takeIf { it.isNotBlank() } ?: title).take(300))
+            .put("site", (grab?.optString("site") ?: "").take(100)).put("byline", (grab?.optString("byline") ?: "").take(200))
+            .put("blocks", blocks).put("at", now()).put("read", false)
+        data.put("readlist", JSONArray((listOf(item) + list).take(300)))
+        save()
+        return if (blocks.length() > 0) "Zur Leseliste hinzugefügt – auch offline lesbar." else "Zur Leseliste hinzugefügt (ohne Offline-Text)."
+    }
+
+    fun readlistItem(id: String): JSONObject? = SyncModel.objects(readlistArr()).firstOrNull { it.optString("id") == id }
+    fun readlistMark(id: String, read: Boolean) { readlistItem(id)?.put("read", read); save() }
+    fun readlistRemove(id: String) { data.put("readlist", JSONArray(SyncModel.objects(readlistArr()).filter { it.optString("id") != id })); save() }
+
+    // ---------- Notizen zur Seite (Schlüssel wie am PC: Domain ohne www + Pfad)
+    private fun notesObj(): JSONObject = data.optJSONObject("notes") ?: JSONObject().also { data.put("notes", it) }
+
+    fun noteKey(url: String): String? {
+        val u = try { java.net.URI(url) } catch (_: Exception) { return null }
+        if (u.scheme != "http" && u.scheme != "https") return null
+        val host = (u.host ?: return null).removePrefix("www.")
+        return host + (u.rawPath ?: "").trimEnd('/')
+    }
+    fun noteFor(url: String): JSONObject? = noteKey(url)?.let { notesObj().optJSONObject(it) }
+    fun noteSet(url: String, title: String, text: String) {
+        val k = noteKey(url) ?: return
+        if (text.isBlank()) notesObj().remove(k)
+        else notesObj().put(k, JSONObject().put("text", text.take(5000)).put("url", url).put("title", title.ifBlank { url }).put("at", now()))
+        save()
+    }
+    fun notes(): JSONArray {
+        val o = notesObj()
+        val list = o.keys().asSequence().mapNotNull { k -> o.optJSONObject(k)?.let { JSONObject(it.toString()).put("key", k) } }
+        return JSONArray(list.sortedByDescending { it.optLong("at") }.toList())
+    }
+    fun noteRemove(key: String) { notesObj().remove(key); save() }
+
     // ---------- Geräte
     val deviceId: String get() = data.optString("deviceId")
 

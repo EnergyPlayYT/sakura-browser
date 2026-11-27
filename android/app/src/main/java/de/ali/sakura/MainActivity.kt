@@ -53,6 +53,7 @@ class Tab(val id: Int, val web: WebView, val isPrivate: Boolean, val openerId: I
     var progress = 100
     var desktop = false
     var pendingUrl: String? = null
+    var noteShownFor: String? = null
     var group: String? = null
 }
 
@@ -472,6 +473,51 @@ class MainActivity : ComponentActivity() {
 
     private fun applyDarkAll() = tabs.forEach { applyDark(it.web) }
 
+    // ---------- Leseliste und Notizen (wie am PC, nur auf diesem Gerät)
+    private val readlistScript: String by lazy {
+        try {
+            val lib = assets.open("readability.js").bufferedReader().use { it.readText() }
+            val grab = assets.open("readlist-grab.js").bufferedReader().use { it.readText() }
+            "(function(){\n$lib\n;window.__sakuraReadability = Readability;})();\n$grab"
+        } catch (_: Exception) { "" }
+    }
+
+    private fun addToReadlist(t: Tab) {
+        val url = realUrl(t)
+        if (!url.startsWith("http")) { toast("Diese Seite kann nicht gespeichert werden"); return }
+        if (readlistScript.isEmpty()) { toast(store.readlistAdd(url, t.title, null)); return }
+        t.web.evaluateJavascript(readlistScript) { res ->
+            val grab = try { JSONObject(res) } catch (_: Exception) { null }
+            toast(store.readlistAdd(url, t.title, grab))
+        }
+    }
+
+    private fun editNote(t: Tab) {
+        val url = realUrl(t)
+        if (store.noteKey(url) == null) { toast("Notizen gehen nur auf normalen Webseiten"); return }
+        val old = store.noteFor(url)?.optString("text") ?: ""
+        val input = EditText(this).apply {
+            setText(old)
+            hint = "Schreib hier etwas – Sakura zeigt es dir beim nächsten Besuch wieder."
+            minLines = 4
+            gravity = Gravity.TOP or Gravity.START
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        val b = AlertDialog.Builder(this).setTitle("Notiz zu dieser Seite").setView(input)
+            .setPositiveButton("Speichern") { _, _ -> store.noteSet(url, t.title, input.text.toString()); toast(if (input.text.isBlank()) "Notiz gelöscht" else "Notiz gespeichert") }
+            .setNegativeButton("Abbrechen", null)
+        if (old.isNotEmpty()) b.setNeutralButton("Löschen") { _, _ -> store.noteSet(url, t.title, ""); toast("Notiz gelöscht") }
+        b.show()
+    }
+
+    /** Beim Laden einer Seite mit Notiz kurz daran erinnern (einmal pro Adresse und Tab) */
+    private fun remindNote(t: Tab, url: String) {
+        if (t.isPrivate || t.noteShownFor == url) return
+        val n = store.noteFor(url) ?: return
+        t.noteShownFor = url
+        if (t === active) Toast.makeText(this, "Deine Notiz: " + n.optString("text").take(120), Toast.LENGTH_LONG).show()
+    }
+
     // ---------- Cookie-Banner automatisch ablehnen (assets/cookie-reject.js, gleiche Datei wie am PC)
     private val cookieScript: String by lazy {
         try { assets.open("cookie-reject.js").bufferedReader().use { it.readText() } } catch (_: Exception) { "" }
@@ -681,6 +727,7 @@ class MainActivity : ComponentActivity() {
             runYouTube(view, url)
             runVideoHelper(view, url)
             runUserScripts(view, url)
+            remindNote(tab, url)
             tab.progress = 100
             view.title?.let { if (it.isNotBlank()) tab.title = it }
             if (tab === active) updateUi()
@@ -910,6 +957,12 @@ class MainActivity : ComponentActivity() {
             "history" -> send(store.history(str))
             "removeHistory" -> { store.removeHistory(str); send(null) }
             "downloads" -> send(downloadsList())
+            "readlist" -> send(store.readlist())
+            "readlistItem" -> send(store.readlistItem(str))
+            "readlistMark" -> { store.readlistMark(obj.optString("id"), obj.optBoolean("read", true)); send(null) }
+            "readlistRemove" -> { store.readlistRemove(str); send(null) }
+            "notes" -> send(store.notes())
+            "noteRemove" -> { store.noteRemove(str); send(null) }
             "downloadOpen" -> { str.toLongOrNull()?.let { openDownload(it) }; send(null) }
             "downloadRemove" -> { str.toLongOrNull()?.let { try { downloadManager.remove(it) } catch (_: Exception) { } }; send(null) }
             "downloadsFolder" -> {
@@ -1000,12 +1053,15 @@ class MainActivity : ComponentActivity() {
         m.menu.add(0, 3, 2, "Lesezeichen")
         m.menu.add(0, 4, 3, "Verlauf")
         m.menu.add(0, 13, 3, "Downloads")
+        m.menu.add(0, 16, 3, "Leseliste und Notizen")
         if (t != null && realUrl(t).isNotEmpty()) {
             m.menu.add(0, 9, 4, "Auf der Seite suchen")
             m.menu.add(0, 10, 5, "Seite übersetzen")
             m.menu.add(0, 5, 6, "Zur Startseite hinzufügen")
             m.menu.add(0, 6, 7, "Teilen …")
             if (!t.isPrivate) m.menu.add(0, 12, 7, "An Gerät senden …")
+            if (!t.isPrivate) m.menu.add(0, 14, 7, "Zur Leseliste")
+            if (!t.isPrivate) m.menu.add(0, 15, 7, "Notiz zur Seite …")
             m.menu.add(0, 7, 8, "Desktop-Version").apply { isCheckable = true; isChecked = t.desktop }
         }
         m.menu.add(0, 11, 9, "Eigene Skripte")
@@ -1031,6 +1087,9 @@ class MainActivity : ComponentActivity() {
                 }
                 7 -> t?.let { toggleDesktop(it) }
                 12 -> t?.let { sendToDevice(it) }
+                14 -> t?.let { addToReadlist(it) }
+                15 -> t?.let { editNote(it) }
+                16 -> openManage("readlist")
                 8 -> openManage("settings")
             }
             true

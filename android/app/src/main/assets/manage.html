@@ -76,6 +76,16 @@
   .theme span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .accent { display: flex; align-items: center; gap: 12px; color: var(--usuzumi); }
   .accent input { width: 52px; height: 36px; padding: 0; background: none; box-shadow: none; }
+  .item.read .txt div { color: var(--usuzumi); }
+  .txt small.note { color: var(--washi); white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0; }
+  .reading { padding: 8px 6px 40px; font: 18px/1.7 Georgia, "Noto Serif", serif; }
+  .reading h1 { font: 400 26px/1.3 var(--mincho); margin: 8px 0 6px; }
+  .reading .meta { font: 13px var(--gothic); color: var(--usuzumi); margin-bottom: 18px; }
+  .reading h2 { font: 400 21px/1.35 var(--mincho); margin: 24px 0 8px; }
+  .reading p, .reading li { color: var(--washi); margin: 0 0 14px; }
+  .reading li { margin-left: 20px; }
+  .reading blockquote { margin: 0 0 14px; padding-left: 14px; border-left: 3px solid var(--sakura); color: var(--usuzumi); }
+  .reading .row { justify-content: flex-start; margin-top: 24px; }
   .dl .bar { height: 4px; margin-top: 6px; border-radius: 2px; background: rgba(var(--washi-rgb), .12); overflow: hidden; }
   .dl .bar i { display: block; height: 100%; background: var(--sakura); border-radius: 2px; transition: width .4s; }
   .dl .txt small.failed { color: var(--err); }
@@ -88,6 +98,8 @@
   <a href="#bookmarks" id="t-bookmarks">Lesezeichen</a>
   <a href="#history" id="t-history">Verlauf</a>
   <a href="#downloads" id="t-downloads">Downloads</a>
+  <a href="#readlist" id="t-readlist">Leseliste</a>
+  <a href="#notes" id="t-notes">Notizen</a>
   <a href="#scripts" id="t-scripts">Skripte</a>
   <a href="#settings" id="t-settings">Einstellungen</a>
 </nav>
@@ -117,9 +129,10 @@ applyTheme();
 function route() {
   const k = (location.hash || '#bookmarks').slice(1);
   for (const a of document.querySelectorAll('nav a')) a.classList.toggle('on', a.id === 't-' + k);
-  document.title = { bookmarks: 'Lesezeichen', history: 'Verlauf', downloads: 'Downloads', settings: 'Einstellungen', scripts: 'Eigene Skripte' }[k] || 'Sakura';
+  if (k.startsWith('read-')) { for (const a of document.querySelectorAll('nav a')) a.classList.toggle('on', a.id === 't-readlist'); clearTimeout(dlTimer); readItem(k.slice(5)); return; }
+  document.title = { bookmarks: 'Lesezeichen', history: 'Verlauf', downloads: 'Downloads', readlist: 'Leseliste', notes: 'Notizen', settings: 'Einstellungen', scripts: 'Eigene Skripte' }[k] || 'Sakura';
   clearTimeout(dlTimer);
-  ({ bookmarks, history, downloads, settings, scripts }[k] || bookmarks)();
+  ({ bookmarks, history, downloads, readlist, notes, settings, scripts }[k] || bookmarks)();
 }
 addEventListener('hashchange', route);
 
@@ -199,6 +212,60 @@ async function history(filter = '') {
     if (t) return api.call('openUrl', t.dataset.url);
     const b = e.target.closest('[data-act=del]');
     if (b) { const row = b.closest('.item'); api.call('removeHistory', row.dataset.id).then(() => row.remove()); }
+  };
+}
+
+// ---------------- Leseliste (offline lesbar) und Notizen – nur auf diesem Handy
+async function readlist() {
+  const list = (await api.call('readlist')) || [];
+  if (location.hash !== '#readlist') return;
+  main.innerHTML = list.length ? list.map(it => `<div class="item${it.read ? ' read' : ''}" data-id="${esc(it.id)}"><span class="fav">${esc(letter(it.title))}</span>
+      <div class="txt rl"><div>${esc(it.title)}</div><small>${esc(it.site || host(it.url))}${it.offline ? ' · offline lesbar' : ''}${it.read ? ' · gelesen' : ''}</small></div>
+      <button class="ib" data-act="del" aria-label="Entfernen">✕</button></div>`).join('')
+    : '<p class="empty">Deine Leseliste ist leer. Öffne einen Artikel und wähle im Menü „Zur Leseliste“ – Sakura speichert den Text, damit du ihn auch ohne Internet lesen kannst.</p>';
+  main.onclick = async e => {
+    const row = e.target.closest('.item');
+    if (!row) return;
+    if (e.target.closest('[data-act=del]')) { await api.call('readlistRemove', row.dataset.id); readlist(); return; }
+    location.hash = '#read-' + row.dataset.id;
+  };
+}
+async function readItem(id) {
+  const it = await api.call('readlistItem', id);
+  if (!it) { location.hash = '#readlist'; return; }
+  document.title = it.title;
+  const art = document.createElement('article');
+  art.className = 'reading';
+  const h = document.createElement('h1'); h.textContent = it.title; art.appendChild(h);
+  const meta = document.createElement('p'); meta.className = 'meta'; meta.textContent = [it.byline, it.site || host(it.url)].filter(Boolean).join(' · '); art.appendChild(meta);
+  for (const b of it.blocks || []) {
+    const el = document.createElement(b.t === 'h' ? 'h2' : b.t === 'q' ? 'blockquote' : b.t === 'li' ? 'li' : 'p');
+    el.textContent = b.x;
+    art.appendChild(el);
+  }
+  if (!(it.blocks || []).length) { const p = document.createElement('p'); p.textContent = 'Für diesen Artikel gibt es keinen Offline-Text.'; art.appendChild(p); }
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = '<button class="btn" id="rl-back">Zurück zur Liste</button><button class="btn primary" id="rl-orig">Original öffnen</button>';
+  art.appendChild(row);
+  main.innerHTML = ''; main.appendChild(art);
+  $('#rl-back').onclick = () => { location.hash = '#readlist'; };
+  $('#rl-orig').onclick = () => api.call('openUrl', it.url);
+  if (!it.read) api.call('readlistMark', { id, read: true });
+  scrollTo(0, 0);
+}
+async function notes() {
+  const list = (await api.call('notes')) || [];
+  if (location.hash !== '#notes') return;
+  main.innerHTML = list.length ? list.map(n => `<div class="item" data-key="${esc(n.key)}"><span class="fav">${esc(letter(n.title))}</span>
+      <div class="txt" data-url="${esc(n.url)}"><div>${esc(n.title)}</div><small class="note">${esc(n.text)}</small><small>${esc(host(n.url))}</small></div>
+      <button class="ib" data-act="del" aria-label="Notiz löschen">✕</button></div>`).join('')
+    : '<p class="empty">Noch keine Notizen. Öffne eine Seite und wähle im Menü „Notiz zur Seite …“ – beim nächsten Besuch erinnert dich Sakura daran.</p>';
+  main.onclick = async e => {
+    const row = e.target.closest('.item');
+    if (!row) return;
+    if (e.target.closest('[data-act=del]')) { await api.call('noteRemove', row.dataset.key); notes(); return; }
+    const t = e.target.closest('.txt');
+    if (t) api.call('openUrl', t.dataset.url);
   };
 }
 

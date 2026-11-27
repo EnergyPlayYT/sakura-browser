@@ -76,7 +76,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).
 - [x] Einstellungsseite im Liquid-Glass-Stil.
 - [x] Android: Wischgesten (zurück/vor, Tab wechseln).
-- [ ] Android: Leseliste und Notizen.
+- [x] Android: Leseliste und Notizen.
 
 ## Etappe 9 – Ton, Video und Extras
 - [ ] Seiten-Lautstärke: eigener Lautstärkeregler pro Tab.
