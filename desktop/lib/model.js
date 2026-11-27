@@ -32,7 +32,8 @@ const DEFAULT_PREFS = {
   phishWarn: true,     // vor bekannten Betrugsseiten warnen
   mouseGestures: true,
   linkPreview: true,
-  verticalTabs: false, // Tabs links untereinander statt oben   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
+  verticalTabs: false,
+  archiveDays: 14,     // unbenutzte Tabs nach so vielen Tagen ins Tab-Archiv (0 = nie) // Tabs links untereinander statt oben   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße
   readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel
   steamInfo: true,     // Spielinfos im Steam-Shop

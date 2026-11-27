@@ -779,3 +779,6 @@ body.side .tab .gline { display: none; }
 .st-col small { color: var(--usuzumi); font-size: 11px; }
 .st-bar { height: 5px; margin-top: 5px; border-radius: 3px; background: rgba(var(--washi-rgb), .08); overflow: hidden; }
 .st-bar i { display: block; height: 100%; border-radius: 3px; background: var(--sakura); }
+.sel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 8px 12px; color: var(--usuzumi); }
+.sel-row select { height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--rim); }
+.ar-open { cursor: pointer; }

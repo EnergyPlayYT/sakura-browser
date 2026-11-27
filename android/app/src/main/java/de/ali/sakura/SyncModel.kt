@@ -36,6 +36,7 @@ object SyncModel {
         .put("mouseGestures", true)
         .put("linkPreview", true)
         .put("verticalTabs", false)
+        .put("archiveDays", 14)
         .put("phishWarn", true)
         .put("ntWidgets", true)
         .put("weatherCity", "")

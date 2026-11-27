@@ -158,6 +158,17 @@ setTimeout(async()=>{
     assert((await call('state')).focusUntil > 0);
     await rs('focusSet', { sites: ['https://www.Spiel.example/x', 'kaputt'] }); assert.deepEqual((await rs('focusGet')).cfg.sites, ['spiel.example']);
     await rs('focusStop'); assert.equal((await call('state')).focusUntil, 0); }
+  // Tab-Archiv: alte Tabs aufräumen, wieder öffnen
+  { await call('newTab', 'https://alt.example/'); await new Promise(x=>setTimeout(x,30));
+    await call('newTab', 'https://neu.example/'); await new Promise(x=>setTimeout(x,30));
+    await call('setPrefs', { archiveDays: 14 });
+    assert.equal(await call('archiveNow'), 0, 'frische Tabs bleiben');
+    const n = await call('archiveNow', { now: Date.now() + 20 * 864e5, host: 'alt.example' }); // 20 Tage später
+    assert(n >= 1); const ar = await call('archive'); assert(ar.some(x => x.url === 'https://alt.example/'));
+    const st3 = await call('state'); assert(st3.tabs.some(t => t.id === st3.activeId), 'aktiver Tab bleibt');
+    assert.equal(await call('archiveOpen', ar.find(x => x.url === 'https://alt.example/').id), true);
+    assert(!(await call('archive')).some(x => x.url === 'https://alt.example/'));
+    await call('setPrefs', { archiveDays: 0 }); assert.equal(await call('archiveNow', { now: Date.now() + 99 * 864e5, host: 'alt.example' }), 0, 'abschaltbar'); }
   // Bildschirmzeit: Übersicht, ausschalten, löschen
   { const d = await call('screenTime'); assert.equal(d.week.length, 7); assert.equal(d.off, false);
     await call('screenTimeOff', true); assert.equal((await call('screenTime')).off, true); await call('screenTimeOff', false);

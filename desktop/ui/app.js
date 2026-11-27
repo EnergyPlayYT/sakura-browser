@@ -567,8 +567,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { archive: 'Tab-Archiv', screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -897,6 +897,29 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Tab-Archiv
+async function renderArchive() {
+  const body = $('#panel-body');
+  const list = (await api.call('archive')) || [];
+  const p = (await api.call('prefs')) || {};
+  if (panelKind !== 'archive') return;
+  const days = Number(p.archiveDays) || 0;
+  body.innerHTML = `<p class="p-note">${days ? `Tabs, die du ${days} Tage nicht benutzt hast, räumt Sakura hierher auf (angeheftete Tabs und Tabs mit Ton nie).` : 'Das automatische Aufräumen ist aus.'} Einträge bleiben 30 Tage.</p>
+    <label class="sel-row">Aufräumen nach <select id="ar-days">${[[0, 'nie'], [3, '3 Tagen'], [7, '7 Tagen'], [14, '14 Tagen'], [30, '30 Tagen']].map(([v, l]) => `<option value="${v}"${v === days ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` +
+    (list.length ? list.map(it => `<div class="p-item" data-id="${esc(it.id)}"><span class="fav">${iconImg(it.url, it.title)}</span>
+      <div class="txt ar-open" title="Wieder öffnen"><div>${esc(it.title)}</div><small>${esc(hostOf(it.url))} · ${esc(timeAgo(it.at))}</small></div>
+      <button class="icon small" data-act="del" title="Aus dem Archiv löschen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+      : '<p class="p-empty">Das Archiv ist leer.</p>');
+  $('#ar-days').onchange = async e => { await api.call('setPrefs', { archiveDays: Number(e.target.value) }); renderArchive(); };
+  body.onclick = async e => {
+    const row = e.target.closest('.p-item');
+    if (!row) return;
+    if (e.target.closest('[data-act="del"]')) { await api.call('archiveRemove', row.dataset.id); renderArchive(); return; }
+    if (e.target.closest('.ar-open')) { await api.call('archiveOpen', row.dataset.id); renderArchive(); }
+  };
+}
+api.on('archive-changed', () => { if (panelKind === 'archive') renderArchive(); });
+
 // ------------------------------------------------------------ Bildschirmzeit
 const fmtDur = s => { const m = Math.round(s / 60); return m < 1 ? 'unter 1 Min.' : m < 60 ? m + ' Min.' : Math.floor(m / 60) + ' Std.' + (m % 60 ? ' ' + (m % 60) + ' Min.' : ''); };
 const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];

@@ -239,7 +239,11 @@ class SakuraWindow {
       }
       const gid = old => { for (const g of this.groups.values()) if (g.old === old) return g.id; return null; };
       this.restoring = true;
-      restore.tabs.forEach((t, i) => this.newTab(t.url, { background: true, lazy: i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null, container: t.container }));
+      restore.tabs.forEach((t, i) => {
+        this.newTab(t.url, { background: true, lazy: i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null, container: t.container });
+        const nt = this.tabs[this.tabs.length - 1];
+        if (nt && Number(t.lastActive) > 0) nt.lastActive = Number(t.lastActive); // fürs Tab-Archiv über Neustarts hinweg
+      });
       for (const g of this.groups.values()) delete g.old;
       this.restoring = false;
       this.normalize();
@@ -492,7 +496,7 @@ class SakuraWindow {
     setBg(url || NEWTAB);
     const tab = {
       container: box,
-      id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null,
+      id, view, title: title || 'Neuer Tab', url: url || NEWTAB, favicon: null, createdAt: Date.now(),
       loading: false, audible: false, muted: false, pinned: !!pinned, pending: lazy ? (url || NEWTAB) : null,
       group: !pinned && group && this.groups.has(group) ? group : null,
       lastActive: Date.now(),
@@ -1786,6 +1790,37 @@ async function autoSleepTick() {
   return picked;
 }
 
+// Tab-Archiv: Tabs, die seit X Tagen nicht benutzt wurden, schließen und im Archiv merken (30 Tage)
+function archiveTick(now = Date.now(), onlyHost = '') {
+  const days = Number(store.prefs().archiveDays) || 0;
+  if (!days) return 0;
+  const limit = days * 864e5;
+  let n = 0;
+  for (const w of [...windows]) {
+    if (w.isPrivate) continue;
+    const pair = w.splitPair() || [];
+    for (const t of [...w.tabs]) {
+      if (w.tabs.length <= 1) break;
+      const born = t.lastActive || t.createdAt || now;
+      if (t.id === w.activeId || t.pinned || t.audible || t.floating || pair.includes(t) || now - born < limit) continue;
+      const url = w.displayUrl(t.pending || t.url);
+      if (!/^https?:/i.test(url) || (onlyHost && hostOfUrl(url) !== onlyHost)) continue;
+      archiveAdd({ url, title: t.title || url, at: now });
+      w.closeTab(t.id);
+      n++;
+    }
+  }
+  if (n) broadcast('archive-changed');
+  return n;
+}
+function archiveAdd(it) {
+  const cut = Date.now() - 30 * 864e5;
+  const list = (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > cut && x.url !== it.url);
+  list.unshift({ id: M.newId(), url: String(it.url).slice(0, 4000), title: String(it.title).slice(0, 300), at: it.at });
+  store.data.tabArchive = list.slice(0, 300);
+  store.save();
+}
+
 function findTab(id) {
   for (const w of windows) { const t = w.tabs.find(x => x.id === id); if (t) return { w, t }; }
   return null;
@@ -1819,7 +1854,7 @@ function noteFor(url) { const k = noteKey(url); return k && store.data.notes && 
 function windowSnapshot(w) {
   return {
     active: Math.max(0, w.tabs.findIndex(t => t.id === w.activeId)),
-    tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined })),
+    tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined, lastActive: t.lastActive || undefined })),
     groups: [...w.groups.values()]
   };
 }
@@ -2243,6 +2278,18 @@ const uiCommands = {
     return { url, img: q.createDataURL(6, 4) };
   },
   copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
+  // Tab-Archiv
+  archive: () => (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > Date.now() - 30 * 864e5),
+  archiveOpen: (w, id) => {
+    const list = Array.isArray(store.data.tabArchive) ? store.data.tabArchive : [];
+    const it = list.find(x => x.id === id);
+    if (!it) return false;
+    store.data.tabArchive = list.filter(x => x !== it); store.save();
+    w.newTab(it.url, { index: w.tabs.indexOf(w.active) + 1 });
+    return true;
+  },
+  archiveRemove: (w, id) => { store.data.tabArchive = (store.data.tabArchive || []).filter(x => x.id !== id); store.save(); return true; },
+  archiveNow: (w, o = {}) => archiveTick(Number(o && o.now) || Date.now(), String((o && o.host) || '')),
   // Bildschirmzeit
   screenTime: () => ({ ...screenTime.summary(), off: !!store.data.screenTimeOff }),
   screenTimeClear: () => { screenTime.clear(); store.save(); return true; },
@@ -2598,6 +2645,7 @@ app.whenReady().then(async () => {
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
   setInterval(screenTimeTick, 15000);
+  setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
   blocker.onFocus = (id, url) => focusPending.set(id, url);
   setInterval(() => { const on = !!Focus.activeUntil(store.data.focus); if (on !== focusWasOn) { focusWasOn = on; broadcastState(); if (on) focusReloadTabs(); } }, 30000);
