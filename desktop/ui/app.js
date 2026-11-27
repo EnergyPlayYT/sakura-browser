@@ -375,7 +375,7 @@ function openOverlay(kind) {
   closeOverlay(true);
   overlay = kind;
   $('#backdrop').hidden = false;
-  $('#backdrop').classList.toggle('clear', kind === 'note' || kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
+  $('#backdrop').classList.toggle('clear', kind === 'qr' || kind === 'note' || kind === 'suggest' || kind === 'menu' || kind === 'shield' || kind === 'group' || kind === 'media');
   api.call('overlay', true);
 }
 // Liquid Glass: Bild der Seite für die verschwommenen Flächen
@@ -387,7 +387,7 @@ api.on('glass', url => {
 function closeOverlay(keep) {
   document.body.classList.remove('has-snap');
   if (overlay === 'note') saveNote();
-  for (const s of ['#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
+  for (const s of ['#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);
   editingGroup = null;
   $('#backdrop').hidden = true;
@@ -427,6 +427,7 @@ $('#menu').addEventListener('click', e => {
   if (b.dataset.panelPop === 'media') { openMedia(); return; }
   if ('tabsearch' in b.dataset) { openTabSearch(); return; }
   if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
+  if (b.dataset.cmd === 'qrOpen') { openQr(); return; }
   if (b.dataset.cmd === 'liveToggle') { closeOverlay(); api.call('liveToggle').then(r => r && showToast(r.error || r.message)); return; }
   closeOverlay();
   api.call(b.dataset.cmd);
@@ -1217,6 +1218,19 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+
+// QR-Code der Seite
+async function openQr() {
+  const r = await api.call('qr');
+  if (!r || r.error) { closeOverlay(); showToast((r && r.error) || 'Kein QR-Code möglich.'); return; }
+  openOverlay('qr');
+  $('#qr-pop').hidden = false;
+  if (/^data:image\/gif;base64,/.test(r.img)) $('#qr-img').src = r.img;
+  $('#qr-url').textContent = r.url;
+  $('#qr-copy').textContent = 'Link kopieren';
+}
+$('#qr-copy').onclick = async () => { await api.call('copyUrl'); $('#qr-copy').textContent = 'Kopiert'; };
+$('#qr-ok').onclick = () => closeOverlay();
 $('#remote-tag').onclick = () => api.call('openSettings', 'remote');
 $('#note-text').oninput = () => { clearTimeout(noteT); noteT = setTimeout(saveNote, 600); $('#note-del').hidden = !$('#note-text').value; };
 $('#note-ok').onclick = () => closeOverlay();

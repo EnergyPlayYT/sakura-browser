@@ -144,6 +144,7 @@
     <button data-cmd="reader">Lesemodus<kbd>F9</kbd></button>
     <button data-cmd="readlistAdd">Zur Leseliste</button>
     <button data-cmd="noteOpen">Notiz zur Seite …</button>
+    <button data-cmd="qrOpen">QR-Code der Seite</button>
     <button data-cmd="translate">Seite übersetzen</button>
     <button data-cmd="watchPage">Seite überwachen</button>
     <hr>
@@ -193,6 +194,13 @@
 </div>
 
 <div id="media-pop" class="pop" hidden></div>
+<div id="qr-pop" class="pop" hidden role="dialog" aria-label="QR-Code der Seite">
+  <h3>QR-Code der Seite</h3>
+  <div class="qr-box"><img id="qr-img" alt="QR-Code"></div>
+  <p id="qr-url"></p>
+  <p class="sub">Mit der Handy-Kamera scannen, um die Seite dort zu öffnen.</p>
+  <div class="row"><button class="btn" id="qr-copy">Link kopieren</button><button class="btn primary" id="qr-ok">Fertig</button></div>
+</div>
 <div id="note-pop" class="pop" hidden role="dialog" aria-label="Notiz zu dieser Seite">
   <h3>Notiz zu dieser Seite</h3>
   <textarea id="note-text" maxlength="5000" placeholder="Schreib hier etwas – Sakura zeigt es dir beim nächsten Besuch wieder."></textarea>

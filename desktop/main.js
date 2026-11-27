@@ -14,6 +14,7 @@ const { GestureTracker } = require('./lib/gestures');
 const { LiveWatch, channelFromUrl, youtubeChannel } = require('./lib/live');
 const { PhishGuard } = require('./lib/phishing');
 const { PinLock } = require('./lib/pinlock');
+const qrcode = require('qrcode-generator');
 let pinLock = null;
 let phishGuard = null;
 const phishPending = new Map(); // webContentsId → blockierte Adresse
@@ -2096,6 +2097,16 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  // QR-Code der aktuellen Seite (als Bild, damit nichts von der Seite in die Oberfläche gelangt)
+  qr: w => {
+    const a = w.active, url = a ? w.displayUrl(a.pending || a.url) : '';
+    if (!/^https?:\/\//i.test(url) || url.length > 1800) return { error: 'Für diese Seite gibt es keinen QR-Code.' };
+    const q = qrcode(0, 'M');
+    q.addData(url);
+    q.make();
+    return { url, img: q.createDataURL(6, 4) };
+  },
+  copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
   // PIN-Sperre für Verlauf und Passwörter
   pinStatus: () => ({ enabled: pinLock.enabled, locked: pinLock.locked() }),
   pinUnlock: (w, pin) => pinLock.unlock(String(pin || '')),

@@ -140,6 +140,10 @@ setTimeout(async()=>{
     await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
     await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
     await call('closeTab', r.id); }
+  // QR-Code der Seite
+  { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
+    const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));
+    await call('navigate', 'sakura://newtab/'); await new Promise(x=>setTimeout(x,30)); assert((await call('qr')).error); }
   // Fernsteuerung: nur über die Einstellungsseite, wirkt nach Neustart
   { assert.deepEqual(await call('remoteStatus'), {enabled:false, active:false, port:9222});
     const rs = (cmd, arg, url='sakura://settings/')=>mock._handlers.page({sender:tabWc, senderFrame:{url, parent:null}}, 'settings', {cmd, arg});
