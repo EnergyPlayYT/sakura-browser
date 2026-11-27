@@ -2097,6 +2097,22 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  // Tab-Vorschau beim Überfahren: kleines Bild des Tabs (auch im Hintergrund)
+  tabPreview: async (w, id) => {
+    const t = w.tabs.find(x => x.id === id);
+    if (!t || t.view.webContents.isDestroyed()) return null;
+    const url = w.displayUrl(t.pending || t.url);
+    let img = null;
+    if (!t.pending && !t.floating && !url.startsWith('sakura://newtab')) {
+      try {
+        const cap = await t.view.webContents.capturePage();
+        if (!cap.isEmpty()) img = 'data:image/jpeg;base64,' + cap.resize({ width: 360, quality: 'good' }).toJPEG(75).toString('base64');
+      } catch {}
+    }
+    let host = '';
+    try { host = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+    return { title: t.title || url, host, img, sleeping: !!t.pending, audible: !!t.audible };
+  },
   // QR-Code der aktuellen Seite (als Bild, damit nichts von der Seite in die Oberfläche gelangt)
   qr: w => {
     const a = w.active, url = a ? w.displayUrl(a.pending || a.url) : '';

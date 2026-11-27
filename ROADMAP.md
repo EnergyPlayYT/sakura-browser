@@ -66,7 +66,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 ## Etappe 8 – Bedienung, Fokus und neue Nutzer
 - [x] Passwort-Generator: starkes Passwort bei der Registrierung vorschlagen und speichern.
 - [x] QR-Code der Seite (zum Öffnen auf einem anderen Handy).
-- [ ] Tab-Vorschau: Vorschaubild beim Überfahren eines Tabs.
+- [x] Tab-Vorschau: Vorschaubild beim Überfahren eines Tabs.
 - [ ] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
 - [ ] Link-Vorschau: langes Drücken auf einen Link öffnet eine schwebende Vorschau.
 - [ ] Vertikale Tabs (wahlweise links untereinander).

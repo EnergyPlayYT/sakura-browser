@@ -1219,6 +1219,48 @@ function saveNote() {
 }
 $('#note-btn').onclick = openNote;
 
+// ------------------------------------------------------------ Tab-Vorschau
+let tpTimer = null, tpFor = null, tpShown = false;
+function hideTabPreview() {
+  clearTimeout(tpTimer); tpFor = null;
+  if (!tpShown) return;
+  tpShown = false;
+  $('#tab-preview').hidden = true;
+  if (!overlay) api.call('overlay', false);
+}
+async function showTabPreview(el) {
+  const id = Number(el.dataset.id);
+  const d = await api.call('tabPreview', id);
+  if (tpFor !== el || !d || overlay) return;
+  const box = $('#tab-preview');
+  const img = box.querySelector('img');
+  img.hidden = !(d.img && d.img.startsWith('data:image/jpeg;base64,'));
+  if (!img.hidden) img.src = d.img;
+  box.querySelector('b').textContent = d.title;
+  box.querySelector('small').textContent = [d.host, d.sleeping ? 'schläft' : '', d.audible ? 'spielt Ton' : ''].filter(Boolean).join(' · ');
+  const r = el.getBoundingClientRect();
+  box.style.left = Math.max(8, Math.min(r.left, innerWidth - 300)) + 'px';
+  if (!tpShown) api.call('overlay', true); // Oberfläche kurz über die Seite ausdehnen, damit die Karte Platz hat
+  tpShown = true;
+  box.hidden = false;
+}
+$('#tabs').addEventListener('mouseover', e => {
+  const el = e.target.closest('.tab');
+  if (!el || el === tpFor || el.classList.contains('dragging')) return;
+  clearTimeout(tpTimer);
+  tpFor = el;
+  tpTimer = setTimeout(() => showTabPreview(el), tpShown ? 60 : 550);
+});
+// Beim Vergrößern der Oberfläche meldet Chromium ein falsches „Verlassen“ – daher selbst anhand der Mausposition prüfen
+document.addEventListener('mousemove', e => {
+  if (!tpFor && !tpShown) return;
+  const r = $('#tabs').getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) hideTabPreview();
+});
+window.addEventListener('blur', hideTabPreview);
+$('#tabs').addEventListener('mousedown', hideTabPreview);
+$('#tabs').addEventListener('dragstart', hideTabPreview);
+
 // QR-Code der Seite
 async function openQr() {
   const r = await api.call('qr');

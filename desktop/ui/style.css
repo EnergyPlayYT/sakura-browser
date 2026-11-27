@@ -712,3 +712,11 @@ body.has-snap :is(.pop, #suggest, #panel)::before {
 #qr-url { margin: 10px 0 2px; color: var(--washi); font-size: 12px; word-break: break-all; max-height: 3.2em; overflow: hidden; }
 #qr-pop .sub { color: var(--usuzumi); font-size: 12px; margin: 0 0 10px; }
 #qr-pop .row { display: flex; gap: 8px; justify-content: flex-end; }
+/* Tab-Vorschau */
+#tab-preview { position: fixed; top: calc(var(--tabbar) - 2px); z-index: 40; width: 280px; border-radius: 16px; overflow: hidden; pointer-events: none;
+  background: var(--pop); box-shadow: var(--glass-shadow); animation: glass-in .3s var(--spring); transform-origin: top left; }
+#tab-preview img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; background: var(--fukai); }
+#tab-preview img[hidden] { display: none; }
+#tab-preview .tp-txt { padding: 9px 12px 10px; }
+#tab-preview b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tab-preview small { display: block; color: var(--usuzumi); margin-top: 2px; }
