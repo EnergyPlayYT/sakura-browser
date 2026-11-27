@@ -63,6 +63,8 @@ let groupCounter = 0;
 const PANEL_URLS = /^(?:chrome|sakura|about):\/?\/?(extensions|downloads|history|bookmarks|settings|scripts)\b/i;
 
 // Die Daten werden schon vor dem Start gelesen, weil „Webseiten immer dunkel“ ein Startschalter ist
+// Erster Start (noch keine Daten)? Dann zeigt Sakura die Willkommens-Tour
+const firstRun = !process.env.SAKURA_NO_WELCOME && !fs.existsSync(path.join(app.getPath('userData'), 'sakura-data.json'));
 const store = new Store(app.getPath('userData'));
 const screenTime = new ScreenTime(store);
 const startTheme = store.prefs().siteTheme;
@@ -125,7 +127,7 @@ function prepareSession(ses, isPrivate) {
       if (!BG_FILE.test(name)) return new Response('Nicht gefunden', { status: 404 });
       return net.fetch(pathToFileURL(path.join(__dirname, 'backgrounds', name)).toString());
     }
-    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html', multistream: 'multistream.html', readlist: 'readlist.html' }[u.hostname];
+    const name = { newtab: 'newtab.html', error: 'error.html', settings: 'settings.html', multistream: 'multistream.html', readlist: 'readlist.html', welcome: 'welcome.html' }[u.hostname];
     const file = name ? path.join(__dirname, 'pages', name) : path.join(__dirname, 'pages', u.hostname, u.pathname);
     if (!file.startsWith(path.join(__dirname, 'pages'))) return new Response('Nicht gefunden', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
@@ -2278,6 +2280,7 @@ const uiCommands = {
     return { url, img: q.createDataURL(6, 4) };
   },
   copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
+  welcomeOpen: w => { w.newTab('sakura://welcome/', { index: w.tabs.indexOf(w.active) + 1 }); return true; },
   // Tab-Archiv
   archive: () => (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > Date.now() - 30 * 864e5),
   archiveOpen: (w, id) => {
@@ -2546,6 +2549,23 @@ const uiCommands = {
 
 // Befehle der Startseite (nur von sakura:// erlaubt)
 const pageCommands = {
+  // Willkommens-Tour (sakura://welcome): nur Design, Suchmaschine, Tab-Anordnung und zwei Einstellungsseiten
+  welcome: (wc, { cmd, arg } = {}, from = {}) => {
+    if (!from.top || !/^sakura:\/\/welcome\//.test(from.url || '')) return null;
+    const w = [...windows].find(x => x.tabs.some(t => t.view.webContents === wc));
+    if (!w) return null;
+    if (cmd === 'prefs') return uiCommands.prefs(w);
+    if (cmd === 'setPrefs' && arg && typeof arg === 'object') {
+      const patch = {};
+      if (Themes.list.some(t => t.id === arg.theme)) patch.theme = arg.theme;
+      if (Object.keys(M.ENGINES).includes(arg.searchEngine)) patch.searchEngine = arg.searchEngine;
+      if (typeof arg.verticalTabs === 'boolean') patch.verticalTabs = arg.verticalTabs;
+      return uiCommands.setPrefs(w, patch);
+    }
+    if (cmd === 'openSettings' && ['import', 'sync'].includes(arg)) return uiCommands.openSettings(w, arg);
+    if (cmd === 'done') { wc.loadURL(NEWTAB).catch(() => {}); return true; }
+    return null;
+  },
   // Startseite: nur die Widget-Einstellungen
   setWidgetPrefs: (wc, arg, from = {}) => {
     if (!from.top || !/^sakura:\/\/newtab\//.test(from.url || '') || !arg || typeof arg !== 'object') return null;
@@ -2608,7 +2628,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
@@ -2793,6 +2813,11 @@ app.whenReady().then(async () => {
     const w = [...windows][0] || new SakuraWindow({ url: first[0] });
     const rest = saved.length ? first : first.slice(1);
     for (const u of rest) w.newTab(u);
+  }
+  if (firstRun && !store.data.welcomed) {
+    store.data.welcomed = true; store.save();
+    const w = [...windows][0];
+    if (w) { const t = w.active; if (t && String(t.url).startsWith(NEWTAB)) t.view.webContents.loadURL('sakura://welcome/'); else w.newTab('sakura://welcome/'); }
   }
 
   if (sync.configured) setTimeout(() => sync.syncNow(), 1500);

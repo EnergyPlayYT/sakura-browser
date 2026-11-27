@@ -73,7 +73,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.
 - [x] Bildschirmzeit: wie lange heute auf welchen Seiten (nur lokal).
 - [x] Tab-Archiv: lange unbenutzte Tabs automatisch aufräumen.
-- [ ] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).
+- [x] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).
 - [ ] Einstellungsseite im Liquid-Glass-Stil.
 - [ ] Android: Wischgesten (zurück/vor, Tab wechseln).
 - [ ] Android: Leseliste und Notizen.

@@ -173,6 +173,17 @@ setTimeout(async()=>{
   { const d = await call('screenTime'); assert.equal(d.week.length, 7); assert.equal(d.off, false);
     await call('screenTimeOff', true); assert.equal((await call('screenTime')).off, true); await call('screenTimeOff', false);
     await call('screenTimeClear'); assert.equal((await call('screenTime')).total, 0); }
+  // Willkommens-Tour: nur erlaubte Einstellungen
+  { await call('welcomeOpen'); await new Promise(x=>setTimeout(x,30));
+    const ww = mock._all.filter(x=>x.view && !x.destroyed && x.url==='sakura://welcome/').pop(); assert(ww, 'Tour geöffnet');
+    const wc = (cmd, arg, url='sakura://welcome/')=>mock._handlers.page({sender:ww, senderFrame:{url, parent:null}}, 'welcome', {cmd, arg});
+    assert(Array.isArray((await wc('prefs')).themes));
+    await wc('setPrefs', { searchEngine: 'duckduckgo', passwordManager: false, theme: 'gibtsnicht' });
+    const p2 = await call('prefs'); assert.equal(p2.searchEngine, 'duckduckgo'); assert.notEqual(p2.passwordManager, false, 'andere Einstellungen gesperrt');
+    assert.equal(await wc('setPrefs', { searchEngine: 'google' }, 'sakura://newtab/'), null, 'nur von der Tour-Seite');
+    await wc('setPrefs', { searchEngine: 'google' });
+    await wc('done'); await new Promise(x=>setTimeout(x,30)); assert(ww.url.startsWith('sakura://newtab'));
+    await call('closeTab', (await call('state')).activeId); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

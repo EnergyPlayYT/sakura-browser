@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Willkommen bei Sakura</title>
+<style>
+  :root {
+    --yoru: #1C1A33; --kasumi: #28254A; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
+    --pop: #2C2950; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197; --yoru-rgb: 28, 26, 51;
+    --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", Georgia, serif;
+    --gothic: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", system-ui, sans-serif;
+    --ease: cubic-bezier(.32, .72, 0, 1); --spring: cubic-bezier(.34, 1.36, .64, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--yoru); color: var(--washi); font: 15px/1.5 var(--gothic); }
+  body { display: grid; place-items: center; min-height: 100vh; padding: 32px 16px;
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(var(--sakura-rgb), .16), transparent 60%), radial-gradient(900px 500px at -10% 110%, rgba(var(--sakura-rgb), .1), transparent 60%), var(--yoru); }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--sakura); outline-offset: 2px; }
+  .card { width: min(640px, 100%); padding: 40px 40px 28px; border-radius: 28px; background: rgba(var(--washi-rgb), .06);
+    box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .14), 0 0 0 1px rgba(var(--washi-rgb), .08), 0 30px 80px rgba(4, 2, 12, .45); backdrop-filter: blur(20px); }
+  .step { display: none; }
+  .step.on { display: block; animation: in .5s var(--ease); }
+  @keyframes in { from { opacity: 0; transform: translateX(24px); } }
+  .seal { width: 56px; height: 56px; display: grid; place-items: center; margin-bottom: 22px; background: var(--beni); color: #FBEFEF; font: 600 32px/1 var(--mincho);
+    border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 10px 30px rgba(217, 86, 111, .35); }
+  h1 { margin: 0 0 10px; font: 400 34px/1.2 var(--mincho); }
+  h2 { margin: 0 0 8px; font: 400 26px/1.25 var(--mincho); }
+  p { margin: 0 0 20px; color: var(--usuzumi); }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px; }
+  .opt { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 10px 14px; border-radius: 16px; text-align: left;
+    box-shadow: inset 0 0 0 1px rgba(var(--washi-rgb), .1); transition: box-shadow .25s var(--ease), background .25s var(--ease), transform .35s var(--spring); }
+  .opt:hover { background: rgba(var(--washi-rgb), .05); }
+  .opt:active { transform: scale(.97); }
+  .opt.on { box-shadow: inset 0 0 0 2px var(--sakura); background: rgba(var(--sakura-rgb), .08); }
+  .opt i { width: 28px; height: 28px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--t-bg) 50%, var(--t-ac) 50%); box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .25); }
+  .opt small { display: block; color: var(--usuzumi); font-size: 12.5px; }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .layout .opt { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; }
+  .mini { height: 74px; border-radius: 10px; background: rgba(var(--washi-rgb), .07); position: relative; overflow: hidden; }
+  .mini b { position: absolute; background: rgba(var(--sakura-rgb), .55); border-radius: 3px; }
+  .actions { display: grid; gap: 10px; margin-bottom: 8px; }
+  .actions .opt { min-height: 60px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; }
+  .dots { display: flex; gap: 6px; }
+  .dots span { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--washi-rgb), .2); transition: width .35s var(--ease), background .35s; }
+  .dots span.on { width: 22px; background: var(--sakura); }
+  .btn { height: 42px; padding: 0 22px; border-radius: 21px; background: rgba(var(--washi-rgb), .1); transition: transform .35s var(--spring), filter .2s; }
+  .btn.primary { background: var(--sakura); color: var(--fukai); font-weight: 600; box-shadow: 0 6px 20px rgba(var(--sakura-rgb), .3); }
+  .btn:active { transform: scale(.95); }
+  .skip { color: var(--usuzumi); font-size: 13.5px; padding: 6px 10px; border-radius: 12px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 560px) { .card { padding: 28px 20px 20px; } .grid, .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="card">
+  <section class="step on" data-step="0">
+    <div class="seal">桜</div>
+    <h1>Willkommen bei Sakura</h1>
+    <p>Ein ruhiger, schneller Browser mit Werbeblocker, Passwortmanager und vielen kleinen Helfern. In vier kurzen Schritten richtest du ihn ein – alles lässt sich später in den Einstellungen ändern.</p>
+  </section>
+  <section class="step" data-step="1">
+    <h2>Wähle dein Design</h2>
+    <p>Die Farben gelten für Sakura und die Startseite.</p>
+    <div class="grid" id="themes"></div>
+  </section>
+  <section class="step" data-step="2">
+    <h2>Mit welcher Suchmaschine suchst du?</h2>
+    <p>Sie wird benutzt, wenn du in die Adressleiste etwas eintippst, das keine Adresse ist.</p>
+    <div class="grid" id="engines"></div>
+  </section>
+  <section class="step" data-step="3">
+    <h2>Wo sollen deine Tabs stehen?</h2>
+    <p>Oben wie gewohnt oder links untereinander – praktisch bei vielen Tabs.</p>
+    <div class="layout">
+      <button class="opt" data-vertical="0"><div class="mini"><b style="left:8px;top:8px;width:28%;height:10px"></b><b style="left:38%;top:8px;width:28%;height:10px;opacity:.5"></b></div><span>Oben</span></button>
+      <button class="opt" data-vertical="1"><div class="mini"><b style="left:8px;top:8px;width:26%;height:10px"></b><b style="left:8px;top:24px;width:26%;height:10px;opacity:.5"></b><b style="left:8px;top:40px;width:26%;height:10px;opacity:.5"></b></div><span>Links</span></button>
+    </div>
+  </section>
+  <section class="step" data-step="4">
+    <h2>Fast fertig</h2>
+    <p>Nimm deine Lesezeichen, Passwörter und Cookies mit, und verbinde Sakura mit deinen anderen Geräten.</p>
+    <div class="actions">
+      <button class="opt" data-open="import"><span><b>Aus Chrome, Edge oder Firefox übernehmen</b><small>Lesezeichen, Verlauf, Passwörter, Anmeldungen</small></span></button>
+      <button class="opt" data-open="sync"><span><b>Geräte verbinden</b><small>Mit dem Sync-Code PC und Handy abgleichen – Ende-zu-Ende verschlüsselt</small></span></button>
+    </div>
+  </section>
+  <div class="foot">
+    <div class="dots" id="dots"></div>
+    <div class="row"><button class="skip" id="skip">Überspringen</button><button class="btn" id="back" hidden>Zurück</button><button class="btn primary" id="next">Los geht’s</button></div>
+  </div>
+</main>
+<script src="themes.js"></script>
+<script>
+  // Spricht über window.sakura.call('welcome', …) mit dem Browser; erlaubt sind nur wenige Befehle (main.js)
+  const api = { call: (cmd, arg) => window.sakura.call('welcome', { cmd, arg: arg === undefined ? null : arg }) };
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ENGINE_NAMES = { google: ['Google', 'Die bekannteste'], duckduckgo: ['DuckDuckGo', 'Ohne Tracking'], ecosia: ['Ecosia', 'Pflanzt Bäume'], startpage: ['Startpage', 'Google-Ergebnisse, privat'], bing: ['Bing', 'Von Microsoft'] };
+  const steps = [...document.querySelectorAll('.step')];
+  let cur = 0, p = {};
+  $('#dots').innerHTML = steps.map(() => '<span></span>').join('');
+  function show(i) {
+    cur = Math.max(0, Math.min(steps.length - 1, i));
+    steps.forEach((s, k) => s.classList.toggle('on', k === cur));
+    [...$('#dots').children].forEach((d, k) => d.classList.toggle('on', k === cur));
+    $('#back').hidden = cur === 0;
+    $('#skip').hidden = cur === steps.length - 1;
+    $('#next').textContent = cur === 0 ? 'Los geht’s' : cur === steps.length - 1 ? 'Fertig' : 'Weiter';
+  }
+  async function applyTheme() { if (window.SakuraThemes) SakuraThemes.apply(document.documentElement, await api.call('prefs')); }
+  async function init() {
+    p = (await api.call('prefs')) || {};
+    if (window.SakuraThemes) SakuraThemes.apply(document.documentElement, p);
+    const themes = p.themes || [];
+    $('#themes').innerHTML = themes.map(t => `<button class="opt${t.id === (p.theme || 'sakura') ? ' on' : ''}" data-theme="${esc(t.id)}" style="--t-bg:${esc(t.yoru)};--t-ac:${esc(t.accent)}"><i></i><span>${esc(t.label)}</span></button>`).join('');
+    $('#engines').innerHTML = (p.engines || []).map(e => `<button class="opt${e === p.searchEngine ? ' on' : ''}" data-engine="${esc(e)}"><span><b>${esc((ENGINE_NAMES[e] || [e])[0])}</b><small>${esc((ENGINE_NAMES[e] || ['', ''])[1])}</small></span></button>`).join('');
+    document.querySelectorAll('[data-vertical]').forEach(b => b.classList.toggle('on', (b.dataset.vertical === '1') === !!p.verticalTabs));
+    show(0);
+  }
+  const pick = (sel, b) => document.querySelectorAll(sel).forEach(x => x.classList.toggle('on', x === b));
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.theme) { pick('[data-theme]', b); await api.call('setPrefs', { theme: b.dataset.theme }); applyTheme(); }
+    else if (b.dataset.engine) { pick('[data-engine]', b); api.call('setPrefs', { searchEngine: b.dataset.engine }); }
+    else if (b.dataset.vertical) { pick('[data-vertical]', b); api.call('setPrefs', { verticalTabs: b.dataset.vertical === '1' }); }
+    else if (b.dataset.open) api.call('openSettings', b.dataset.open);
+    else if (b.id === 'next') { if (cur === steps.length - 1) api.call('done'); else show(cur + 1); }
+    else if (b.id === 'back') show(cur - 1);
+    else if (b.id === 'skip') api.call('done');
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') show(cur + 1); if (e.key === 'ArrowLeft') show(cur - 1); });
+  init();
+</script>
+</body>
+</html>

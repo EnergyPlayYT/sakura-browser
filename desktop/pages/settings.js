@@ -652,7 +652,8 @@ async function render() {
     <p>Version ${esc(info && info.current || '')}. Sakura aktualisiert sich von selbst.</p>
     <p id="upd-msg" hidden></p>
     <div class="upd-bar" id="upd-bar" hidden><i></i></div>
-    <div class="row"><button class="btn primary" id="upd-go">Nach Updates suchen</button><button class="btn" id="about-open">Mehr Infos</button></div></section>`);
+    <div class="row"><button class="btn primary" id="upd-go">Nach Updates suchen</button><button class="btn" id="about-open">Mehr Infos</button><button class="btn" id="welcome-open">Willkommens-Tour</button></div></section>`);
+  $('#welcome-open').onclick = () => api.call('welcomeOpen');
   $('#about-open').onclick = () => openPanel('about');
   bindUpdate(info);
   tagSections();

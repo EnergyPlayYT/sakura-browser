@@ -1,3 +1,4 @@
+process.env.SAKURA_NO_WELCOME = process.env.SAKURA_NO_WELCOME || "1"; // Tests: keine Willkommens-Tour
 const { EventEmitter } = require('events');
 const os=require('os'),fs=require('fs'),path=require('path');
 const userData=fs.mkdtempSync(path.join(os.tmpdir(),'ud'));
