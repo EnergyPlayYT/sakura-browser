@@ -395,6 +395,7 @@ api.on('glass', url => {
 });
 function closeOverlay(keep) {
   document.body.classList.remove('has-snap');
+  clearTimeout(tmTimer);
   if (overlay === 'linkpreview') { $('#lp-bar').hidden = true; if (!lpClosing) api.call('linkPreviewClose'); }
   if (overlay === 'note') saveNote();
   for (const s of ['#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
@@ -567,8 +568,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { archive: 'Tab-Archiv', screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { tempmail: 'Wegwerf-E-Mail', archive: 'Tab-Archiv', screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ tempmail: renderTempMail, archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -897,6 +898,56 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Wegwerf-E-Mail
+let tmTimer = null;
+async function renderTempMail(note = '') {
+  clearTimeout(tmTimer);
+  const body = $('#panel-body');
+  const info = await api.call('tempMail');
+  if (panelKind !== 'tempmail') return;
+  if (!info) {
+    body.innerHTML = `<p class="p-note">Eine Wegwerf-Adresse schützt deine echte E-Mail vor Spam – ideal für Anmeldungen, Gewinnspiele oder Testkonten. Die Post kommt hier an. Dienst: mail.tm (kostenlos, ohne Anmeldung).</p>
+      ${note ? `<p class="msg-error" style="margin:0 8px 10px">${esc(note)}</p>` : ''}
+      <div class="row pw-actions"><button class="btn primary" id="tm-new">Adresse erzeugen</button></div>`;
+    $('#tm-new').onclick = async () => { $('#tm-new').disabled = true; const r = await api.call('tempMailCreate'); renderTempMail(r && r.error ? r.error : ''); };
+    return;
+  }
+  body.innerHTML = `<div class="tm-addr"><small>Deine Wegwerf-Adresse</small><b>${esc(info.address)}</b>
+      <div class="row"><button class="btn primary" id="tm-copy">Kopieren</button><button class="btn" id="tm-renew">Neue Adresse</button></div></div>
+    <p class="p-note">Tipp: Rechtsklick in ein E-Mail-Feld → „Wegwerf-E-Mail einfügen“.</p>
+    <div class="p-day">Posteingang</div><div id="tm-list"><p class="p-empty">Lade …</p></div>
+    ${note ? `<p class="msg-error" style="margin:0 8px">${esc(note)}</p>` : ''}`;
+  $('#tm-copy').onclick = async () => { await api.call('tempMailCopy'); $('#tm-copy').textContent = 'Kopiert'; };
+  $('#tm-renew').onclick = async () => { await api.call('tempMailForget'); const r = await api.call('tempMailCreate'); renderTempMail(r && r.error ? r.error : ''); };
+  const load = async () => {
+    const list = await api.call('tempMailInbox');
+    const box = $('#tm-list');
+    if (panelKind !== 'tempmail' || !box) return;
+    if (list && list.error) box.innerHTML = `<p class="p-empty">${esc(list.error)}</p>`;
+    else box.innerHTML = (list || []).length ? list.map(m => `<div class="p-item tm-mail${m.seen ? '' : ' new'}" data-id="${esc(m.id)}"><span class="fav">${esc(letterOf(m.from))}</span>
+        <div class="txt"><div>${esc(m.subject)}</div><small>${esc(m.from)} · ${esc(timeAgo(m.at))}</small></div></div>`).join('')
+      : '<p class="p-empty">Noch keine Post. Sakura schaut alle paar Sekunden nach.</p>';
+    tmTimer = setTimeout(load, 8000);
+  };
+  body.onclick = async e => {
+    const row = e.target.closest('.tm-mail');
+    if (!row) return;
+    clearTimeout(tmTimer);
+    const m = await api.call('tempMailMessage', row.dataset.id);
+    if (panelKind !== 'tempmail') return;
+    if (!m || m.error) { renderTempMail((m && m.error) || 'Nachricht nicht gefunden.'); return; }
+    body.innerHTML = `<button class="btn" id="tm-back">Zurück zum Posteingang</button>
+      <h3 class="tm-subj"></h3><p class="tm-from"></p><pre class="tm-text"></pre><div class="tm-links"></div>`;
+    body.querySelector('.tm-subj').textContent = m.subject;
+    body.querySelector('.tm-from').textContent = 'Von ' + m.from;
+    body.querySelector('.tm-text').textContent = m.text;
+    const lk = body.querySelector('.tm-links');
+    for (const u of m.links) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Öffnen: ' + hostOf(u); b.title = u; b.onclick = () => api.call('openUrlInNewTab', u); lk.appendChild(b); }
+    $('#tm-back').onclick = () => renderTempMail();
+  };
+  load();
+}
+
 // ------------------------------------------------------------ Tab-Archiv
 async function renderArchive() {
   const body = $('#panel-body');

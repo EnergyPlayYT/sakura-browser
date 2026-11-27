@@ -184,6 +184,8 @@ setTimeout(async()=>{
     await wc('setPrefs', { searchEngine: 'google' });
     await wc('done'); await new Promise(x=>setTimeout(x,30)); assert(ww.url.startsWith('sakura://newtab'));
     await call('closeTab', (await call('state')).activeId); }
+  // Wegwerf-E-Mail: ohne Netz eine verständliche Meldung statt Absturz
+  { assert.equal(await call('tempMail'), null); const r = await call('tempMailCreate'); assert(r && r.error); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

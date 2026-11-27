@@ -21,6 +21,8 @@ const phishPending = new Map(); // webContentsId → blockierte Adresse (Betrugs
 const focusPending = new Map(); // webContentsId → im Fokus-Modus gesperrte Adresse
 const Focus = require('./lib/focus');
 const { ScreenTime } = require('./lib/screentime');
+const { TempMail } = require('./lib/tempmail');
+let tempMail = null;
 const focusCfg = () => Focus.normalize(store.data.focus);
 const fmtTime = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const Sync = require('./lib/sync');
@@ -1025,6 +1027,16 @@ class SakuraWindow {
         { label: 'Einfügen', role: 'paste', enabled: p.editFlags.canPaste },
         { label: 'Alles auswählen', role: 'selectAll' }
       );
+      if (!this.isPrivate && tempMail && /^https?:/i.test(p.pageURL || '')) items.push({ type: 'separator' }, {
+        label: 'Wegwerf-E-Mail einfügen',
+        click: async () => {
+          try {
+            const info = tempMail.info() || await tempMail.create();
+            if (!wc.isDestroyed()) wc.insertText(info.address);
+            this.ui.webContents.send('toast', `Wegwerf-Adresse eingefügt – Post kommt unter Menü → Werkzeuge → Wegwerf-E-Mail an.`);
+          } catch (e) { this.ui.webContents.send('toast', e.message); }
+        }
+      });
     } else if (p.selectionText) {
       const sel = p.selectionText.trim().slice(0, 60);
       items.push(
@@ -2295,6 +2307,13 @@ const uiCommands = {
   },
   copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
   welcomeOpen: w => { w.newTab('sakura://welcome/', { index: w.tabs.indexOf(w.active) + 1 }); return true; },
+  // Wegwerf-E-Mail (mail.tm)
+  tempMail: () => tempMail ? tempMail.info() : null,
+  tempMailCreate: async () => { try { return await tempMail.create(); } catch (e) { return { error: e.message }; } },
+  tempMailInbox: async () => { try { return await tempMail.inbox(); } catch (e) { return { error: e.message }; } },
+  tempMailMessage: async (w, id) => { try { return await tempMail.message(String(id)); } catch (e) { return { error: e.message }; } },
+  tempMailForget: () => { tempMail.forget(); return true; },
+  tempMailCopy: () => { const i = tempMail && tempMail.info(); if (i) clipboard.writeText(i.address); return !!i; },
   // Tab-Archiv
   archive: () => (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > Date.now() - 30 * 864e5),
   archiveOpen: (w, id) => {
@@ -2680,6 +2699,7 @@ app.whenReady().then(async () => {
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
   setInterval(screenTimeTick, 15000);
+  tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
   blocker.onFocus = (id, url) => focusPending.set(id, url);
