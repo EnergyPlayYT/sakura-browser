@@ -2511,6 +2511,7 @@ app.whenReady().then(async () => {
     if (store.prefs().passwordManager === false || store.prefs().passwordFill === false || streamerActive() || !tabOfSender(e.sender)) return [];
     return vault.available ? vault.accountsFor(e.senderFrame ? e.senderFrame.url : '') : [];
   });
+  ipcMain.handle('pw-gen-ok', e => store.prefs().passwordManager !== false && !!tabOfSender(e.sender));
   ipcMain.handle('pw-fill', (e, id) => {
     const f = tabOfSender(e.sender);
     // Nur direkt nach einem echten Klick – eine Seite kann Passwörter nicht selbst abrufen

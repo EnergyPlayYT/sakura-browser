@@ -102,11 +102,34 @@ if (/^https?:$/.test(location.protocol)) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  // ---------- Passwort-Generator: bei Registrierung / neuem Passwort ein starkes vorschlagen
+  const NEW_HINT = /new|neu|regist|signup|sign-up|sign_up|create|erstell|confirm|bestät|wiederhol|repeat/i;
+  function isNewPw(f) {
+    if (!isPw(f)) return false;
+    if (/new-password/.test(f.autocomplete || '')) return true;
+    if (/current-password/.test(f.autocomplete || '')) return false;
+    if (NEW_HINT.test(f.name + ' ' + f.id + ' ' + (f.placeholder || '') + ' ' + (f.getAttribute('aria-label') || ''))) return true;
+    const scope = f.form || document;
+    if ([...scope.querySelectorAll('input[type="password"]')].filter(visible).length === 2) return true; // Passwort + Wiederholung
+    return /regist|signup|sign-up|join|create|konto-erstellen|anmelden\/neu/i.test(location.pathname);
+  }
+  function strongPassword(len = 18) {
+    const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '-_.!?#+*'];
+    const all = sets.join('');
+    const rnd = n => { const a = new Uint32Array(1); let x; do { crypto.getRandomValues(a); x = a[0]; } while (x >= Math.floor(4294967296 / n) * n); return x % n; };
+    const out = sets.map(s => s[rnd(s.length)]); // jede Zeichenart mindestens einmal
+    while (out.length < len) out.push(all[rnd(all.length)]);
+    for (let i = out.length - 1; i > 0; i--) { const j = rnd(i + 1); [out[i], out[j]] = [out[j], out[i]]; }
+    return out.join('');
+  }
+
   async function offer(field) {
     const pw = isPw(field) ? field : pwFields().find(p => !p.form || p.form === field.form);
     if (!pw || (!isPw(field) && userField(pw) !== field)) return;
-    const list = await ipcRenderer.invoke('pw-accounts');
-    if (!list || !list.length || document.activeElement !== field) return;
+    const gen = isNewPw(field) && !field.value && await ipcRenderer.invoke('pw-gen-ok') ? strongPassword() : null;
+    const list = gen ? [] : await ipcRenderer.invoke('pw-accounts');
+    if ((!list || !list.length) && !gen) return;
+    if (document.activeElement !== field) return;
     closeBox();
     const host = document.createElement('div');
     const r = field.getBoundingClientRect();
@@ -117,8 +140,30 @@ if (/^https?:$/.test(location.protocol)) {
         box-shadow:0 0 0 1px rgba(238,231,226,.1),0 12px 30px rgba(4,2,12,.5);font:13px "Segoe UI",Roboto,sans-serif}
       .h{padding:4px 8px 6px;color:#A59EB8;font-size:11.5px} button{all:unset;display:block;box-sizing:border-box;width:100%;padding:8px 10px;border-radius:7px;cursor:pointer;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis} button:hover,button:focus{background:rgba(242,179,197,.16)}</style>
-      <div class="b"><div class="h">Gespeichert in Sakura</div></div>`;
+      <div class="b"><div class="h">${gen ? 'Starkes Passwort von Sakura' : 'Gespeichert in Sakura'}</div></div>`;
     const b = sr.querySelector('.b');
+    if (gen) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Vorschlag verwenden: ';
+      const code = document.createElement('b');
+      code.textContent = gen;
+      code.style.cssText = 'font:600 13px Consolas,"Cascadia Mono",monospace;color:#F2B3C5';
+      btn.appendChild(code);
+      btn.addEventListener('mousedown', e => {
+        e.preventDefault();
+        if (!e.isTrusted) return;
+        closeBox();
+        // in alle leeren Felder für das neue Passwort (auch „wiederholen“)
+        const scope = field.form || document;
+        for (const f of [...scope.querySelectorAll('input[type="password"]')].filter(visible)) if (f === field || (!f.value && isNewPw(f))) setValue(f, gen);
+        field.focus();
+      });
+      b.appendChild(btn);
+      const hint = document.createElement('div');
+      hint.className = 'h';
+      hint.textContent = 'Sakura bietet nach dem Absenden an, es zu speichern.';
+      b.appendChild(hint);
+    }
     for (const a of list) {
       const btn = document.createElement('button');
       btn.textContent = a.username || '(ohne Benutzername)';

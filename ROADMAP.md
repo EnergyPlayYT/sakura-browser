@@ -62,3 +62,18 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Tab ans Handy schicken und umgekehrt (über den Sync).
 - [x] Oberfläche im Liquid-Glass-Stil: Glas-Flächen mit durchscheinender Seite, runde Kapseln, federnde Animationen.
 - [x] Fernsteuerung (abschaltbar, standardmäßig aus): Programme auf diesem PC, z. B. Claude über Chrome DevTools MCP, dürfen Sakura bedienen.
+
+## Etappe 8 – Bedienung, Fokus und neue Nutzer
+- [x] Passwort-Generator: starkes Passwort bei der Registrierung vorschlagen und speichern.
+- [ ] QR-Code der Seite (zum Öffnen auf einem anderen Handy).
+- [ ] Tab-Vorschau: Vorschaubild beim Überfahren eines Tabs.
+- [ ] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
+- [ ] Link-Vorschau: langes Drücken auf einen Link öffnet eine schwebende Vorschau.
+- [ ] Vertikale Tabs (wahlweise links untereinander).
+- [ ] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.
+- [ ] Bildschirmzeit: wie lange heute auf welchen Seiten (nur lokal).
+- [ ] Tab-Archiv: lange unbenutzte Tabs automatisch aufräumen.
+- [ ] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).
+- [ ] Einstellungsseite im Liquid-Glass-Stil.
+- [ ] Android: Wischgesten (zurück/vor, Tab wechseln).
+- [ ] Android: Leseliste und Notizen.
