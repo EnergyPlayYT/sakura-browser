@@ -49,6 +49,7 @@ async function renderSettings() {
     <label class="switch"><input type="checkbox" id="anim"${p.animations !== false ? ' checked' : ''}><span>Animationen und weiches Scrollen</span></label>
     <label class="switch"><input type="checkbox" id="gestures"${p.mouseGestures !== false ? ' checked' : ''}><span>Mausgesten: rechte Maustaste halten und ziehen</span></label>
     <p class="hint">Links = zurück, rechts = vor, hoch = neuer Tab, runter und rechts = Tab schließen, hoch und runter = neu laden, runter und hoch = geschlossenen Tab wieder öffnen.</p>
+    <label class="switch"><input type="checkbox" id="lpv"${p.linkPreview !== false ? ' checked' : ''}><span>Link-Vorschau: Link lange gedrückt halten</span></label>
     <label class="switch"><input type="checkbox" id="restore"${p.restoreSession ? ' checked' : ''}><span>Beim Start die Tabs vom letzten Mal öffnen</span></label>
     <label class="switch"><input type="checkbox" id="dlask"${p.downloadAsk ? ' checked' : ''}><span>Vor jedem Download fragen, wo gespeichert wird</span></label>
   </section>
@@ -194,6 +195,7 @@ async function renderSettings() {
   showRestart({ restart: (p.siteTheme === 'force') !== (p.startTheme === 'force') });
   $('#theme').onchange = async e => showRestart(await api.call('setPrefs', { siteTheme: e.target.value }));
   $('#restart').onclick = () => api.call('relaunch');
+  $('#lpv').onchange = e => api.call('setPrefs', { linkPreview: e.target.checked });
   $('#gestures').onchange = e => api.call('setPrefs', { mouseGestures: e.target.checked });
   $('#anim').onchange = async e => { await api.call('setPrefs', { animations: e.target.checked }); $('#restart-row').hidden = false; };
   $('#restore').onchange = e => api.call('setPrefs', { restoreSession: e.target.checked });

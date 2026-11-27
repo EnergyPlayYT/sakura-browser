@@ -140,6 +140,17 @@ setTimeout(async()=>{
     await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
     await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
     await call('closeTab', r.id); }
+  // Link-Vorschau: schwebende Ansicht, „In neuem Tab öffnen“
+  { st = await call('state');
+    const n0 = st.tabs.length;
+    const handlers = mock._handlers; const tw = mock._all.find(x=>x.view && x.url===st.url && !x.destroyed);
+    handlers['on:link-preview']({sender: tw}, 'https://vorschau.example/');
+    handlers['on:link-preview']({sender: tw}, 'javascript:alert(1)');
+    const pv = mock._all.filter(x=>x.view && !x.destroyed).find(x=>x.url==='https://vorschau.example/');
+    assert(pv, 'Vorschau lädt die Seite');
+    await call('linkPreviewOpenTab'); await new Promise(x=>setTimeout(x,30));
+    st = await call('state'); assert.equal(st.tabs.length, n0 + 1); assert(pv.destroyed, 'Vorschau geschlossen');
+    await call('closeTab', st.activeId); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

@@ -214,6 +214,7 @@ class SakuraWindow {
       for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       windows.delete(this);
+      this.closeLinkPreview(true);
       // Private Daten erst löschen, wenn kein anderes Fenster dieselbe private Sitzung nutzt
       if (this.isPrivate && ![...windows].some(x => x.ses === this.ses)) this.ses.clearStorageData().catch(() => {});
       else if (!quitting && windows.size) saveSession();
@@ -349,6 +350,7 @@ class SakuraWindow {
     const top = this.topHeight();
     this.ui.setVisible(!this.htmlFullscreen);
     this.ui.setBounds({ x: 0, y: 0, width: w, height: this.overlay ? h : top });
+    if (this.preview) { const r = this.previewRect(); this.preview.setBounds(r); }
     const pair = this.splitPair();
     const half = Math.floor((w - SPLIT_GAP) / 2);
     for (const t of this.tabs) {
@@ -360,6 +362,42 @@ class SakuraWindow {
       if (side < 0) t.view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) });
       else t.view.setBounds({ x: side ? w - half : 0, y: top, width: side ? half : w - half - SPLIT_GAP, height: Math.max(0, h - top) });
     }
+  }
+
+  // ---------- Link-Vorschau: Seite in einem schwebenden Fenster über dem Tab
+  previewRect() {
+    const { width: w, height: h } = this.win.getContentBounds();
+    const top = this.topHeight();
+    const pw = Math.min(1100, Math.round(w * .82)), ph = Math.max(200, Math.round((h - top) * .86) - 56);
+    return { x: Math.round((w - pw) / 2), y: top + 56 + Math.round(((h - top) - 56 - ph) / 2), width: pw, height: ph };
+  }
+  openLinkPreview(url, ses) {
+    if (!/^https?:\/\//i.test(url || '')) return;
+    this.closeLinkPreview(true);
+    const view = new WebContentsView({ webPreferences: { session: ses || this.ses, sandbox: true, contextIsolation: true } });
+    if (typeof view.setBorderRadius === 'function') view.setBorderRadius(16);
+    view.setBackgroundColor('#FFFFFF');
+    this.preview = view;
+    this.win.contentView.addChildView(view); // über allem, auch über der Oberfläche
+    const wc = view.webContents;
+    wc.setWindowOpenHandler(({ url: u }) => { if (/^https?:/i.test(u)) this.newTab(u); this.closeLinkPreview(); return { action: 'deny' }; });
+    wc.on('before-input-event', (e, i) => { if (i.type === 'keyDown' && i.key === 'Escape') { e.preventDefault(); this.closeLinkPreview(); } });
+    const info = () => { if (this.preview === view && !wc.isDestroyed()) this.ui.webContents.send('link-preview', { open: true, url: wc.getURL() || url, title: wc.getTitle() || url, rect: this.previewRect() }); };
+    wc.on('page-title-updated', info);
+    wc.on('did-navigate', info);
+    this.overlay = true;
+    this.layout();
+    view.setBounds(this.previewRect());
+    info();
+    wc.loadURL(url).catch(() => {});
+  }
+  closeLinkPreview(silent = false) {
+    const v = this.preview;
+    if (!v) return;
+    this.preview = null;
+    try { this.win.contentView.removeChildView(v); } catch {}
+    if (!v.webContents.isDestroyed()) v.webContents.close();
+    if (!silent) { this.ui.webContents.send('link-preview', { open: false }); }
   }
 
   // ---------- Geteilter Bildschirm: zwei Tabs nebeneinander
@@ -2098,6 +2136,14 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  linkPreviewClose: w => { w.closeLinkPreview(); return true; },
+  linkPreviewOpenTab: w => {
+    const v = w.preview;
+    const url = v && !v.webContents.isDestroyed() ? v.webContents.getURL() : '';
+    w.closeLinkPreview();
+    if (/^https?:/i.test(url)) w.newTab(url, { index: w.tabs.indexOf(w.active) + 1 });
+    return true;
+  },
   // Tab-Vorschau beim Überfahren: kleines Bild des Tabs (auch im Hintergrund)
   tabPreview: async (w, id) => {
     const t = w.tabs.find(x => x.id === id);
@@ -2538,6 +2584,13 @@ app.whenReady().then(async () => {
     // Im Streamer-Modus keine Benutzernamen unter Anmeldefeldern einblenden
     if (store.prefs().passwordManager === false || store.prefs().passwordFill === false || streamerActive() || !tabOfSender(e.sender)) return [];
     return vault.available ? vault.accountsFor(e.senderFrame ? e.senderFrame.url : '') : [];
+  });
+  // Link-Vorschau: langes Drücken auf einen Link (preload-page.js)
+  ipcMain.on('link-preview', (e, href) => {
+    const f = tabOfSender(e.sender);
+    if (!f || typeof href !== 'string' || !/^https?:\/\//i.test(href) || href.length > 4000) return;
+    if (store.prefs().linkPreview === false) return;
+    f.t.w.openLinkPreview(href, f.t.view.webContents.session);
   });
   ipcMain.handle('pw-gen-ok', e => store.prefs().passwordManager !== false && !!tabOfSender(e.sender));
   ipcMain.handle('pw-fill', (e, id) => {

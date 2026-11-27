@@ -30,7 +30,8 @@ const DEFAULT_PREFS = {
   ntWidgets: true,     // Startseite: Uhrzeit in Japan, Wetter, Tageszitat
   weatherCity: '',     // Ort für das Wetter auf der Startseite
   phishWarn: true,     // vor bekannten Betrugsseiten warnen
-  mouseGestures: true, // Mausgesten mit der rechten Maustaste
+  mouseGestures: true,
+  linkPreview: true,   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße
   readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel
   steamInfo: true,     // Spielinfos im Steam-Shop

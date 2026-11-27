@@ -53,6 +53,24 @@ if (/^https?:$/.test(location.protocol)) {
   window.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') report(e); }, true);
 }
 
+// Link-Vorschau: Link lange gedrückt halten (ohne zu ziehen) → Sakura zeigt die Seite in einem schwebenden Fenster
+if (/^https?:$/.test(location.protocol) && window.top === window) {
+  let lp = null, swallow = false;
+  const cancel = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
+  window.addEventListener('mousedown', e => {
+    if (!e.isTrusted || e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || !(e.target instanceof Element)) return;
+    const a = e.target.closest('a[href]');
+    if (!a || !/^https?:/i.test(a.href)) return;
+    cancel();
+    lp = { x: e.clientX, y: e.clientY, t: setTimeout(() => { lp = null; swallow = true; ipcRenderer.send('link-preview', a.href); }, 600) };
+  }, true);
+  window.addEventListener('mousemove', e => { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 6) cancel(); }, true);
+  window.addEventListener('mouseup', cancel, true);
+  window.addEventListener('dragstart', cancel, true);
+  // der Klick nach dem langen Drücken soll den Link nicht zusätzlich öffnen
+  window.addEventListener('click', e => { if (swallow) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+}
+
 // Passwortmanager: Anmeldungen erkennen und beim Klick ins Anmeldefeld gespeicherte Konten anbieten.
 // Passwörter kommen nur nach einem Klick des Nutzers auf ein Konto auf die Seite – nie automatisch beim Laden.
 if (/^https?:$/.test(location.protocol)) {

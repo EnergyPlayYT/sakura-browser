@@ -386,6 +386,7 @@ api.on('glass', url => {
 });
 function closeOverlay(keep) {
   document.body.classList.remove('has-snap');
+  if (overlay === 'linkpreview') { $('#lp-bar').hidden = true; if (!lpClosing) api.call('linkPreviewClose'); }
   if (overlay === 'note') saveNote();
   for (const s of ['#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);
@@ -1281,6 +1282,20 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+
+// ------------------------------------------------------------ Link-Vorschau (langes Drücken auf einen Link)
+let lpClosing = false;
+api.on('link-preview', d => {
+  if (!d || !d.open) { if (overlay === 'linkpreview') { lpClosing = true; closeOverlay(); lpClosing = false; } return; }
+  if (overlay !== 'linkpreview') { hideTabPreview(); openOverlay('linkpreview'); }
+  const bar = $('#lp-bar');
+  bar.hidden = false;
+  bar.querySelector('b').textContent = d.title || d.url;
+  bar.querySelector('small').textContent = hostOf(d.url);
+  if (d.rect) { bar.style.left = d.rect.x + 'px'; bar.style.width = d.rect.width + 'px'; bar.style.top = (d.rect.y - 50) + 'px'; }
+});
+$('#lp-x').onclick = () => closeOverlay();
+$('#lp-tab').onclick = () => { lpClosing = true; closeOverlay(); lpClosing = false; api.call('linkPreviewOpenTab'); };
 
 // ------------------------------------------------------------ Tab-Vorschau
 let tpTimer = null, tpFor = null, tpShown = false;

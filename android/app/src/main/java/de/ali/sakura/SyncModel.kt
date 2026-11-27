@@ -34,6 +34,7 @@ object SyncModel {
         .put("cookieAllow", JSONArray())
         .put("animations", true)
         .put("mouseGestures", true)
+        .put("linkPreview", true)
         .put("phishWarn", true)
         .put("ntWidgets", true)
         .put("weatherCity", "")
