@@ -566,9 +566,9 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); applySiteMedia(tab); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); runPip(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
-    wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); } });
+    wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); runPip(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
       if (isMain && code === -20 && phishPending.get(wc.id) === failedUrl) { // -20 = von Sakura blockiert
         phishPending.delete(wc.id);
@@ -1133,6 +1133,18 @@ function runCookieReject(wc, pid, rid) {
 
 // Videos und Serien: weiterschauen, Intro überspringen, nächste Folge (assets/video.js)
 let videoScript = null;
+// Bild-in-Bild-Knopf über Videos (assets/pip.js)
+let pipScript = null;
+function runPip(wc, pid, rid) {
+  if (store.prefs().pipButton === false || wc.isDestroyed() || !/^https?:/i.test(wc.getURL())) return;
+  if (pipScript == null) { try { pipScript = fs.readFileSync(path.join(__dirname, 'assets', 'pip.js'), 'utf8'); } catch { pipScript = ''; } }
+  if (!pipScript) return;
+  try {
+    const target = pid != null && webFrameMain ? webFrameMain.fromId(pid, rid) : wc;
+    if (target) target.executeJavaScript(pipScript, false).catch(() => {});
+  } catch { /* Rahmen schon weg */ }
+}
+
 function runVideoHelper(wc, pid, rid) {
   const p = store.prefs();
   if (wc.isDestroyed() || (p.videoResume === false && p.skipIntro === false && p.autoNext === false)) return;

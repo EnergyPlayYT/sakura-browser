@@ -35,6 +35,7 @@ object SyncModel {
         .put("animations", true)
         .put("mouseGestures", true)
         .put("linkPreview", true)
+        .put("pipButton", true)
         .put("verticalTabs", false)
         .put("archiveDays", 14)
         .put("phishWarn", true)

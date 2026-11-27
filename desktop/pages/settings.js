@@ -109,6 +109,7 @@ async function renderSettings() {
   </section>
   <section class="set">
     <h3>Videos und Serien</h3>
+    <label class="switch"><input type="checkbox" id="vd-pip"${p.pipButton !== false ? ' checked' : ''}><span>Knopf „Bild-in-Bild“ über Videos zeigen</span></label>
     <label class="switch"><input type="checkbox" id="vd-resume"${p.videoResume !== false ? ' checked' : ''}><span>Dort weiterschauen, wo du aufgehört hast</span></label>
     <label class="switch"><input type="checkbox" id="vd-intro"${p.skipIntro !== false ? ' checked' : ''}><span>Intro und Rückblick überspringen</span></label>
     <label class="switch"><input type="checkbox" id="vd-next"${p.autoNext !== false ? ' checked' : ''}><span>Nächste Folge automatisch starten</span></label>
@@ -233,6 +234,7 @@ async function renderSettings() {
     api.call('setPrefs', { twitchPoints: e.target.checked });
   };
   $('#vd-resume').onchange = e => api.call('setPrefs', { videoResume: e.target.checked });
+  $('#vd-pip').onchange = e => api.call('setPrefs', { pipButton: e.target.checked });
   $('#vd-intro').onchange = e => api.call('setPrefs', { skipIntro: e.target.checked });
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   bindContainers(p);

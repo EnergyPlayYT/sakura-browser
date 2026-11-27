@@ -80,7 +80,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 
 ## Etappe 9 – Ton, Video und Extras
 - [x] Seiten-Lautstärke: eigener Lautstärkeregler pro Tab.
-- [ ] Bild-in-Bild per Knopf am Video (nicht automatisch).
+- [x] Bild-in-Bild per Knopf am Video (nicht automatisch).
 - [ ] Wegwerf-E-Mail: anonyme Adresse per Klick, Posteingang in Sakura.
 - [ ] Clip-Knopf: die letzten 30 Sekunden eines Videos/Streams speichern.
 - [ ] Android: Widget für den Startbildschirm (Suchfeld, öffnet Sakura).
