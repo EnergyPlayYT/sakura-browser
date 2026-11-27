@@ -3,6 +3,9 @@ const api = window.chrome2;
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const isPrivate = new URLSearchParams(location.search).get('private') === '1';
+// Vertikale Tabs: dieselbe Oberfläche läuft zusätzlich als Seitenleiste links und zeigt dort nur die Tabs
+const isSide = new URLSearchParams(location.search).get('side') === '1';
+if (isSide) document.body.classList.add('side');
 if (isPrivate) { document.body.classList.add('private'); $('#private-tag').hidden = false; }
 
 let S = { tabs: [], activeId: null };
@@ -49,6 +52,7 @@ function render() {
   applyTheme(S.theme);
   document.body.classList.toggle('no-anim', S.animations === false);
   document.body.classList.toggle('loading', !!S.loading);
+  document.body.classList.toggle('vertical', !!S.vertical && !isSide);
   renderTabs();
   $('#back').disabled = !S.canBack;
   $('#forward').disabled = !S.canForward;
@@ -231,7 +235,7 @@ function renderTabs() {
   const shown = S.tabs.filter(t => !t.group || !groups.get(t.group) || !groups.get(t.group).collapsed);
   const pinned = shown.filter(t => t.pinned).length;
   const avail = box.parentElement.clientWidth - 150 - 80 - pinned * 45 - groups.size * 60;
-  const narrow = avail / Math.max(1, shown.length - pinned) < 90;
+  const narrow = !isSide && avail / Math.max(1, shown.length - pinned) < 90;
   box.innerHTML = '';
   let prevGroup = null;
   S.tabs.forEach((t, i) => {
@@ -306,8 +310,10 @@ function groupChip(g) {
   c.innerHTML = g.name ? `<span>${esc(g.name)}</span>${g.collapsed ? `<span class="cnt">${g.count}</span>` : ''}` : '';
   c.onclick = () => api.call('groupToggle', g.id);
   c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); api.call('groupToggle', g.id); } };
-  c.oncontextmenu = e => { e.preventDefault(); openGroupPop(g.id); };
-  c.ondblclick = e => { e.preventDefault(); openGroupPop(g.id); };
+  // In der Seitenleiste öffnet die Hauptoberfläche das Bearbeiten-Fenster (dort ist Platz dafür)
+  const edit = () => isSide ? api.call('editGroup', g.id) : openGroupPop(g.id);
+  c.oncontextmenu = e => { e.preventDefault(); edit(); };
+  c.ondblclick = e => { e.preventDefault(); edit(); };
   c.ondragover = e => { e.preventDefault(); c.classList.add('drop'); };
   c.ondragleave = () => c.classList.remove('drop');
   c.ondrop = e => {
@@ -327,9 +333,10 @@ function openGroupPop(id) {
   editingGroup = id;
   const pop = $('#group-pop');
   const r = chip.getBoundingClientRect();
-  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - 296)) + 'px';
+  const hiddenStrip = !r.width; // vertikale Tabs: die Chips stehen in der Seitenleiste
+  pop.style.left = (hiddenStrip ? 252 : Math.max(8, Math.min(r.left, innerWidth - 296))) + 'px';
   pop.style.right = 'auto';
-  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.top = (hiddenStrip ? $('#toolbar').getBoundingClientRect().bottom + 8 : r.bottom + 6) + 'px';
   pop.hidden = false;
   $('#group-name').value = g.name || '';
   $('#group-colors').innerHTML = Object.entries(GROUP_COLORS).map(([k, label]) =>
@@ -1323,6 +1330,7 @@ async function showTabPreview(el) {
   box.hidden = false;
 }
 $('#tabs').addEventListener('mouseover', e => {
+  if (isSide || S.vertical) return; // in der Seitenleiste sind die Titel ohnehin sichtbar
   const el = e.target.closest('.tab');
   if (!el || el === tpFor || el.classList.contains('dragging')) return;
   clearTimeout(tpTimer);

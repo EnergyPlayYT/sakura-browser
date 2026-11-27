@@ -31,7 +31,8 @@ const DEFAULT_PREFS = {
   weatherCity: '',     // Ort für das Wetter auf der Startseite
   phishWarn: true,     // vor bekannten Betrugsseiten warnen
   mouseGestures: true,
-  linkPreview: true,   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
+  linkPreview: true,
+  verticalTabs: false, // Tabs links untereinander statt oben   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße
   readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel
   steamInfo: true,     // Spielinfos im Steam-Shop

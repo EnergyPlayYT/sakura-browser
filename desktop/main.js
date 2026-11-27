@@ -48,6 +48,7 @@ const TABBAR_H = 40;
 const TOOLBAR_H = 46;
 const FINDBAR_H = 44;
 const BOOKMARKBAR_H = 32;
+const SIDE_W = 244; // vertikale Tabs: Breite der Seitenleiste
 const barVisible = () => store.prefs().bookmarksBar !== false;
 const ICON = path.join(__dirname, 'assets', 'icon.png');
 const BG = { normal: '#1C1A33', private: '#141022' };
@@ -202,6 +203,8 @@ class SakuraWindow {
     this.ui.setBackgroundColor('#00000000');
     this.win.contentView.addChildView(this.ui);
     this.ui.webContents.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { private: isPrivate ? '1' : '0' } });
+    this.side = null;
+    this.ensureSide();
     this.ui.webContents.once('did-finish-load', () => { this.win.show(); this.sendState(); });
     attachShortcuts(this.ui.webContents, this);
 
@@ -213,6 +216,7 @@ class SakuraWindow {
       if (floating && floating.tab.w === this) dropFloat();
       for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
+      if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.close();
       windows.delete(this);
       this.closeLinkPreview(true);
       // Private Daten erst löschen, wenn kein anderes Fenster dieselbe private Sitzung nutzt
@@ -273,6 +277,7 @@ class SakuraWindow {
     if (!t || t.floating) return 'none';
     const inStrip = (w, p) => {
       const b = w.win.getContentBounds();
+      if (w.side && p.x >= b.x - 8 && p.x <= b.x + SIDE_W + 16 && p.y >= b.y && p.y <= b.y + b.height) return true; // vertikale Tabs
       return p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y - 8 && p.y <= b.y + TABBAR_H + 16;
     };
     // Über der eigenen Tableiste losgelassen → normales Sortieren, nichts weiter
@@ -344,12 +349,35 @@ class SakuraWindow {
     return TABBAR_H + TOOLBAR_H + (barVisible() ? BOOKMARKBAR_H : 0) + (this.findOpen ? FINDBAR_H : 0);
   }
 
+  /** Vertikale Tabs: eigene Ebene links (dieselbe Oberfläche im Modus „side“), unter Menüs und Leisten */
+  ensureSide() {
+    const want = store.prefs().verticalTabs === true;
+    if (want && !this.side) {
+      this.side = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'preload-ui.js'), contextIsolation: true, sandbox: true } });
+      this.side.setBackgroundColor(this.bgColor());
+      this.win.contentView.addChildView(this.side);
+      this.win.contentView.addChildView(this.ui); // Oberfläche (Menüs) bleibt obenauf
+      if (this.preview) this.win.contentView.addChildView(this.preview);
+      this.side.webContents.loadFile(path.join(__dirname, 'ui', 'index.html'), { query: { private: this.isPrivate ? '1' : '0', side: '1' } });
+      this.side.webContents.once('did-finish-load', () => this.sendState());
+      attachShortcuts(this.side.webContents, this);
+    } else if (!want && this.side) {
+      const v = this.side;
+      this.side = null;
+      try { this.win.contentView.removeChildView(v); } catch {}
+      if (!v.webContents.isDestroyed()) v.webContents.close();
+    }
+  }
+  sideW() { return this.side && !this.htmlFullscreen ? SIDE_W : 0; }
+
   layout() {
     if (this.win.isDestroyed()) return;
-    const { width: w, height: h } = this.win.getContentBounds();
+    const { width: fullW, height: h } = this.win.getContentBounds();
     const top = this.topHeight();
+    const left = this.sideW(), w = fullW - left;
+    if (this.side) { this.side.setVisible(!!left); if (left) this.side.setBounds({ x: 0, y: top, width: left, height: Math.max(0, h - top) }); }
     this.ui.setVisible(!this.htmlFullscreen);
-    this.ui.setBounds({ x: 0, y: 0, width: w, height: this.overlay ? h : top });
+    this.ui.setBounds({ x: 0, y: 0, width: fullW, height: this.overlay ? h : top });
     if (this.preview) { const r = this.previewRect(); this.preview.setBounds(r); }
     const pair = this.splitPair();
     const half = Math.floor((w - SPLIT_GAP) / 2);
@@ -359,17 +387,17 @@ class SakuraWindow {
       const on = side >= 0 || t.id === this.activeId;
       t.view.setVisible(on);
       if (!on) continue;
-      if (side < 0) t.view.setBounds({ x: 0, y: top, width: w, height: Math.max(0, h - top) });
-      else t.view.setBounds({ x: side ? w - half : 0, y: top, width: side ? half : w - half - SPLIT_GAP, height: Math.max(0, h - top) });
+      if (side < 0) t.view.setBounds({ x: left, y: top, width: w, height: Math.max(0, h - top) });
+      else t.view.setBounds({ x: left + (side ? w - half : 0), y: top, width: side ? half : w - half - SPLIT_GAP, height: Math.max(0, h - top) });
     }
   }
 
   // ---------- Link-Vorschau: Seite in einem schwebenden Fenster über dem Tab
   previewRect() {
-    const { width: w, height: h } = this.win.getContentBounds();
-    const top = this.topHeight();
+    const { width: fullW, height: h } = this.win.getContentBounds();
+    const top = this.topHeight(), left = this.sideW(), w = fullW - left;
     const pw = Math.min(1100, Math.round(w * .82)), ph = Math.max(200, Math.round((h - top) * .86) - 56);
-    return { x: Math.round((w - pw) / 2), y: top + 56 + Math.round(((h - top) - 56 - ph) / 2), width: pw, height: ph };
+    return { x: left + Math.round((w - pw) / 2), y: top + 56 + Math.round(((h - top) - 56 - ph) / 2), width: pw, height: ph };
   }
   openLinkPreview(url, ses) {
     if (!/^https?:\/\//i.test(url || '')) return;
@@ -821,7 +849,8 @@ class SakuraWindow {
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl),
-      remote: remoteControl, canNote: !this.isPrivate && !!noteKey(realUrl),
+      remote: remoteControl,
+      vertical: !!this.side, canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
@@ -835,7 +864,9 @@ class SakuraWindow {
     clearTimeout(this._st);
     this._st = setTimeout(() => {
       if (this.win.isDestroyed() || this.ui.webContents.isDestroyed()) return;
-      this.ui.webContents.send('state', this.state());
+      const st = this.state();
+      this.ui.webContents.send('state', st);
+      if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.send('state', st);
       const a = this.active;
       this.win.setTitle((a && a.title ? a.title + ' – ' : '') + (this.isPrivate ? 'Sakura Privat' : 'Sakura'));
       if (!this.isPrivate) saveSession();
@@ -1930,7 +1961,7 @@ function bookmarkMenu(w, id) {
   ]).popup();
 }
 function broadcast(channel, data) { for (const w of windows) if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send(channel, data); }
-function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender); }
+function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender || (w.side && w.side.webContents === sender)); }
 
 // ---------------------------------------------------------------- Befehle aus der Oberfläche
 const uiCommands = {
@@ -2136,6 +2167,7 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  editGroup: (w, id) => { w.ui.webContents.send('edit-group', id); w.sendState(); return true; },
   linkPreviewClose: w => { w.closeLinkPreview(); return true; },
   linkPreviewOpenTab: w => {
     const v = w.preview;
@@ -2523,7 +2555,7 @@ app.whenReady().then(async () => {
   sync.tabsProvider = openTabsForSync;
   sync.on('status', s => broadcast('sync-status', s));
   store.on('change', (kind) => {
-    if (kind === 'prefs' || kind === 'all') for (const w of windows) { w.layout(); w.applyTheme(); } // Favoritenleiste, Design (auch per Abgleich)
+    if (kind === 'prefs' || kind === 'all') for (const w of windows) { w.ensureSide(); w.layout(); w.applyTheme(); } // Favoritenleiste, Design (auch per Abgleich)
     if (kind === 'all') deliverInbox(); // Tabs, die andere Geräte geschickt haben
     if (kind !== 'tabs') broadcastState();
   });

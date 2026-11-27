@@ -651,7 +651,7 @@ body { --page-top: calc(var(--tabbar) + var(--toolbar) + var(--bar)); } /* am bo
 /* Echtes Durchscheinen: verschwommenes Bild der Seite hinter der Fläche */
 body.has-snap :is(.pop, #suggest, #panel) { contain: paint; }
 body.has-snap :is(.pop, #suggest, #panel)::before {
-  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; /* Bild der Seite liegt rechts neben einer evtl. Seitenleiste */
   background:
     linear-gradient(rgba(var(--tint), .7), rgba(var(--tint), .7)),
     var(--snap) 0 var(--page-top) / 100vw calc(100vh - var(--page-top)) no-repeat fixed;
@@ -735,3 +735,33 @@ body.has-snap :is(.pop, #suggest, #panel)::before {
 #lp-bar b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #lp-bar small { color: var(--usuzumi); flex: none; }
 #lp-bar .btn { height: 30px; }
+
+/* ---------------- Vertikale Tabs ---------------- */
+/* Hauptoberfläche: keine Tabs oben, Glas-Bild beginnt rechts neben der Seitenleiste */
+body.vertical { --page-left: 244px; }
+body.vertical #tabs, body.vertical #newtab { display: none; }
+body.has-snap.vertical :is(.pop, #suggest, #panel)::before {
+  background:
+    linear-gradient(rgba(var(--tint), .7), rgba(var(--tint), .7)),
+    var(--snap) var(--page-left) var(--page-top) / calc(100vw - var(--page-left)) calc(100vh - var(--page-top)) no-repeat fixed;
+}
+/* Seitenleiste: nur die Tab-Liste */
+body.side { background: var(--yoru); overflow: hidden; }
+body.side > :not(#tabbar):not(svg) { display: none !important; }
+body.side #tabbar { height: 100vh; flex-direction: column; align-items: stretch; padding: 8px 8px 12px; gap: 6px; -webkit-app-region: no-drag;
+  border-right: 1px solid var(--rim); }
+body.side .seal, body.side .drag-fill, body.side #private-tag, body.side #remote-tag { display: none; }
+body.side #newtab { order: -1; width: 100%; height: 34px; margin: 0; border-radius: 11px; justify-content: start; padding: 0 12px; gap: 10px;
+  display: flex; align-items: center; color: var(--usuzumi); box-shadow: inset 0 0 0 1px var(--rim); }
+body.side #newtab::after { content: "Neuer Tab"; font-size: 13px; }
+body.side #newtab:hover { color: var(--washi); background: rgba(var(--washi-rgb), .07); }
+body.side #tabs { flex-direction: column; height: auto; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; gap: 2px; align-items: stretch; }
+body.side .tab { width: 100%; flex: none; min-width: 0; height: 34px; padding: 0 6px 0 10px; }
+body.side .tab.pinned { width: 100%; justify-content: flex-start; padding: 0 6px 0 10px; }
+body.side .tab.pinned .title { display: block; }
+body.side .tab.fresh { animation: side-in .35s var(--spring); }
+@keyframes side-in { from { opacity: 0; transform: translateX(-12px); } }
+body.side .tab.grouped { margin-left: 10px; width: calc(100% - 10px); box-shadow: inset 2px 0 0 var(--gc); }
+body.side .gchip { align-self: flex-start; margin: 8px 0 2px; }
+body.side .gchip.empty { margin: 8px 0 2px 4px; }
+body.side .tab .gline { display: none; }

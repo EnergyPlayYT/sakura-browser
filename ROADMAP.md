@@ -69,7 +69,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Tab-Vorschau: Vorschaubild beim Überfahren eines Tabs.
 - [x] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
 - [x] Link-Vorschau: langes Drücken auf einen Link öffnet eine schwebende Vorschau.
-- [ ] Vertikale Tabs (wahlweise links untereinander).
+- [x] Vertikale Tabs (wahlweise links untereinander).
 - [ ] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.
 - [ ] Bildschirmzeit: wie lange heute auf welchen Seiten (nur lokal).
 - [ ] Tab-Archiv: lange unbenutzte Tabs automatisch aufräumen.
