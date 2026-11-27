@@ -17,7 +17,11 @@ const { PinLock } = require('./lib/pinlock');
 const qrcode = require('qrcode-generator');
 let pinLock = null;
 let phishGuard = null;
-const phishPending = new Map(); // webContentsId → blockierte Adresse
+const phishPending = new Map(); // webContentsId → blockierte Adresse (Betrugsverdacht)
+const focusPending = new Map(); // webContentsId → im Fokus-Modus gesperrte Adresse
+const Focus = require('./lib/focus');
+const focusCfg = () => Focus.normalize(store.data.focus);
+const fmtTime = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const Sync = require('./lib/sync');
 const M = require('./lib/model');
 const { Extensions } = require('./lib/extensions');
@@ -563,6 +567,11 @@ class SakuraWindow {
         wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&c=phish');
         return;
       }
+      if (isMain && code === -20 && focusPending.get(wc.id) === failedUrl) {
+        focusPending.delete(wc.id);
+        wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&c=focus&t=' + encodeURIComponent(fmtTime(Focus.activeUntil(store.data.focus))));
+        return;
+      }
       if (!isMain || code === -3 || failedUrl.startsWith('sakura:')) return; // -3 = abgebrochen
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
     });
@@ -850,7 +859,8 @@ class SakuraWindow {
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl),
       remote: remoteControl,
-      vertical: !!this.side, canNote: !this.isPrivate && !!noteKey(realUrl),
+      vertical: !!this.side,
+      focusUntil: Focus.activeUntil(store.data.focus), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
@@ -1428,6 +1438,16 @@ async function sendGlass(w) {
     const small = img.resize({ width: Math.max(1, Math.round(img.getSize().width / 4)), quality: 'good' });
     w.ui.webContents.send('glass', 'data:image/jpeg;base64,' + small.toJPEG(72).toString('base64'));
   } catch {}
+}
+
+// Fokus-Modus: beim Start gesperrte Seiten, die schon offen sind, neu laden (dann greift die Sperre)
+let focusWasOn = false;
+function focusReloadTabs() {
+  for (const w of windows) for (const t of w.tabs) {
+    let h = '';
+    try { h = new URL(t.url).hostname; } catch {}
+    if (h && !t.pending && Focus.blocks(h, store.data.focus)) t.view.webContents.reload();
+  }
 }
 
 // Tabs an andere Geräte senden (über den Sync)
@@ -2202,6 +2222,25 @@ const uiCommands = {
     return { url, img: q.createDataURL(6, 4) };
   },
   copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
+  // Fokus-Modus
+  focusGet: () => ({ cfg: focusCfg(), until: Focus.activeUntil(store.data.focus) }),
+  focusSet: (w, patch) => {
+    if (!patch || typeof patch !== 'object') return null;
+    const cur = focusCfg();
+    store.data.focus = Focus.normalize({ ...cur, ...patch, until: cur.until });
+    store.save();
+    focusWasOn = !!Focus.activeUntil(store.data.focus);
+    if (focusWasOn) focusReloadTabs();
+    broadcastState();
+    return { cfg: focusCfg(), until: Focus.activeUntil(store.data.focus) };
+  },
+  focusStart: (w, min) => {
+    const m = Math.max(5, Math.min(480, Number(min) || 25));
+    store.data.focus = { ...focusCfg(), until: Date.now() + m * 60e3 };
+    store.save(); focusWasOn = true; focusReloadTabs(); broadcastState();
+    return { until: Focus.activeUntil(store.data.focus) };
+  },
+  focusStop: () => { store.data.focus = { ...focusCfg(), until: 0 }; store.save(); focusWasOn = !!Focus.activeUntil(store.data.focus); broadcastState(); return { until: Focus.activeUntil(store.data.focus) }; },
   // PIN-Sperre für Verlauf und Passwörter
   pinStatus: () => ({ enabled: pinLock.enabled, locked: pinLock.locked() }),
   pinUnlock: (w, pin) => pinLock.unlock(String(pin || '')),
@@ -2497,7 +2536,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
@@ -2533,6 +2572,9 @@ app.whenReady().then(async () => {
   phishGuard = new PhishGuard({ userDir, fetch: u => net.fetch(u) });
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
+  blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
+  blocker.onFocus = (id, url) => focusPending.set(id, url);
+  setInterval(() => { const on = !!Focus.activeUntil(store.data.focus); if (on !== focusWasOn) { focusWasOn = on; broadcastState(); if (on) focusReloadTabs(); } }, 30000);
   setTimeout(() => phishGuard.refresh().catch(() => {}), 15000);
   setInterval(() => phishGuard.refresh().catch(() => {}), 6 * 3600e3);
 

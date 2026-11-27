@@ -78,6 +78,8 @@ function render() {
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
   $('#remote-tag').hidden = !S.remote;
+  $('#focus-tag').hidden = !S.focusUntil;
+  if (S.focusUntil) $('#focus-tag').textContent = 'Fokus bis ' + new Date(S.focusUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   $('#reader-btn').classList.toggle('on', !!S.reader);
   $('#reader-btn').title = S.reader ? 'Lesemodus beenden (F9)' : 'Lesemodus (F9)';
   $('#gaming-ind').hidden = !S.gaming;
@@ -435,6 +437,7 @@ $('#menu').addEventListener('click', e => {
   if (b.dataset.panelPop === 'media') { openMedia(); return; }
   if ('tabsearch' in b.dataset) { openTabSearch(); return; }
   if ('palette' in b.dataset) { openTabSearch('all'); return; }
+  if (b.dataset.settings) { closeOverlay(); api.call('openSettings', b.dataset.settings); return; }
   if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
   if (b.dataset.cmd === 'qrOpen') { openQr(); return; }
   if (b.dataset.cmd === 'liveToggle') { closeOverlay(); api.call('liveToggle').then(r => r && showToast(r.error || r.message)); return; }
@@ -1360,6 +1363,7 @@ async function openQr() {
 $('#qr-copy').onclick = async () => { await api.call('copyUrl'); $('#qr-copy').textContent = 'Kopiert'; };
 $('#qr-ok').onclick = () => closeOverlay();
 $('#remote-tag').onclick = () => api.call('openSettings', 'remote');
+$('#focus-tag').onclick = () => api.call('openSettings', 'focus');
 $('#note-text').oninput = () => { clearTimeout(noteT); noteT = setTimeout(saveNote, 600); $('#note-del').hidden = !$('#note-text').value; };
 $('#note-ok').onclick = () => closeOverlay();
 $('#note-del').onclick = () => { $('#note-text').value = ''; closeOverlay(); };

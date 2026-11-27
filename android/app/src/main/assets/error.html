@@ -53,12 +53,20 @@
       a.onclick = async () => { if (await window.sakura.call('phishAllow', u)) location.replace(u); };
     }
   }
-  const h = hints[q.get('c') === 'phish' ? 'phish' : String(code)];
+  if (q.get('c') === 'focus') {
+    const until = (q.get('t') || '').replace(/[^0-9:]/g, '').slice(0, 5);
+    hints.focus = ['Fokus-Zeit', `${host} hast du für deine Fokus-Zeit gesperrt.${until ? ` Ab ${until} Uhr ist die Seite wieder offen.` : ''} Du schaffst das!`];
+    document.querySelector('.seal').textContent = '集';
+    const r = document.getElementById('retry');
+    r.textContent = 'Zurück';
+    r.onclick = () => { if (history.length > 1) history.back(); else location.href = 'sakura://newtab/'; };
+  }
+  const h = hints[q.get('c') === 'phish' ? 'phish' : q.get('c') === 'focus' ? 'focus' : String(code)];
   if (h) { document.getElementById('h').textContent = h[0]; document.getElementById('hint').textContent = h[1]; }
   else document.getElementById('hint').textContent = d ? `Fehler: ${d}` : '';
   document.getElementById('host').textContent = u;
   document.title = h ? h[0] : 'Seite nicht erreichbar';
-  if (q.get('c') !== 'phish') document.getElementById('retry').onclick = () => { if (/^https?:/i.test(u)) location.href = u; };
+  if (q.get('c') !== 'phish' && q.get('c') !== 'focus') document.getElementById('retry').onclick = () => { if (/^https?:/i.test(u)) location.href = u; };
 </script>
 </body>
 </html>

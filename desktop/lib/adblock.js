@@ -25,6 +25,7 @@ class AdBlocker {
     this.total = Number(store.data && store.data.blockedTotal) || 0; // insgesamt, bleibt erhalten
     this.onCount = () => {};
     this.phish = null; this.onPhish = () => {}; // Phishing-Schutz (lib/phishing.js)
+    this.focusCheck = null; this.onFocus = () => {}; // Fokus-Modus (lib/focus.js)
     parseList(fs.readFileSync(path.join(baseDir, 'blocklist.txt'), 'utf8'), this.base);
     // Eigene Ergänzungen: %APPDATA%/Sakura/eigene-filter.txt
     try { parseList(fs.readFileSync(path.join(userDir, 'eigene-filter.txt'), 'utf8'), this.base); } catch {}
@@ -69,6 +70,12 @@ class AdBlocker {
           let h = '';
           try { h = new URL(d.url).hostname; } catch {}
           if (h && this.phish.isPhishing(h)) { this.onPhish(d.webContentsId, d.url); return cb({ cancel: true }); }
+        }
+        // Fokus-Modus: gesperrte Seiten während der Fokus-Zeit
+        if (this.focusCheck) {
+          let h = '';
+          try { h = new URL(d.url).hostname; } catch {}
+          if (h && this.focusCheck(h)) { this.onFocus(d.webContentsId, d.url); return cb({ cancel: true }); }
         }
         return cb({});
       }

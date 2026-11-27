@@ -765,3 +765,6 @@ body.side .tab.grouped { margin-left: 10px; width: calc(100% - 10px); box-shadow
 body.side .gchip { align-self: flex-start; margin: 8px 0 2px; }
 body.side .gchip.empty { margin: 8px 0 2px 4px; }
 body.side .tab .gline { display: none; }
+/* Hinweis: Fokus-Modus läuft */
+#focus-tag { align-self: center; margin-right: 8px; padding: 3px 11px; border-radius: 99px; font: 600 12px var(--gothic); color: var(--fukai); background: var(--sakura);
+  box-shadow: 0 2px 8px rgba(var(--sakura-rgb), .3); }

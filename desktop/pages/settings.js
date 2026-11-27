@@ -140,6 +140,7 @@ async function renderSettings() {
   </section>
   <section class="set" id="pin-sec"></section>
   <section class="set" id="remote-sec"></section>
+  <section class="set" id="focus-sec"><h3>Fokus-Modus</h3></section>
   <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
@@ -237,6 +238,7 @@ async function renderSettings() {
   bindContainers(p);
   bindPin();
   bindRemote();
+  bindFocus();
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-on').onchange = e => {
@@ -321,6 +323,34 @@ function bindUpdate(info) {
     showUpdate(await api.call('updateCheck'));
   };
   if (info && info.state !== 'idle') showUpdate(info);
+}
+
+// Fokus-Modus: ablenkende Seiten sperren (feste Zeiten oder spontan)
+const DAY_NAMES = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+async function bindFocus(note = '') {
+  const sec = $('#focus-sec');
+  if (!sec) return;
+  const { cfg, until } = await api.call('focusGet');
+  const t = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  sec.innerHTML = `<h3>Fokus-Modus</h3>
+    <p>Sperrt ablenkende Seiten, damit du dich konzentrieren kannst – etwa beim Lernen oder Arbeiten.</p>
+    <div class="status${until ? ' ok' : ''}"><i></i><span>${until ? `Fokus läuft bis ${esc(t(until))} Uhr.` : 'Gerade kein Fokus.'}</span></div>
+    <div class="row">${until && cfg.until > Date.now() ? '<button class="btn" id="f-stop">Fokus beenden</button>' : '<button class="btn primary" data-min="25">25 Min. fokussieren</button><button class="btn" data-min="60">1 Stunde</button><button class="btn" data-min="120">2 Stunden</button>'}</div>
+    <label class="switch"><input type="checkbox" id="f-sched"${cfg.scheduled ? ' checked' : ''}><span>Zu festen Zeiten automatisch</span></label>
+    <div class="f-days">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label><input type="checkbox" data-day="${d}"${cfg.days.includes(d) ? ' checked' : ''}><span>${DAY_NAMES[d]}</span></label>`).join('')}</div>
+    <div class="row f-times"><label class="field">Von<input type="time" id="f-from" value="${esc(cfg.from)}"></label><label class="field">Bis<input type="time" id="f-to" value="${esc(cfg.to)}"></label></div>
+    <label class="field">Gesperrte Seiten (eine pro Zeile)<textarea id="f-sites" spellcheck="false">${esc(cfg.sites.join('\n'))}</textarea></label>
+    ${note ? `<p class="msg-ok">${esc(note)}</p>` : ''}`;
+  const save = async () => {
+    const days = [...sec.querySelectorAll('[data-day]')].filter(x => x.checked).map(x => Number(x.dataset.day));
+    await api.call('focusSet', { scheduled: $('#f-sched').checked, days, from: $('#f-from').value, to: $('#f-to').value, sites: $('#f-sites').value.split(/\n/) });
+    bindFocus('Gespeichert.');
+  };
+  sec.querySelectorAll('[data-min]').forEach(b => b.onclick = async () => { await api.call('focusStart', Number(b.dataset.min)); bindFocus(); });
+  if ($('#f-stop')) $('#f-stop').onclick = async () => { await api.call('focusStop'); bindFocus(); };
+  $('#f-sched').onchange = save;
+  sec.querySelectorAll('[data-day]').forEach(x => x.onchange = save);
+  $('#f-from').onchange = save; $('#f-to').onchange = save; $('#f-sites').onchange = save;
 }
 
 // Fernsteuerung: Programme auf diesem PC (z. B. Claude über „Chrome DevTools MCP“) dürfen Sakura bedienen
@@ -552,7 +582,7 @@ const CATS = [
   ['look', 'Erscheinungsbild', ['Design', 'Darstellung und Start']],
   ['privacy', 'Datenschutz & Sicherheit', ['Werbeblocker', 'Cookie-Banner', 'Popups', 'Streamer-Modus', 'Daten']],
   ['passwords', 'Passwörter', ['Passwörter']],
-  ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung']],
+  ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung', 'Fokus-Modus']],
   ['video', 'Videos und YouTube', ['YouTube', 'Videos und Serien']],
   ['twitch', 'Twitch und Steam', ['Twitch', 'Multistream', 'Steam']],
   ['perf', 'Leistung und Gaming', ['Leistung']],
@@ -587,6 +617,7 @@ function tagSections() {
   }
 }
 function showCat(id) {
+  if (id === 'focus') { showCat('tabs'); setTimeout(() => { const s = $('#focus-sec'); if (s) s.scrollIntoView({ block: 'start' }); }, 120); return; }
   if (id === 'remote') { showCat('privacy'); setTimeout(() => { const s = $('#remote-sec'); if (s) s.scrollIntoView({ block: 'start' }); }, 120); return; }
   if (!CATS.some(c => c[0] === id)) id = 'sync';
   current = id;

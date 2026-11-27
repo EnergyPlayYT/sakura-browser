@@ -70,7 +70,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
 - [x] Link-Vorschau: langes Drücken auf einen Link öffnet eine schwebende Vorschau.
 - [x] Vertikale Tabs (wahlweise links untereinander).
-- [ ] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.
+- [x] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.
 - [ ] Bildschirmzeit: wie lange heute auf welchen Seiten (nur lokal).
 - [ ] Tab-Archiv: lange unbenutzte Tabs automatisch aufräumen.
 - [ ] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).

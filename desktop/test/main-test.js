@@ -151,6 +151,13 @@ setTimeout(async()=>{
     await call('linkPreviewOpenTab'); await new Promise(x=>setTimeout(x,30));
     st = await call('state'); assert.equal(st.tabs.length, n0 + 1); assert(pv.destroyed, 'Vorschau geschlossen');
     await call('closeTab', st.activeId); }
+  // Fokus-Modus: Einstellungen über die Einstellungsseite, Hinweis im Zustand
+  { const rs = (cmd, arg)=>mock._handlers.page({sender:tabWc, senderFrame:{url:'sakura://settings/', parent:null}}, 'settings', {cmd, arg});
+    assert.equal((await rs('focusGet')).until, 0);
+    const r = await rs('focusStart', 25); assert(r.until > Date.now() + 24*60e3);
+    assert((await call('state')).focusUntil > 0);
+    await rs('focusSet', { sites: ['https://www.Spiel.example/x', 'kaputt'] }); assert.deepEqual((await rs('focusGet')).cfg.sites, ['spiel.example']);
+    await rs('focusStop'); assert.equal((await call('state')).focusUntil, 0); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));
