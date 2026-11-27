@@ -20,6 +20,7 @@ import android.os.Message
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -212,6 +213,7 @@ class MainActivity : ComponentActivity() {
         findViewById<View>(R.id.findNext).setOnClickListener { active?.web?.findNext(true) }
         findViewById<View>(R.id.findPrev).setOnClickListener { active?.web?.findNext(false) }
         findViewById<View>(R.id.findClose).setOnClickListener { closeFind() }
+        setupSwipes()
 
         address.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) {
@@ -305,6 +307,49 @@ class MainActivity : ComponentActivity() {
         if (!background || active == null) activate(tab) else updateUi()
         if (!isPrivate) sync.noteChange("tabs", true)
         return tab
+    }
+
+    // ---------- Wischgesten: über die Adressleiste = Tab wechseln, über die untere Leiste = zurück/vor
+    // (die Bildschirmränder gehören bei vielen Handys schon der System-Zurück-Geste)
+    @SuppressLint("ClickableViewAccessibility")
+    private fun onSwipe(v: View, action: (Int) -> Unit) {
+        var x0 = 0f
+        var y0 = 0f
+        v.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { x0 = e.rawX; y0 = e.rawY; false }
+                MotionEvent.ACTION_UP -> {
+                    val dx = e.rawX - x0
+                    val dy = e.rawY - y0
+                    if (kotlin.math.abs(dx) > dp(70) && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) { action(if (dx > 0) 1 else -1); true } else false
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun setupSwipes() {
+        // Adressleiste: nach links wischen = nächster Tab, nach rechts = vorheriger (nur solange nicht getippt wird)
+        val tabSwipe: (Int) -> Unit = { dir ->
+            val t = active
+            if (t != null && !address.hasFocus()) {
+                val list = tabs.filter { it.isPrivate == t.isPrivate }
+                val i = list.indexOf(t) - dir
+                if (i in list.indices) { activate(list[i]); toast("Tab ${i + 1} von ${list.size}") }
+            }
+        }
+        onSwipe(address, tabSwipe)
+        onSwipe(findViewById(R.id.addressBox), tabSwipe)
+        // Untere Leiste: nach rechts wischen = zurück, nach links = vor
+        val navSwipe: (Int) -> Unit = { dir ->
+            val w = active?.web
+            if (w != null) {
+                if (dir > 0 && w.canGoBack()) w.goBack()
+                if (dir < 0 && w.canGoForward()) w.goForward()
+            }
+        }
+        onSwipe(bottomBar, navSwipe)
+        (bottomBar as? ViewGroup)?.let { g -> for (i in 0 until g.childCount) onSwipe(g.getChildAt(i), navSwipe) }
     }
 
     private fun activate(tab: Tab) {
