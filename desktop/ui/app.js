@@ -567,8 +567,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -897,6 +897,26 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Bildschirmzeit
+const fmtDur = s => { const m = Math.round(s / 60); return m < 1 ? 'unter 1 Min.' : m < 60 ? m + ' Min.' : Math.floor(m / 60) + ' Std.' + (m % 60 ? ' ' + (m % 60) + ' Min.' : ''); };
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+async function renderScreenTime() {
+  const body = $('#panel-body');
+  const d = await api.call('screenTime');
+  if (panelKind !== 'screentime' || !d) return;
+  const maxDay = Math.max(1, ...d.week.map(x => x.seconds)), maxSite = Math.max(1, ...d.sites.map(x => x.seconds));
+  body.innerHTML = `<div class="st-total"><small>Heute</small><b>${esc(fmtDur(d.total))}</b></div>
+    <div class="st-week">${d.week.map(x => `<div class="st-col${x.today ? ' today' : ''}" title="${esc(fmtDur(x.seconds))}"><i style="height:${Math.round(x.seconds / maxDay * 100)}%"></i><small>${WD[x.day]}</small></div>`).join('')}</div>
+    ${d.sites.length ? `<div class="p-day">Heute am längsten</div>` + d.sites.map(s => `<div class="p-item st-site"><span class="fav">${iconImg('https://' + s.host, s.host)}</span>
+      <div class="txt"><div>${esc(s.host)}</div><div class="st-bar"><i style="width:${Math.max(2, Math.round(s.seconds / maxSite * 100))}%"></i></div></div><time>${esc(fmtDur(s.seconds))}</time></div>`).join('')
+      : '<p class="p-empty">Heute noch nichts gezählt. Sakura zählt, wie lange eine Seite im Vordergrund ist, während du Sakura benutzt.</p>'}
+    <p class="p-note">Bleibt nur auf diesem PC, wird nicht synchronisiert. Private Fenster zählen nicht.</p>
+    <label class="switch" style="margin:0 8px"><input type="checkbox" id="st-on"${d.off ? '' : ' checked'}><span>Bildschirmzeit aufzeichnen</span></label>
+    <div class="row pw-actions"><button class="btn danger" id="st-clear">Daten löschen</button></div>`;
+  $('#st-on').onchange = e => api.call('screenTimeOff', !e.target.checked);
+  $('#st-clear').onclick = async () => { await api.call('screenTimeClear'); renderScreenTime(); };
+}
+
 // ------------------------------------------------------------ Live-Kanäle
 async function renderLive() {
   const body = $('#panel-body');

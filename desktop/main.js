@@ -1,7 +1,7 @@
 // Sakura – Hauptprozess
 const {
   app, BaseWindow, BrowserWindow, WebContentsView, ipcMain, session, protocol, Menu, clipboard, net,
-  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification, safeStorage, nativeImage
+  dialog, webContents, shell, nativeTheme, screen, webFrameMain, globalShortcut, Notification, safeStorage, nativeImage, powerMonitor
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -20,6 +20,7 @@ let phishGuard = null;
 const phishPending = new Map(); // webContentsId → blockierte Adresse (Betrugsverdacht)
 const focusPending = new Map(); // webContentsId → im Fokus-Modus gesperrte Adresse
 const Focus = require('./lib/focus');
+const { ScreenTime } = require('./lib/screentime');
 const focusCfg = () => Focus.normalize(store.data.focus);
 const fmtTime = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const Sync = require('./lib/sync');
@@ -63,6 +64,7 @@ const PANEL_URLS = /^(?:chrome|sakura|about):\/?\/?(extensions|downloads|history
 
 // Die Daten werden schon vor dem Start gelesen, weil „Webseiten immer dunkel“ ein Startschalter ist
 const store = new Store(app.getPath('userData'));
+const screenTime = new ScreenTime(store);
 const startTheme = store.prefs().siteTheme;
 // Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
 // Weiches Scrollen auf Webseiten (Einstellung „Animationen“, wirkt nach einem Neustart)
@@ -1440,6 +1442,25 @@ async function sendGlass(w) {
   } catch {}
 }
 
+// Bildschirmzeit: alle 15 Sekunden der Seite im Vordergrund gutschreiben (nur wenn Sakura aktiv benutzt wird)
+let stLast = Date.now(), stTicks = 0;
+function screenTimeTick() {
+  const now = Date.now(), dt = Math.min(60, (now - stLast) / 1000);
+  stLast = now;
+  if (store.data.screenTimeOff) return;
+  const w = [...windows].find(x => !x.isPrivate && !x.win.isDestroyed() && x.win.isFocused() && !x.win.isMinimized());
+  const t = w && w.active;
+  if (!t) return;
+  let idle = 0;
+  try { idle = powerMonitor.getSystemIdleTime(); } catch {}
+  if (idle > 120 && !t.audible) return; // weg vom PC (außer es läuft ein Video)
+  let host = '';
+  try { const u = new URL(w.displayUrl(t.url)); if (/^https?:$/.test(u.protocol)) host = u.hostname; } catch {}
+  if (!host) return;
+  screenTime.add(host, dt, now);
+  if (++stTicks % 4 === 0) store.save();
+}
+
 // Fokus-Modus: beim Start gesperrte Seiten, die schon offen sind, neu laden (dann greift die Sperre)
 let focusWasOn = false;
 function focusReloadTabs() {
@@ -2222,6 +2243,10 @@ const uiCommands = {
     return { url, img: q.createDataURL(6, 4) };
   },
   copyUrl: w => { const a = w.active; const url = a ? w.displayUrl(a.pending || a.url) : ''; if (url) clipboard.writeText(url); return !!url; },
+  // Bildschirmzeit
+  screenTime: () => ({ ...screenTime.summary(), off: !!store.data.screenTimeOff }),
+  screenTimeClear: () => { screenTime.clear(); store.save(); return true; },
+  screenTimeOff: (w, off) => { store.data.screenTimeOff = !!off; store.save(); return true; },
   // Fokus-Modus
   focusGet: () => ({ cfg: focusCfg(), until: Focus.activeUntil(store.data.focus) }),
   focusSet: (w, patch) => {
@@ -2572,6 +2597,7 @@ app.whenReady().then(async () => {
   phishGuard = new PhishGuard({ userDir, fetch: u => net.fetch(u) });
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
+  setInterval(screenTimeTick, 15000);
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
   blocker.onFocus = (id, url) => focusPending.set(id, url);
   setInterval(() => { const on = !!Focus.activeUntil(store.data.focus); if (on !== focusWasOn) { focusWasOn = on; broadcastState(); if (on) focusReloadTabs(); } }, 30000);

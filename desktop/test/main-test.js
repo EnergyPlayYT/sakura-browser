@@ -158,6 +158,10 @@ setTimeout(async()=>{
     assert((await call('state')).focusUntil > 0);
     await rs('focusSet', { sites: ['https://www.Spiel.example/x', 'kaputt'] }); assert.deepEqual((await rs('focusGet')).cfg.sites, ['spiel.example']);
     await rs('focusStop'); assert.equal((await call('state')).focusUntil, 0); }
+  // Bildschirmzeit: Übersicht, ausschalten, löschen
+  { const d = await call('screenTime'); assert.equal(d.week.length, 7); assert.equal(d.off, false);
+    await call('screenTimeOff', true); assert.equal((await call('screenTime')).off, true); await call('screenTimeOff', false);
+    await call('screenTimeClear'); assert.equal((await call('screenTime')).total, 0); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));
