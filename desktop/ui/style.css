@@ -720,3 +720,11 @@ body.has-snap :is(.pop, #suggest, #panel)::before {
 #tab-preview .tp-txt { padding: 9px 12px 10px; }
 #tab-preview b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tab-preview small { display: block; color: var(--usuzumi); margin-top: 2px; }
+/* Befehlssuche (Strg+K) */
+#tabsearch.palette { width: min(620px, 92vw); left: calc(50% - min(310px, 46vw)); }
+#ts-list .sfav.cmd { background: rgba(var(--sakura-rgb), .14); color: var(--sakura); }
+#ts-list .sfav.cmd svg { width: 12px; height: 12px; }
+#menu .mpage > .msearch { justify-content: flex-start; gap: 10px; margin-bottom: 6px; color: var(--usuzumi);
+  background: rgba(var(--washi-rgb), .06); box-shadow: inset 0 0 0 1px var(--rim); border-radius: 12px; }
+#menu .msearch svg { width: 15px; height: 15px; }
+#menu .msearch kbd { margin-left: auto; }

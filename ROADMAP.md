@@ -67,7 +67,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Passwort-Generator: starkes Passwort bei der Registrierung vorschlagen und speichern.
 - [x] QR-Code der Seite (zum Öffnen auf einem anderen Handy).
 - [x] Tab-Vorschau: Vorschaubild beim Überfahren eines Tabs.
-- [ ] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
+- [x] Befehlssuche (Strg+K): Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen in einem Feld.
 - [ ] Link-Vorschau: langes Drücken auf einen Link öffnet eine schwebende Vorschau.
 - [ ] Vertikale Tabs (wahlweise links untereinander).
 - [ ] Fokus-Modus: ablenkende Seiten zu bestimmten Zeiten sperren.

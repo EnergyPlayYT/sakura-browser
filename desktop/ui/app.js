@@ -426,6 +426,7 @@ $('#menu').addEventListener('click', e => {
   if (b.dataset.panel) { openPanel(b.dataset.panel); return; }
   if (b.dataset.panelPop === 'media') { openMedia(); return; }
   if ('tabsearch' in b.dataset) { openTabSearch(); return; }
+  if ('palette' in b.dataset) { openTabSearch('all'); return; }
   if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
   if (b.dataset.cmd === 'qrOpen') { openQr(); return; }
   if (b.dataset.cmd === 'liveToggle') { closeOverlay(); api.call('liveToggle').then(r => r && showToast(r.error || r.message)); return; }
@@ -1055,33 +1056,91 @@ async function renderPasswords(filter = '', note = null) {
 }
 
 // ------------------------------------------------------------ Tab-Suche (Strg+Umschalt+A)
-let tsData = { open: [], closed: [] }, tsItems = [], tsSel = 0;
-async function openTabSearch() {
-  if (overlay === 'tabsearch') return closeOverlay();
+let tsData = { open: [], closed: [], bookmarks: [] }, tsItems = [], tsSel = 0, tsMode = 'tabs', tsHist = [], tsHistQ = '', tsHistT = null;
+// Befehlssuche (Strg+K): Befehle aus dem Menü, Einstellungen, Tabs, Lesezeichen und Verlauf in einem Feld
+const SETTINGS_CATS = [['sync', 'Synchronisation'], ['start', 'Startseite und Hintergrund'], ['search', 'Suchmaschine'], ['look', 'Design und Erscheinungsbild'],
+  ['privacy', 'Datenschutz und Sicherheit'], ['passwords', 'Passwort-Einstellungen'], ['tabs', 'Tabs und Surfen'], ['video', 'Videos und YouTube'],
+  ['twitch', 'Twitch und Steam'], ['perf', 'Leistung und Gaming'], ['import', 'Daten importieren'], ['about', 'Über Sakura und Updates'], ['remote', 'Fernsteuerung']];
+function menuCommands() {
+  const out = [];
+  for (const b of document.querySelectorAll('#menu .mpage > button, #menu .mquick button')) {
+    if (b.classList.contains('mback') || b.classList.contains('mgroup') || 'palette' in b.dataset) continue;
+    const label = (b.querySelector('span') || b.firstChild || b).textContent.trim();
+    const kbd = b.querySelector('kbd');
+    if (label) out.push({ kind: 'cmd', title: label, hint: kbd ? kbd.textContent : (b.title || ''), btn: b });
+  }
+  for (const [cat, label] of SETTINGS_CATS) out.push({ kind: 'set', title: 'Einstellungen: ' + label, cat });
+  return out;
+}
+const norm = s => String(s || '').toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+async function openTabSearch(mode = 'tabs') {
+  if (overlay === 'tabsearch' && tsMode === mode) return closeOverlay();
   openOverlay('tabsearch');
+  tsMode = mode;
   $('#tabsearch').hidden = false;
+  $('#tabsearch').classList.toggle('palette', mode === 'all');
   tsData = (await api.call('tabSearch')) || { open: [], closed: [] };
-  const q = $('#ts-q'); q.value = ''; q.focus();
+  tsData.bookmarks = mode === 'all' ? ((await api.call('bookmarks')) || []) : [];
+  tsHist = []; tsHistQ = '';
+  const q = $('#ts-q'); q.value = ''; q.placeholder = mode === 'all' ? 'Befehle, Tabs, Lesezeichen, Verlauf, Einstellungen …' : 'Tabs durchsuchen'; q.focus();
+  tsSel = 0;
   paintTabSearch();
 }
 function paintTabSearch() {
-  const q = $('#ts-q').value.trim().toLowerCase();
-  const hit = t => !q || (t.title || '').toLowerCase().includes(q) || (t.url || '').toLowerCase().includes(q);
-  const open = tsData.open.filter(hit), closed = tsData.closed.filter(hit);
-  tsItems = [...open.map(t => ({ kind: 'open', ...t })), ...closed.map(t => ({ kind: 'closed', ...t }))];
+  const raw = $('#ts-q').value.trim();
+  const words = norm(raw).split(/\s+/).filter(Boolean);
+  const hit = (...fields) => { const h = norm(fields.join(' ')); return words.every(w => h.includes(w)); };
+  const open = tsData.open.filter(t => hit(t.title, t.url)), closed = tsData.closed.filter(t => hit(t.title, t.url));
+  const groups = [];
+  if (tsMode === 'all') {
+    const cmds = menuCommands().filter(c => hit(c.title));
+    if (cmds.length) groups.push(['Befehle', raw ? cmds.slice(0, 8) : cmds.slice(0, 6)]);
+    if (open.length) groups.push([`Offene Tabs (${open.length})`, open.slice(0, raw ? 6 : 5).map(t => ({ kind: 'open', ...t }))]);
+    if (raw) {
+      const bms = tsData.bookmarks.filter(b => hit(b.title, b.url, b.folder)).slice(0, 5);
+      if (bms.length) groups.push(['Lesezeichen', bms.map(b => ({ kind: 'bm', title: b.title || b.url, url: b.url }))]);
+      if (tsHist.length) groups.push(['Verlauf', tsHist.slice(0, 5).map(h => ({ kind: 'hist', title: h.title || h.url, url: h.url }))]);
+      if (closed.length) groups.push(['Zuletzt geschlossen', closed.slice(0, 3).map(t => ({ kind: 'closed', ...t }))]);
+      // Verlauf nachladen (kurz verzögert, nicht bei jedem Tastendruck)
+      if (tsHistQ !== raw) {
+        clearTimeout(tsHistT);
+        tsHistT = setTimeout(async () => {
+          const h = await api.call('history', raw);
+          if ($('#ts-q').value.trim() !== raw) return;
+          tsHistQ = raw; tsHist = Array.isArray(h) ? h : [];
+          paintTabSearch();
+        }, 160);
+      }
+    }
+  } else {
+    if (open.length) groups.push([`Offene Tabs (${open.length})`, open.map(t => ({ kind: 'open', ...t }))]);
+    if (closed.length) groups.push(['Zuletzt geschlossen', closed.map(t => ({ kind: 'closed', ...t }))]);
+  }
+  tsItems = groups.flatMap(g => g[1]);
   tsSel = Math.min(tsSel, Math.max(0, tsItems.length - 1));
-  const li = (t, i) => `<li data-i="${i}" class="${i === tsSel ? 'sel' : ''}${t.active ? ' cur' : ''}"><span class="sfav">${t.url ? iconImg(t.url, t.title) : '<i class="ficon-l">桜</i>'}</span>
-    <span class="t">${esc(t.title)}</span><small>${esc(t.kind === 'closed' ? 'geschlossen' : t.active ? 'aktueller Tab' : t.sleeping ? 'schläft' : t.here ? hostOf(t.url) : 'anderes Fenster')}</small></li>`;
+  const sub = t => t.kind === 'cmd' ? (t.hint || '') : t.kind === 'set' ? '' : t.kind === 'closed' ? 'geschlossen' : t.kind === 'bm' ? hostOf(t.url)
+    : t.kind === 'hist' ? hostOf(t.url) : t.active ? 'aktueller Tab' : t.sleeping ? 'schläft' : t.here ? hostOf(t.url) : 'anderes Fenster';
+  const icon = t => t.kind === 'cmd' || t.kind === 'set' ? `<svg><use href="#${t.kind === 'set' ? 'i-menu' : 'i-chev'}"/></svg>`
+    : t.url ? iconImg(t.url, t.title) : '<i class="ficon-l">桜</i>';
   let html = '', i = 0;
-  if (open.length) html += `<li class="ts-head">Offene Tabs (${open.length})</li>` + open.map(t => li({ kind: 'open', ...t }, i++)).join('');
-  if (closed.length) html += `<li class="ts-head">Zuletzt geschlossen</li>` + closed.map(t => li({ kind: 'closed', ...t }, i++)).join('');
+  for (const [head, items] of groups) {
+    html += `<li class="ts-head">${esc(head)}</li>`;
+    for (const t of items) { html += `<li data-i="${i}" class="${i === tsSel ? 'sel' : ''}${t.active ? ' cur' : ''}"><span class="sfav${t.kind === 'cmd' || t.kind === 'set' ? ' cmd' : ''}">${icon(t)}</span>
+      <span class="t">${esc(t.title)}</span><small>${esc(sub(t))}</small></li>`; i++; }
+  }
   $('#ts-list').innerHTML = html || '<li class="ts-head">Keine Treffer</li>';
+  const sel = $('#ts-list li.sel');
+  if (sel) sel.scrollIntoView({ block: 'nearest' });
 }
 function pickTabSearch(i) {
   const t = tsItems[i];
   if (!t) return;
   closeOverlay();
-  if (t.kind === 'open') api.call('focusTab', t.id); else api.call('reopenClosedAt', t.index);
+  if (t.kind === 'open') api.call('focusTab', t.id);
+  else if (t.kind === 'closed') api.call('reopenClosedAt', t.index);
+  else if (t.kind === 'cmd') t.btn.click();
+  else if (t.kind === 'set') api.call('openSettings', t.cat);
+  else if (t.url) api.call('navigate', t.url);
 }
 $('#ts-q').addEventListener('input', () => { tsSel = 0; paintTabSearch(); });
 $('#ts-q').addEventListener('keydown', e => {
@@ -1089,8 +1148,12 @@ $('#ts-q').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); pickTabSearch(tsSel); }
 });
 $('#ts-list').addEventListener('mousedown', e => { const l = e.target.closest('li[data-i]'); if (l) { e.preventDefault(); pickTabSearch(Number(l.dataset.i)); } });
-api.on('tab-search', openTabSearch);
-document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); openTabSearch(); } });
+api.on('tab-search', () => openTabSearch('tabs'));
+api.on('palette', () => openTabSearch('all'));
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); openTabSearch('tabs'); }
+  else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openTabSearch('all'); }
+});
 
 // ------------------------------------------------------------ Video und Ton
 let mediaTick = null;

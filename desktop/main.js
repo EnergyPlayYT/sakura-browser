@@ -1809,6 +1809,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (i.alt && k === 'arrowright') act && act.navigationHistory.goForward();
     else if (c && i.shift && k === 'm') w.toggleMute(w.activeId);
     else if (c && i.shift && k === 'a') { w.ui.webContents.focus(); w.ui.webContents.send('tab-search'); }
+    else if (c && !i.shift && k === 'k') { w.ui.webContents.focus(); w.ui.webContents.send('palette'); }
     else if (k === 'f11') w.win.setFullScreen(!w.win.isFullScreen());
     else if (k === 'f12' || (c && i.shift && k === 'i')) act && act.toggleDevTools();
     else if (k === 'escape' && i.shift) w.ui.webContents.send('open-panel', 'performance');
