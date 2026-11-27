@@ -82,5 +82,5 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Seiten-Lautstärke: eigener Lautstärkeregler pro Tab.
 - [x] Bild-in-Bild per Knopf am Video (nicht automatisch).
 - [x] Wegwerf-E-Mail: anonyme Adresse per Klick, Posteingang in Sakura.
-- [ ] Clip-Knopf: die letzten 30 Sekunden eines Videos/Streams speichern.
+- [x] Clip-Knopf: die letzten 30 Sekunden eines Videos/Streams speichern.
 - [ ] Android: Widget für den Startbildschirm (Suchfeld, öffnet Sakura).

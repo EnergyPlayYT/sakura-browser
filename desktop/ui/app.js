@@ -1279,6 +1279,10 @@ async function openMedia() {
     <div class="m-sec"><b>Sleep-Timer</b> <span id="m-sleep-txt">${esc(sleepLabel())}</span>
       <div class="m-chips">${[['0', 'Aus'], ['15', '15 Min.'], ['30', '30 Min.'], ['60', '1 Std.'], ['ep', 'Ende der Folge']].map(([v, l]) =>
         `<button data-sleep="${v}" class="${(v === '0' && !m.sleep) || (m.sleep && (m.sleep.mode === 'episode' ? v === 'ep' : String(m.sleep.minutes) === v)) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    <div class="m-sec">
+      <label class="switch"><input type="checkbox" id="m-clip"${m.clip ? ' checked' : ''}><span>Clip bereit – merkt sich laufend die letzten 30 Sek.</span></label>
+      <div class="row"><button class="btn primary" id="m-clip-save"${m.clip ? '' : ' disabled'}>Clip speichern</button><small class="m-hint">Alt+C</small></div>
+    </div>
     ${m.twitch ? `<div class="m-sec">
       <label class="switch"><input type="checkbox" id="m-audio"${m.audioOnly ? ' checked' : ''}><span>Nur Ton – Bild aus, spart Daten und Leistung</span></label>
     </div>` : ''}
@@ -1310,6 +1314,12 @@ async function openMedia() {
     if (r && r.error) { e.target.checked = !e.target.checked; note(r); }
     else note({ notes: r && r.mode === 'klein' ? ['Twitch bietet hier keine reine Tonspur – Sakura nutzt die kleinste Qualität und blendet das Bild aus.'] : [] });
   };
+  $('#m-clip').onchange = async e => {
+    const r = await api.call('clipArm', e.target.checked);
+    if (r && r.error) { e.target.checked = false; note(r); }
+    $('#m-clip-save').disabled = !(r && r.armed);
+  };
+  $('#m-clip-save').onclick = async () => { const r = await api.call('clipSave'); if (r && r.error) note(r); };
   $('#m-cinema').onchange = async e => note(await api.call('mediaSet', { cinema: e.target.checked }));
   $('#m-dialog').onchange = async e => note(await api.call('mediaSet', { dialog: e.target.checked }));
   $('#m-reset').onclick = async () => { await api.call('mediaReset'); openMedia(); };

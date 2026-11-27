@@ -556,7 +556,7 @@ class SakuraWindow {
     });
     wc.on('did-navigate', (e, u) => {
       if (tab.sleeping) return;
-      tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false; tab.audioOnly = false;
+      tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false; tab.audioOnly = false; tab.clipArmed = false;
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
       const note = !tab.w.isPrivate && noteFor(u);
@@ -1413,6 +1413,22 @@ async function mediaCall(wc, expr) {
   if (!mediaScript) return null;
   try { return await wc.executeJavaScript(`${mediaScript}\n;(${expr})`, true); } catch { return null; }
 }
+// Clip-Knopf (assets/clip.js): letzte 30 Sekunden eines Videos speichern
+let clipScript = null;
+async function clipCall(wc, expr) {
+  if (!wc || wc.isDestroyed() || !/^https?:/i.test(wc.getURL())) return null;
+  if (clipScript == null) { try { clipScript = fs.readFileSync(path.join(__dirname, 'assets', 'clip.js'), 'utf8'); } catch { clipScript = ''; } }
+  if (!clipScript) return null;
+  try { return await wc.executeJavaScript(`${clipScript}\n;(${expr})`, true); } catch { return null; }
+}
+async function clipSave(w) {
+  const t = w.active;
+  const r = t ? await clipCall(t.view.webContents, 'window.__sakuraClip.save()') : null;
+  const msg = !r ? 'Auf dieser Seite gibt es kein Video.' : r.error ? r.error : `Clip gespeichert (${r.seconds} Sek.) – er liegt im Download-Ordner.`;
+  if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send('toast', msg);
+  return r || { error: msg };
+}
+
 function applyTabMedia(tab) {
   const host = hostOfUrl(tab.url);
   const st = { ...siteMedia(host), cinema: !!(tab.media && tab.media.cinema), volume: tab.volume == null ? 100 : tab.volume };
@@ -1981,6 +1997,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (i.alt && k === 'arrowleft') act && act.navigationHistory.goBack();
     else if (i.alt && k === 'arrowright') act && act.navigationHistory.goForward();
     else if (c && i.shift && k === 'm') w.toggleMute(w.activeId);
+    else if (i.alt && !c && !i.shift && k === 'c' && w && w.ui) clipSave(w); // Clip speichern
     else if (c && i.shift && k === 'a') { w.ui.webContents.focus(); w.ui.webContents.send('tab-search'); }
     else if (c && !i.shift && k === 'k') { w.ui.webContents.focus(); w.ui.webContents.send('palette'); }
     else if (k === 'f11') w.win.setFullScreen(!w.win.isFullScreen());
@@ -2269,7 +2286,7 @@ const uiCommands = {
     if (!t) return null;
     const host = hostOfUrl(t.url);
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
-    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+    return { host, ...siteMedia(host), clip: !!t.clipArmed, cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
   editGroup: (w, id) => { w.ui.webContents.send('edit-group', id); w.sendState(); return true; },
   linkPreviewClose: w => { w.closeLinkPreview(); return true; },
@@ -2368,6 +2385,14 @@ const uiCommands = {
   liveList: () => liveWatch.list().map(c => ({ key: c.key, kind: c.kind, name: c.name, url: liveWatch.liveUrl(c), live: !!c.live, title: c.title || '', checked: c.checked || 0 })),
   liveRemove: (w, key) => { liveWatch.remove(String(key)); broadcastState(); return true; },
   liveCheckNow: async () => { await liveWatch.check(); return true; },
+  clipArm: async (w, on) => {
+    const t = w.active;
+    const r = t ? await clipCall(t.view.webContents, `window.__sakuraClip.arm(${on ? 'true' : 'false'})`) : null;
+    if (t) t.clipArmed = !!(r && r.armed);
+    w.sendState();
+    return r || { error: 'Auf dieser Seite gibt es kein Video.' };
+  },
+  clipSave: w => clipSave(w),
   twitchAudio: async (w, on) => w.active ? setTwitchAudio(w.active, !!on) : null,
   mediaSet: async (w, patch) => {
     const t = w.active;
