@@ -268,7 +268,7 @@ function renderTabs() {
     else if (t.favicon) fav = `<span class="fav"><img src="${esc(t.favicon)}" alt=""></span>`;
     else if (t.url && iconUrl(t.url)) fav = `<span class="fav"><img src="${esc(iconUrl(t.url))}" alt=""></span>`;
     else fav = `<span class="fav letter">${esc(letterOf(t.title))}</span>`;
-    el.innerHTML = `${fav}<span class="title">${esc(t.title)}</span>${t.muted ? '<svg class="snd muted" data-mute><title>Ton einschalten</title><use href="#i-muted"/></svg>' : t.audible ? '<svg class="snd" data-mute><title>Stummschalten</title><use href="#i-sound"/></svg>' : ''}<button class="close" title="Tab schließen (Strg+W)"><svg><use href="#i-x"/></svg></button>${g ? '<span class="gline"></span>' : ''}`;
+    el.innerHTML = `${fav}<span class="title">${esc(t.title)}</span>${t.muted ? '<svg class="snd muted" data-mute><title>Ton einschalten</title><use href="#i-muted"/></svg>' : t.audible ? '<svg class="snd" data-mute><title>Stummschalten</title><use href="#i-sound"/></svg>' : ''}${t.volume != null && !t.muted ? `<small class="vol" title="Lautstärke dieses Tabs">${Number(t.volume)} %</small>` : ''}<button class="close" title="Tab schließen (Strg+W)"><svg><use href="#i-x"/></svg></button>${g ? '<span class="gline"></span>' : ''}`;
     const img = el.querySelector('img');
     if (img) img.onerror = () => { img.parentElement.className = 'fav letter'; img.parentElement.textContent = letterOf(t.title); };
     el.addEventListener('mousedown', e => {
@@ -1232,6 +1232,9 @@ async function openMedia() {
       <label class="switch"><input type="checkbox" id="m-audio"${m.audioOnly ? ' checked' : ''}><span>Nur Ton – Bild aus, spart Daten und Leistung</span></label>
     </div>` : ''}
     <div class="m-sec">
+      ${range('m-vol', 0, 200, m.volume == null ? 100 : m.volume, 'Lautstärke dieses Tabs', ' %')}
+    </div>
+    <div class="m-sec">
       <label class="switch"><input type="checkbox" id="m-cinema"${m.cinema ? ' checked' : ''}><span>Kino-Modus – alles außer dem Video abdunkeln</span></label>
       ${range('m-bright', 50, 150, m.brightness, 'Helligkeit', ' %')}
     </div>
@@ -1247,9 +1250,9 @@ async function openMedia() {
   const send = patch => { clearTimeout(t); t = setTimeout(async () => note(await api.call('mediaSet', patch)), 120); };
   pop.querySelectorAll('input[type=range]').forEach(r => r.addEventListener('input', () => {
     const out = r.parentElement.querySelector('output');
-    if (out) out.textContent = r.value + (r.id === 'm-bright' ? ' %' : ' dB');
+    if (out) out.textContent = r.value + (r.id === 'm-bright' || r.id === 'm-vol' ? ' %' : ' dB');
     if (r.dataset.eq) send({ eq: [...pop.querySelectorAll('[data-eq]')].map(x => Number(x.value)) });
-    else send(r.id === 'm-bright' ? { brightness: Number(r.value) } : { bass: Number(r.value) });
+    else send(r.id === 'm-bright' ? { brightness: Number(r.value) } : r.id === 'm-vol' ? { volume: Number(r.value) } : { bass: Number(r.value) });
   }));
   if ($('#m-audio')) $('#m-audio').onchange = async e => {
     const r = await api.call('twitchAudio', e.target.checked);

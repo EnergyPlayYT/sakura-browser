@@ -840,7 +840,8 @@ class SakuraWindow {
         floating: !!t.floating,
         container: t.container ? { n: t.container, name: containerName(t.container), color: CONTAINER_COLORS[t.container - 1] } : null,
         sleeping: !!t.pending && t.id !== this.activeId,
-        split: this.inSplit(t.id) || undefined
+        split: this.inSplit(t.id) || undefined,
+        volume: t.volume != null && t.volume !== 100 ? t.volume : undefined
       })),
       splitOn: !!this.splitPair(),
       url: realUrl,
@@ -1379,6 +1380,7 @@ function cleanMedia(p) {
   if ('dialog' in p) out.dialog = !!p.dialog;
   if ('eq' in p && Array.isArray(p.eq)) out.eq = [0, 1, 2, 3, 4].map(i => Math.max(-12, Math.min(12, Math.round(Number(p.eq[i]) || 0))));
   if ('cinema' in p) out.cinema = !!p.cinema;
+  if ('volume' in p) out.volume = Math.max(0, Math.min(200, Math.round(Number(p.volume))) || 0);
   return out;
 }
 async function mediaCall(wc, expr) {
@@ -1389,13 +1391,13 @@ async function mediaCall(wc, expr) {
 }
 function applyTabMedia(tab) {
   const host = hostOfUrl(tab.url);
-  const st = { ...siteMedia(host), cinema: !!(tab.media && tab.media.cinema) };
+  const st = { ...siteMedia(host), cinema: !!(tab.media && tab.media.cinema), volume: tab.volume == null ? 100 : tab.volume };
   return mediaCall(tab.view.webContents, `window.__sakuraMedia.apply(${JSON.stringify(st)})`);
 }
 /** Beim Laden: gemerkte Einstellungen der Seite anwenden (nur wenn nicht Standard) */
 function applySiteMedia(tab) {
   const host = hostOfUrl(tab.view.webContents.getURL());
-  if (!host || !(store.data.mediaSites || {})[host]) return;
+  if (!host || (!(store.data.mediaSites || {})[host] && (tab.volume == null || tab.volume === 100))) return;
   applyTabMedia(tab);
 }
 
@@ -2243,7 +2245,7 @@ const uiCommands = {
     if (!t) return null;
     const host = hostOfUrl(t.url);
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
-    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+    return { host, ...siteMedia(host), cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
   editGroup: (w, id) => { w.ui.webContents.send('edit-group', id); w.sendState(); return true; },
   linkPreviewClose: w => { w.closeLinkPreview(); return true; },
@@ -2342,6 +2344,7 @@ const uiCommands = {
     if (!host) return { error: 'Auf dieser Seite nicht möglich.' };
     const p = cleanMedia(patch || {});
     if ('cinema' in p) { t.media = { ...(t.media || {}), cinema: p.cinema }; delete p.cinema; }
+    if ('volume' in p) { t.volume = p.volume; delete p.volume; w.sendState(); } // gilt für den Tab, nicht für die Seite
     if (Object.keys(p).length) {
       if (!store.data.mediaSites || typeof store.data.mediaSites !== 'object') store.data.mediaSites = {};
       const next = { ...siteMedia(host), ...p };

@@ -5,7 +5,7 @@
   if (window.__sakuraMedia) return;
   const EQ_FREQ = [60, 250, 1000, 4000, 12000];
   const audio = new WeakMap(); // Medien-Element → { ctx, bass, dialog, eq[] }
-  let state = { cinema: false, brightness: 100, bass: 0, dialog: false, eq: [0, 0, 0, 0, 0] };
+  let state = { cinema: false, brightness: 100, bass: 0, dialog: false, eq: [0, 0, 0, 0, 0], volume: 100 };
 
   const mainVideo = () => {
     let best = null, area = 0;
@@ -35,7 +35,7 @@
   }
 
   // ---------- Ton (Web Audio)
-  const audioActive = () => state.bass || state.dialog || state.eq.some(g => g);
+  const audioActive = () => state.bass || state.dialog || state.eq.some(g => g) || Number(state.volume) !== 100;
   /** Kann der Ton dieses Elements bearbeitet werden, ohne dass er verstummt? */
   function audioBlocked(m) {
     if (m.mediaKeys) return 'Geschützte Videos (z. B. Netflix) lassen keine Ton-Bearbeitung zu.';
@@ -63,10 +63,11 @@
     });
     // Dialog: Stimmen hervorheben, Bassdröhnen etwas zurück
     const dialogLow = ctx.createBiquadFilter(); dialogLow.type = 'lowshelf'; dialogLow.frequency.value = 200;
+    const vol = ctx.createGain(); // Lautstärke dieses Tabs (0–200 %)
     let node = src;
-    for (const n of [bass, dialogLow, dialog, ...eq]) { node.connect(n); node = n; }
+    for (const n of [bass, dialogLow, dialog, ...eq, vol]) { node.connect(n); node = n; }
     node.connect(ctx.destination);
-    a = { ctx, bass, dialog, dialogLow, eq };
+    a = { ctx, bass, dialog, dialogLow, eq, vol };
     audio.set(m, a);
     m.addEventListener('play', () => { if (ctx.state === 'suspended') ctx.resume(); });
     return a;
@@ -91,6 +92,7 @@
     a.dialog.gain.setTargetAtTime(state.dialog ? 6 : 0, t, 0.05);
     a.dialogLow.gain.setTargetAtTime(state.dialog ? -4 : 0, t, 0.05);
     a.eq.forEach((n, i) => n.gain.setTargetAtTime(Number(state.eq[i]) || 0, t, 0.05));
+    if (a.vol) a.vol.gain.setTargetAtTime(Math.max(0, Math.min(200, Number(state.volume) || 0)) / 100, t, 0.05);
     if (a.ctx.state === 'suspended') a.ctx.resume().catch(() => {});
   }
 

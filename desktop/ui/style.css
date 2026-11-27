@@ -782,3 +782,4 @@ body.side .tab .gline { display: none; }
 .sel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 8px 12px; color: var(--usuzumi); }
 .sel-row select { height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--rim); }
 .ar-open { cursor: pointer; }
+.tab .vol { flex: none; font-size: 10.5px; color: var(--sakura); font-variant-numeric: tabular-nums; }
