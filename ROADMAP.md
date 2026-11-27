@@ -61,3 +61,4 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Startseiten-Widgets: Wetter, Uhrzeit in Japan, Tageszitat (PC und Android).
 - [x] Tab ans Handy schicken und umgekehrt (über den Sync).
 - [x] Oberfläche im Liquid-Glass-Stil: Glas-Flächen mit durchscheinender Seite, runde Kapseln, federnde Animationen.
+- [x] Fernsteuerung (abschaltbar, standardmäßig aus): Programme auf diesem PC, z. B. Claude über Chrome DevTools MCP, dürfen Sakura bedienen.

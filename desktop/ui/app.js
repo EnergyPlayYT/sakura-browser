@@ -73,6 +73,7 @@ function render() {
   $('#scripts-ind').hidden = !S.scripts;
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
+  $('#remote-tag').hidden = !S.remote;
   $('#reader-btn').classList.toggle('on', !!S.reader);
   $('#reader-btn').title = S.reader ? 'Lesemodus beenden (F9)' : 'Lesemodus (F9)';
   $('#gaming-ind').hidden = !S.gaming;
@@ -1203,6 +1204,7 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+$('#remote-tag').onclick = () => api.call('openSettings', 'remote');
 $('#note-text').oninput = () => { clearTimeout(noteT); noteT = setTimeout(saveNote, 600); $('#note-del').hidden = !$('#note-text').value; };
 $('#note-ok').onclick = () => closeOverlay();
 $('#note-del').onclick = () => { $('#note-text').value = ''; closeOverlay(); };

@@ -137,6 +137,7 @@ async function renderSettings() {
     <div class="row"><button class="btn" id="pw-open">Passwörter verwalten</button></div>
   </section>
   <section class="set" id="pin-sec"></section>
+  <section class="set" id="remote-sec"></section>
   <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
@@ -231,6 +232,7 @@ async function renderSettings() {
   $('#vd-next').onchange = e => api.call('setPrefs', { autoNext: e.target.checked });
   bindContainers(p);
   bindPin();
+  bindRemote();
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-on').onchange = e => {
@@ -283,6 +285,32 @@ function bindDesign(p) {
     $('#accent-reset').hidden = true;
     api.call('setPrefs', { accent: '' });
   };
+}
+
+// Fernsteuerung: Programme auf diesem PC (z. B. Claude über „Chrome DevTools MCP“) dürfen Sakura bedienen
+async function bindRemote() {
+  const sec = $('#remote-sec');
+  if (!sec) return;
+  const st = await api.call('remoteStatus');
+  const url = `http://127.0.0.1:${st.port}`;
+  const cfg = JSON.stringify({ mcpServers: { sakura: { command: 'npx', args: ['-y', 'chrome-devtools-mcp@latest', '--browserUrl=' + url] } } });
+  sec.innerHTML = `<h3>Fernsteuerung</h3>
+    <label class="switch"><input type="checkbox" id="remote-on"${st.enabled ? ' checked' : ''}><span>Programme auf diesem PC dürfen Sakura steuern</span></label>
+    <p class="msg-error">Achtung: Solange das an ist, kann jedes Programm auf deinem PC Sakura bedienen – auch deine eingeloggten Konten, Cookies und Seiten. Aus dem Internet geht das nicht. Schalte es nur ein, wenn du es gerade brauchst.</p>
+    <p>${st.active ? `Die Fernsteuerung ist offen unter <code>${esc(url)}</code>. Oben in der Tab-Leiste steht dann „Fernsteuerung an“.` : 'Die Fernsteuerung ist geschlossen.'}</p>
+    <div class="row" id="remote-restart"${st.enabled !== st.active ? '' : ' hidden'}><p style="margin:0;flex:1">Wird nach einem Neustart aktiv.</p><button class="btn primary" id="remote-relaunch">Jetzt neu starten</button></div>
+    <details><summary>So steuert Claude Sakura</summary>
+      <p>1. Schalter oben einschalten und Sakura neu starten.<br>2. In der Claude-Desktop-App: Einstellungen → Entwickler → Konfiguration bearbeiten, und diesen Text in die Datei einfügen (Node.js muss installiert sein):</p>
+      <pre class="cfg">${esc(cfg)}</pre>
+      <div class="row"><button class="btn" id="remote-copy">Text kopieren</button></div>
+      <p>3. Claude-Desktop neu starten. Danach kann Claude Seiten in Sakura öffnen, klicken, tippen und Bildschirmfotos machen.</p>
+    </details>`;
+  $('#remote-on').onchange = async e => {
+    const r = await api.call('remoteSet', e.target.checked);
+    $('#remote-restart').hidden = !(r && r.restart);
+  };
+  $('#remote-relaunch').onclick = () => api.call('relaunch');
+  $('#remote-copy').onclick = async () => { await api.call('copyText', cfg); $('#remote-copy').textContent = 'Kopiert'; };
 }
 
 // PIN-Sperre für Verlauf und Passwörter
@@ -523,6 +551,7 @@ function tagSections() {
   }
 }
 function showCat(id) {
+  if (id === 'remote') { showCat('privacy'); setTimeout(() => { const s = $('#remote-sec'); if (s) s.scrollIntoView({ block: 'start' }); }, 120); return; }
   if (!CATS.some(c => c[0] === id)) id = 'sync';
   current = id;
   $('#q').value = '';

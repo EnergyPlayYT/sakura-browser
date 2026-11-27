@@ -61,6 +61,14 @@ const startTheme = store.prefs().siteTheme;
 // Medientasten (Play/Pause, Weiter, Zurück) steuern das gerade spielende Video – auch über die Windows-Medienanzeige
 // Weiches Scrollen auf Webseiten (Einstellung „Animationen“, wirkt nach einem Neustart)
 if (store.prefs().animations !== false) app.commandLine.appendSwitch('enable-smooth-scrolling');
+// Fernsteuerung (Einstellungen → Fernsteuerung): nur wenn ausdrücklich eingeschaltet, nur für Programme auf diesem PC.
+// Wird nicht synchronisiert – gilt nur für dieses Gerät.
+const REMOTE_PORT = 9222;
+const remoteControl = store.data.remoteControl === true;
+if (remoteControl) {
+  app.commandLine.appendSwitch('remote-debugging-port', String(REMOTE_PORT));
+  app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1');
+}
 app.commandLine.appendSwitch('enable-features', ['HardwareMediaKeyHandling', ...(startTheme === 'force' ? ['WebContentsForceDark'] : [])].join(','));
 
 let blocker, sync, extensions, downloads, updater, favicons, gameWatch, vault, watcher;
@@ -773,7 +781,8 @@ class SakuraWindow {
       animations: store.prefs().animations !== false,
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
-      note: !this.isPrivate && !!noteFor(realUrl), canNote: !this.isPrivate && !!noteKey(realUrl),
+      note: !this.isPrivate && !!noteFor(realUrl),
+      remote: remoteControl, canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
       sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null,
@@ -1982,6 +1991,13 @@ const uiCommands = {
     return { ok: true, blocklistSize: blocker.size, restart: (store.prefs().siteTheme === 'force') !== (startTheme === 'force') };
   },
   relaunch: () => { app.relaunch(); app.quit(); },
+  remoteStatus: () => ({ enabled: store.data.remoteControl === true, active: remoteControl, port: REMOTE_PORT }),
+  remoteSet: (w, on) => {
+    store.data.remoteControl = on === true;
+    store.save();
+    broadcastState();
+    return { ok: true, restart: store.data.remoteControl !== remoteControl };
+  },
   updateInfo: () => updater.info(),
   updateCheck: () => updater.check(),
   updateInstall: () => { saveSession(); quitting = true; store.flush(); updater.installNow(); },
@@ -2375,7 +2391,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist

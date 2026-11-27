@@ -140,6 +140,13 @@ setTimeout(async()=>{
     await call('activate', r.id); s2 = await call('state'); assert(s2.splitOn, 'Partner-Tab: wieder geteilt');
     await call('closeTab', l.id); s2 = await call('state'); assert(!s2.splitOn && !s2.tabs.some(t=>t.split), 'Schließen beendet die Teilung');
     await call('closeTab', r.id); }
+  // Fernsteuerung: nur über die Einstellungsseite, wirkt nach Neustart
+  { assert.deepEqual(await call('remoteStatus'), {enabled:false, active:false, port:9222});
+    const rs = (cmd, arg, url='sakura://settings/')=>mock._handlers.page({sender:tabWc, senderFrame:{url, parent:null}}, 'settings', {cmd, arg});
+    assert.equal(await rs('remoteSet', true, 'sakura://newtab/'), null, 'nicht von anderen Seiten');
+    assert.deepEqual(await rs('remoteSet', true), {ok:true, restart:true});
+    assert.equal((await call('remoteStatus')).enabled, true); assert.equal((await call('state')).remote, false, 'erst nach Neustart offen');
+    await rs('remoteSet', false); assert.equal((await call('remoteStatus')).enabled, false); }
   // PIN-Sperre
   { assert.deepEqual(await call('pinStatus'), {enabled:false, locked:false});
     assert.equal((await call('pinSet', {pin:'2580'})).ok, true);
