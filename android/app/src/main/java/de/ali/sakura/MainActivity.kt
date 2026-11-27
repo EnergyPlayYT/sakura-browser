@@ -784,6 +784,13 @@ class MainActivity : ComponentActivity() {
         val uri = try { downloadManager.getUriForDownloadedFile(id) } catch (_: Exception) { null }
         if (uri == null) { toast("Die Datei gibt es nicht mehr"); return }
         val mime = downloadManager.getMimeTypeForDownloadedFile(id) ?: "*/*"
+        // APKs installiert Sakura nicht selbst (dafür bräuchte es ein Recht, das Google Play Protect als gefährlich einstuft) –
+        // stattdessen die Download-Übersicht des Handys öffnen, dort lässt sich die APK antippen
+        if (mime == "application/vnd.android.package-archive") {
+            try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: ActivityNotFoundException) { }
+            toast("Tippe die APK in der Download-Übersicht an, um sie zu installieren")
+            return
+        }
         try {
             startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
