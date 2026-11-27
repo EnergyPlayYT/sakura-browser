@@ -150,6 +150,8 @@ class MainActivity : ComponentActivity() {
         if (!restoreTabs()) newTab(start ?: NEWTAB)
         else if (start != null) newTab(start)
 
+        if (intent?.action == SearchWidget.ACTION_SEARCH) searchFromWidget()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = goBackOrLeave()
         })
@@ -157,7 +159,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.action == SearchWidget.ACTION_SEARCH) { searchFromWidget(); return }
         intentUrl(intent)?.let { newTab(it) }
+    }
+
+    /** Vom Startbildschirm-Widget: neuer Tab, Adressleiste mit Tastatur */
+    private fun searchFromWidget() {
+        val a = active
+        if (a == null || !a.url.startsWith(NEWTAB)) newTab(NEWTAB)
+        address.post {
+            address.requestFocus()
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(address, InputMethodManager.SHOW_IMPLICIT)
+        }
     }
 
     override fun onResume() {

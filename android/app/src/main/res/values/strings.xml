@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Sakura</string>
+    <string name="widget_description">Suchfeld für den Startbildschirm – öffnet Sakura mit neuem Tab</string>
 </resources>

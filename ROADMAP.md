@@ -83,4 +83,4 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Bild-in-Bild per Knopf am Video (nicht automatisch).
 - [x] Wegwerf-E-Mail: anonyme Adresse per Klick, Posteingang in Sakura.
 - [x] Clip-Knopf: die letzten 30 Sekunden eines Videos/Streams speichern.
-- [ ] Android: Widget für den Startbildschirm (Suchfeld, öffnet Sakura).
+- [x] Android: Widget für den Startbildschirm (Suchfeld, öffnet Sakura).
