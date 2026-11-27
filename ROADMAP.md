@@ -74,7 +74,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Bildschirmzeit: wie lange heute auf welchen Seiten (nur lokal).
 - [x] Tab-Archiv: lange unbenutzte Tabs automatisch aufräumen.
 - [x] Willkommens-Tour beim ersten Start (Design, Suchmaschine, Import, Sync).
-- [ ] Einstellungsseite im Liquid-Glass-Stil.
+- [x] Einstellungsseite im Liquid-Glass-Stil.
 - [ ] Android: Wischgesten (zurück/vor, Tab wechseln).
 - [ ] Android: Leseliste und Notizen.
 
