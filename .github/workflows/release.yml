@@ -63,7 +63,7 @@ jobs:
               print("### " + lines[0] + "\n" + "\n".join(body).strip() + "\n")
           '
             echo
-            echo "Installierte Sakura-Versionen aktualisieren sich von selbst. Neu installieren: **Sakura-Setup-$V.exe** unten herunterladen."
+            echo "Installierte Sakura-Versionen aktualisieren sich von selbst. Neu installieren: Windows **Sakura-Setup-$V.exe**, Linux **Sakura-$V.AppImage**, Android **Sakura-$V.apk** – unten bei den Dateien."
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
           # Erst als Entwurf: sichtbar (und für die Auto-Updates auffindbar) wird die Version erst,
@@ -94,6 +94,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis portable --publish always
+
+  linux:
+    name: Linux bauen
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Abhängigkeiten installieren
+        working-directory: desktop
+        run: npm install
+      - name: Repo für Updates eintragen
+        working-directory: desktop
+        run: npm pkg set "repository.type=git" "repository.url=https://github.com/${GITHUB_REPOSITORY}.git"
+      - name: Bauen und veröffentlichen (AppImage)
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux AppImage --publish always
 
   android:
     name: Android bauen
@@ -150,7 +173,7 @@ jobs:
   publish:
     name: Version freigeben
     # erst wenn Windows-Installer (latest.yml) und – falls möglich – die APK hochgeladen sind
-    needs: [version, windows, android]
+    needs: [version, windows, android, linux]
     if: always() && needs.windows.result == 'success'
     runs-on: ubuntu-latest
     steps:
