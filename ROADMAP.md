@@ -102,4 +102,4 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Textmarker: Text auf Seiten farbig markieren, bleibt beim nächsten Besuch.
 - [x] Webseite als App: eigenes Fenster mit Verknüpfung im Startmenü.
 - [x] Akku-Sparmodus für Laptops.
-- [ ] Discord-Anzeige („Surft mit Sakura“), standardmäßig aus.
+- [x] Discord-Anzeige („Surft mit Sakura“), standardmäßig aus.

@@ -147,6 +147,7 @@ async function renderSettings() {
   <section class="set" id="remote-sec"></section>
   <section class="set" id="focus-sec"><h3>Fokus-Modus</h3></section>
   <section class="set" id="apps-sec"><h3>Web-Apps</h3></section>
+  <section class="set" id="discord-sec"><h3>Discord-Anzeige</h3></section>
   <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
@@ -247,6 +248,7 @@ async function renderSettings() {
   bindRemote();
   bindFocus();
   bindApps();
+  bindDiscord();
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-on').onchange = e => {
@@ -332,6 +334,19 @@ function bindUpdate(info) {
     showUpdate(await api.call('updateCheck'));
   };
   if (info && info.state !== 'idle') showUpdate(info);
+}
+
+// Discord-Anzeige: „Surft mit Sakura“ im Discord-Profil
+async function bindDiscord() {
+  const sec = $('#discord-sec');
+  if (!sec) return;
+  const c = await api.call('discordGet');
+  sec.innerHTML = `<h3>Discord-Anzeige</h3>
+    <label class="switch"><input type="checkbox" id="dc-on"${c.on ? ' checked' : ''}${c.available ? '' : ' disabled'}><span>In meinem Discord-Profil „Surft mit Sakura“ zeigen</span></label>
+    <label class="switch"><input type="checkbox" id="dc-site"${c.showSite ? ' checked' : ''}${c.available && c.on ? '' : ' disabled'}><span>Auch die Seite bzw. das Video zeigen (z. B. „Schaut: …“)</span></label>
+    <p>${c.available ? 'Läuft nur, wenn die Discord-App auf diesem PC geöffnet ist. Private Fenster werden nie angezeigt.' : 'Diese Funktion ist noch nicht eingerichtet.'}</p>`;
+  $('#dc-on').onchange = async e => { await api.call('discordSet', { on: e.target.checked }); bindDiscord(); };
+  $('#dc-site').onchange = e => api.call('discordSet', { showSite: e.target.checked });
 }
 
 // Web-Apps: Seiten, die als eigenes Fenster mit Startmenü-Verknüpfung installiert sind
@@ -611,7 +626,7 @@ const CATS = [
   ['passwords', 'Passwörter', ['Passwörter']],
   ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung', 'Fokus-Modus', 'Web-Apps']],
   ['video', 'Videos und YouTube', ['YouTube', 'Videos und Serien']],
-  ['twitch', 'Twitch und Steam', ['Twitch', 'Multistream', 'Steam']],
+  ['twitch', 'Twitch und Steam', ['Twitch', 'Multistream', 'Steam', 'Discord-Anzeige']],
   ['perf', 'Leistung und Gaming', ['Leistung']],
   ['import', 'Daten importieren', ['Daten importieren']],
   ['about', 'Über Sakura', ['Über Sakura']]

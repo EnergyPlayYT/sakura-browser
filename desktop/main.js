@@ -23,6 +23,11 @@ const Focus = require('./lib/focus');
 const { ScreenTime } = require('./lib/screentime');
 const { TempMail } = require('./lib/tempmail');
 const WebApps = require('./lib/webapps');
+const { DiscordPresence } = require('./lib/discord');
+// Anwendungs-ID der Sakura-App im Discord-Entwicklerportal (discord.com/developers) – leer = Funktion noch nicht eingerichtet
+const DISCORD_CLIENT_ID = '';
+let discord = null;
+const discordStart = Date.now();
 const appWindows = new Map(); // Web-App-ID → BaseWindow
 let tempMail = null;
 const focusCfg = () => Focus.normalize(store.data.focus);
@@ -2716,6 +2721,14 @@ const uiCommands = {
   tempMailMessage: async (w, id) => { try { return await tempMail.message(String(id)); } catch (e) { return { error: e.message }; } },
   tempMailForget: () => { tempMail.forget(); return true; },
   tempMailCopy: () => { const i = tempMail && tempMail.info(); if (i) clipboard.writeText(i.address); return !!i; },
+  // Discord-Anzeige
+  discordGet: () => ({ ...discordCfg(), available: !!DISCORD_CLIENT_ID }),
+  discordSet: (w, patch = {}) => {
+    const c = discordCfg();
+    store.data.discord = { on: 'on' in patch ? !!patch.on : c.on, showSite: 'showSite' in patch ? !!patch.showSite : c.showSite };
+    store.save(); discordTick();
+    return discordCfg();
+  },
   // Webseite als App
   webAppInstall: async w => { const r = await installWebApp(w); w.ui.webContents.send('toast', r.error || r.message); return r; },
   webApps: () => webApps().map(({ id, url, title, at }) => ({ id, url, title, at })),
@@ -3091,7 +3104,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen', 'webApps', 'webAppOpen', 'webAppRemove'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen', 'webApps', 'webAppOpen', 'webAppRemove', 'discordGet', 'discordSet'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
@@ -3103,6 +3116,22 @@ for (const k of ['history', 'removeHistory', 'pwList', 'pwReveal', 'pwCopy', 'pw
 // ---------------------------------------------------------------- Start
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
+
+// ---------------------------------------------------------------- Discord-Anzeige
+const discordCfg = () => ({ on: false, showSite: false, ...(store.data.discord || {}) });
+function discordTick() {
+  const c = discordCfg();
+  if (!DISCORD_CLIENT_ID || !c.on) { if (discord) { discord.set(null); discord.close(); discord = null; } return; }
+  if (!discord) discord = new DiscordPresence({ clientId: DISCORD_CLIENT_ID });
+  let state = '';
+  if (c.showSite) {
+    const m = mediaTabId != null ? findTab(mediaTabId) : null;
+    const w = [...windows].find(x => !x.isPrivate && !x.win.isDestroyed() && x.win.isFocused()) || [...windows].find(x => !x.isPrivate);
+    if (m && m.t.audible && !m.w.isPrivate) state = `${/youtube|twitch|netflix|disney|prime/i.test(hostOfUrl(m.t.url)) ? 'Schaut' : 'Hört'}: ${(m.t.mediaTitle || m.t.title || '').slice(0, 90)}`;
+    else if (w && w.active && /^https?:/i.test(w.active.url)) state = 'Auf ' + hostOfUrl(w.active.url);
+  }
+  discord.set({ details: 'Surft mit Sakura', state, start: discordStart }).catch(() => {});
+}
 
 // ---------------------------------------------------------------- Webseite als App
 // Eigenes schlichtes Fenster (ohne Tabs und Adressleiste) für eine Seite, gestartet über eine Verknüpfung.
@@ -3213,6 +3242,7 @@ app.whenReady().then(async () => {
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
   setInterval(screenTimeTick, 15000);
+  setInterval(discordTick, 15000); setTimeout(discordTick, 5000);
   try { for (const ev of ['on-battery', 'on-ac']) powerMonitor.on(ev, () => broadcastState()); } catch {}
   tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
