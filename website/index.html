@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sakura – der ruhige Browser</title>
+<meta name="description" content="Sakura ist ein schneller, ruhiger Browser für Windows, Linux und Android – mit Werbeblocker, Passwortmanager, KI-Seitenleiste und verschlüsseltem Sync.">
+<link rel="icon" href="img/icon.png">
+<style>
+  :root {
+    --yoru: #1C1A33; --fukai: #16142A; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F;
+    --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197;
+    --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", Georgia, serif;
+    --gothic: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    --ease: cubic-bezier(.32, .72, 0, 1); --spring: cubic-bezier(.34, 1.36, .64, 1);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; color: var(--washi); font: 16px/1.6 var(--gothic); background: var(--yoru);
+    background-image: radial-gradient(1200px 700px at 85% -10%, rgba(var(--sakura-rgb), .18), transparent 60%), radial-gradient(900px 600px at -10% 40%, rgba(var(--sakura-rgb), .08), transparent 60%); }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+  .logo { display: flex; align-items: center; gap: 12px; font: 400 24px var(--mincho); text-decoration: none; }
+  .seal { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: var(--beni); color: #FBEFEF; font: 600 22px/1 var(--mincho);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 8px 24px rgba(217, 86, 111, .35); }
+  nav .links a { margin-left: 22px; color: var(--usuzumi); text-decoration: none; font-size: 15px; }
+  nav .links a:hover { color: var(--washi); }
+  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
+  h1 { font: 400 clamp(40px, 6vw, 68px)/1.08 var(--mincho); margin: 0 0 18px; letter-spacing: -.01em; }
+  h1 em { font-style: normal; color: var(--sakura); }
+  .lead { font-size: 19px; color: var(--usuzumi); margin: 0 0 30px; max-width: 520px; }
+  .dl { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 24px; border-radius: 26px; text-decoration: none; font-weight: 600;
+    background: rgba(var(--washi-rgb), .08); box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .14), inset 0 0 0 1px rgba(var(--washi-rgb), .1);
+    transition: transform .35s var(--spring), background .25s var(--ease); }
+  .btn:hover { background: rgba(var(--washi-rgb), .14); transform: translateY(-2px); }
+  .btn.primary { background: var(--sakura); color: var(--fukai); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 12px 32px rgba(var(--sakura-rgb), .35); }
+  .btn small { font-weight: 400; opacity: .7; }
+  .btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ver { margin-top: 14px; color: var(--usuzumi); font-size: 14px; }
+  .shot { position: relative; }
+  .shot img { width: 100%; border-radius: 20px; display: block; box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .1), 0 40px 100px rgba(4, 2, 12, .6); }
+  .shot .phone { position: absolute; width: 30%; right: -4%; bottom: -12%; border-radius: 22px; border: 6px solid #0E0C1C; }
+  section { padding: 72px 0; }
+  h2 { font: 400 clamp(30px, 4vw, 42px)/1.2 var(--mincho); margin: 0 0 12px; }
+  .sub { color: var(--usuzumi); margin: 0 0 36px; font-size: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { padding: 24px; border-radius: 22px; background: linear-gradient(180deg, rgba(var(--washi-rgb), .07), rgba(var(--washi-rgb), .03));
+    box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .12), inset 0 0 0 1px rgba(var(--washi-rgb), .08); transition: transform .4s var(--spring); }
+  .card:hover { transform: translateY(-3px); }
+  .card h3 { margin: 0 0 6px; font: 400 21px var(--mincho); }
+  .card p { margin: 0; color: var(--usuzumi); font-size: 15px; }
+  .card i { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--sakura); margin-bottom: 16px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
+  .steps .card::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 14px; border-radius: 50%; background: rgba(var(--sakura-rgb), .18); color: var(--sakura); font-weight: 700; }
+  footer { padding: 40px 0 60px; color: var(--usuzumi); font-size: 14px; border-top: 1px solid rgba(var(--washi-rgb), .08); }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 24px; } .grid, .steps { grid-template-columns: 1fr; } nav .links { display: none; } .shot .phone { display: none; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="logo" href="#"><span class="seal">桜</span>Sakura</a>
+    <div class="links"><a href="#funktionen">Funktionen</a><a href="#download">Download</a><a href="https://github.com/EnergyPlayYT/sakura-browser">Quellcode</a></div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Ein Browser, so ruhig wie <em>Kirschblüten</em>.</h1>
+      <p class="lead">Sakura ist schnell, schön und schützt dich: Werbeblocker, Passwortmanager, KI-Seitenleiste und verschlüsselter Abgleich zwischen PC und Handy – kostenlos.</p>
+      <div class="dl" id="download">
+        <a class="btn primary" id="dl-win" href="https://github.com/EnergyPlayYT/sakura-browser/releases/latest"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Für Windows <small>Installer</small></a>
+        <a class="btn" id="dl-and" href="https://github.com/EnergyPlayYT/sakura-browser/releases/latest">Für Android <small>APK</small></a>
+        <a class="btn" id="dl-lin" href="https://github.com/EnergyPlayYT/sakura-browser/releases/latest">Für Linux <small>AppImage</small></a>
+      </div>
+      <p class="ver" id="ver">Neueste Version wird geladen …</p>
+    </div>
+    <div class="shot">
+      <img src="img/start-pc.png" alt="Sakura-Startseite am PC mit Kirschblütenzweig und Mond">
+      <img class="phone" src="img/start-handy.png" alt="Sakura auf dem Handy">
+    </div>
+  </header>
+</div>
+
+<section id="funktionen">
+  <div class="wrap">
+    <h2>Alles, was du brauchst. Nichts, was stört.</h2>
+    <p class="sub">Sakura bringt viele kleine Helfer mit – alle abschaltbar.</p>
+    <div class="grid">
+      <div class="card"><i></i><h3>Werbe- und Trackerblocker</h3><p>Blockiert Werbung, Tracker und Cookie-Banner. Warnt vor Betrugs- und Phishing-Seiten.</p></div>
+      <div class="card"><i></i><h3>KI-Seitenleiste</h3><p>Claude, ChatGPT, Gemini oder Mistral direkt neben der Seite – mit deinem eigenen Konto. Seiten zusammenfassen mit einem Klick.</p></div>
+      <div class="card"><i></i><h3>Passwortmanager</h3><p>Speichert Passwörter verschlüsselt, schlägt starke Passwörter vor und warnt bei Datenlecks.</p></div>
+      <div class="card"><i></i><h3>Sync ohne Konto</h3><p>PC und Handy gleichen Lesezeichen, Verlauf und Tabs ab – Ende-zu-Ende verschlüsselt, nur mit einem Sync-Code.</p></div>
+      <div class="card"><i></i><h3>Arbeitsbereiche</h3><p>Getrennte Tab-Sammlungen für Schule, Gaming oder Privat – mit eigener Farbe.</p></div>
+      <div class="card"><i></i><h3>Video und Streams</h3><p>Werbung auf YouTube überspringen, Twitch-Emotes, Bild-in-Bild, Clips speichern, Lautstärke pro Tab.</p></div>
+      <div class="card"><i></i><h3>Fokus-Modus</h3><p>Sperrt ablenkende Seiten zu festen Zeiten – und zeigt deine Bildschirmzeit.</p></div>
+      <div class="card"><i></i><h3>Lesen in Ruhe</h3><p>Lesemodus, Leseliste zum Offline-Lesen, Notizen an Webseiten.</p></div>
+      <div class="card"><i></i><h3>Acht Designs</h3><p>Von Kirschblüte über Matcha bis Neon – oder deine eigene Akzentfarbe. Mit Liquid-Glass-Oberfläche.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>In einer Minute startklar</h2>
+    <p class="sub">Sakura führt dich beim ersten Start durch alles Wichtige.</p>
+    <div class="steps">
+      <div class="card"><h3>Herunterladen</h3><p>Installer für Windows, AppImage für Linux oder APK für Android oben laden.</p></div>
+      <div class="card"><h3>Lesezeichen mitnehmen</h3><p>Lesezeichen, Passwörter und Anmeldungen aus Chrome, Edge oder Firefox mit einem Klick übernehmen.</p></div>
+      <div class="card"><h3>Geräte verbinden</h3><p>Sync-Code am PC erzeugen, am Handy eingeben – fertig. Updates kommen automatisch.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>Sakura – freier Browser auf Chromium-Basis. Quellcode auf <a href="https://github.com/EnergyPlayYT/sakura-browser">GitHub</a>.
+    Hinweis: Windows und Android warnen bei Apps außerhalb der offiziellen Stores beim ersten Mal – „Weitere Informationen → Trotzdem ausführen“ bzw. „Trotzdem installieren“.</footer>
+</div>
+
+<script>
+  // Direkte Download-Links zur neuesten Version holen (GitHub-API, ohne Konto)
+  fetch('https://api.github.com/repos/EnergyPlayYT/sakura-browser/releases/latest').then(r => r.ok ? r.json() : null).then(rel => {
+    if (!rel) { document.getElementById('ver').textContent = 'Alle Versionen findest du auf GitHub.'; return; }
+    const find = re => (rel.assets || []).find(a => re.test(a.name));
+    const set = (id, re) => { const a = find(re); if (a) document.getElementById(id).href = a.browser_download_url; };
+    set('dl-win', /^Sakura-Setup-.*\.exe$/); set('dl-and', /\.apk$/); set('dl-lin', /\.AppImage$/);
+    if (!find(/\.AppImage$/)) document.getElementById('dl-lin').hidden = true;
+    const d = new Date(rel.published_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    document.getElementById('ver').textContent = `Version ${String(rel.tag_name).replace(/^v/, '')} · ${d}`;
+  }).catch(() => { document.getElementById('ver').textContent = 'Alle Versionen findest du auf GitHub.'; });
+</script>
+</body>
+</html>

@@ -90,6 +90,6 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Medien-Leiste: Musik und Videos aller Tabs oben steuern.
 - [x] Arbeitsbereiche: getrennte Tab-Sammlungen (z. B. Schule, Gaming, Privat) mit eigener Farbe.
 - [x] Linux-Version (AppImage, aktualisiert sich selbst).
-- [ ] Sakura-Webseite mit Download für Windows, Linux und Android.
+- [x] Sakura-Webseite mit Download für Windows, Linux und Android.
 - [ ] Sync 2.0: Passwörter verschlüsselt zwischen PC und Handy abgleichen, Passwortmanager am Handy.
 - [ ] Handy-App im Liquid-Glass-Look (Tab-Übersicht als Karten, schwebendes Menü, Animationen).
