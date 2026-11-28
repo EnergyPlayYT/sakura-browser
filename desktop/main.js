@@ -2309,7 +2309,7 @@ function winOf(sender) { return [...windows].find(w => w.ui.webContents === send
 
 // ---------------------------------------------------------------- Befehle aus der Oberfläche
 const uiCommands = {
-  newTab: (w, url) => w.newTab(url || NEWTAB),
+  newTab: (w, url) => { w.newTab(url || NEWTAB); return true; }, // nichts zurückgeben, was sich nicht übertragen lässt
   closeTab: (w, id) => w.closeTab(id),
   activate: (w, id) => w.activate(id),
   moveTab: (w, { id, index }) => w.moveTab(id, index),

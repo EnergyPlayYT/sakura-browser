@@ -9,6 +9,7 @@ if (isSide) document.body.classList.add('side');
 if (isPrivate) { document.body.classList.add('private'); $('#private-tag').hidden = false; }
 
 let S = { tabs: [], activeId: null };
+let addrTabId = null; // zu welchem Tab der Text in der Adressleiste gehört
 let overlay = null; // 'menu' | 'shield' | 'panel' | 'suggest'
 let panelKind = null;
 
@@ -59,7 +60,14 @@ function render() {
   $('#reload').innerHTML = `<svg><use href="#i-${S.loading ? 'stop' : 'reload'}"/></svg>`;
   $('#reload').title = S.loading ? 'Laden stoppen' : 'Neu laden (F5)';
   const addr = $('#address');
-  if (document.activeElement !== addr) addr.value = prettyUrl(S.url);
+  // Anderer Tab als beim letzten Mal (z. B. gerade neu geöffnet): Adresse immer übernehmen,
+  // auch wenn das Feld schon den Fokus hat – sonst bliebe die Adresse des vorigen Tabs stehen
+  const tabChanged = S.activeId !== addrTabId;
+  addrTabId = S.activeId;
+  if (document.activeElement !== addr || tabChanged) {
+    addr.value = prettyUrl(S.url);
+    if (tabChanged && document.activeElement === addr) addr.select();
+  }
   const lead = $('#secure');
   lead.className = 'lead' + (S.url ? (S.secure ? ' secure' : (S.url.startsWith('http:') ? ' insecure' : '')) : '');
   lead.innerHTML = `<svg><use href="#i-${!S.url ? 'search' : S.secure ? 'lock' : S.url.startsWith('http:') ? 'warn' : 'search'}"/></svg>`;
