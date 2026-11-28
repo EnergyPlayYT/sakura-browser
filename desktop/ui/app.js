@@ -649,6 +649,8 @@ const TITLES = { highlights: 'Markierungen', tempmail: 'Wegwerf-E-Mail', archive
 const RENDER = () => ({ highlights: renderHighlights, tempmail: renderTempMail, archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
+  // Zweiter Klick auf denselben Knopf (z. B. Controller-Symbol) schließt die Seitenleiste wieder
+  if (overlay === 'panel' && panelKind === kind) { closeOverlay(); return; }
   if (!TITLES[kind]) return;
   if (kind === 'extensions' && S.private) kind = 'settings';
   openOverlay('panel');

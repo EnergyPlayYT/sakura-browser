@@ -212,6 +212,8 @@ if (/^https?:$/.test(location.protocol)) {
 if (location.hostname === 'chromewebstore.google.com') {
   const ID_RE = /\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/;
   const CHROME_BTN = /(zu chrome hinzufügen|aus chrome entfernen|add to chrome|remove from chrome|in chrome verfügbar|switch to chrome|zu chrome wechseln)/i;
+  // Neuere Store-Seiten zeigen nur noch „Hinzufügen“ / „Entfernen“ (ausgegraut, weil Sakura nicht Chrome ist)
+  const SHORT_BTN = /^(hinzufügen|entfernen|add|remove|installieren|install)$/i;
   const call = (cmd, id) => ipcRenderer.invoke('webstore', cmd, id);
   let state = null, stateId = null, ours = null, timer = null;
 
@@ -265,7 +267,8 @@ if (location.hostname === 'chromewebstore.google.com') {
   function findChromeButton() {
     for (const el of document.querySelectorAll('button, [role="button"]')) {
       if (el.dataset.sakura) continue;
-      if (CHROME_BTN.test((el.textContent || '').trim())) return el;
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (CHROME_BTN.test(t) || SHORT_BTN.test(t)) return el;
     }
     return null;
   }
@@ -293,6 +296,7 @@ if (location.hostname === 'chromewebstore.google.com') {
   async function refresh() {
     const id = currentId();
     if (id !== stateId) { state = null; stateId = id; }
+    place(); // Knopf sofort zeigen, auch wenn die Abfrage dauert
     if (id) { state = await call('status', id).catch(() => null); }
     place();
   }
