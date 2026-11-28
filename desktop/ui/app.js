@@ -1023,6 +1023,7 @@ async function renderTempMail(note = '') {
     const list = await api.call('tempMailInbox');
     const box = $('#tm-list');
     if (panelKind !== 'tempmail' || !box) return;
+    if (list && list.renewed) { renderTempMail('Die alte Adresse war beim E-Mail-Dienst abgelaufen – hier ist eine neue.'); return; }
     if (list && list.error) box.innerHTML = `<p class="p-empty">${esc(list.error)}</p>`;
     else box.innerHTML = (list || []).length ? list.map(m => `<div class="p-item tm-mail${m.seen ? '' : ' new'}" data-id="${esc(m.id)}"><span class="fav">${esc(letterOf(m.from))}</span>
         <div class="txt"><div>${esc(m.subject)}</div><small>${esc(m.from)} · ${esc(timeAgo(m.at))}</small></div></div>`).join('')
@@ -1469,7 +1470,8 @@ async function renderPerformance() {
       <div class="perf-card"><small>Sakura</small><strong>${fmtMB(d.sakura.mem)}</strong><span>CPU ${fmtPct(d.sakura.cpu)}</span></div>
       <div class="perf-card"><small>Dein PC</small><strong>${fmtPct(used / d.system.memTotal * 100)} RAM</strong><span>CPU ${fmtPct(d.system.cpu)}</span></div>
       <div class="perf-card wide"><small>Internet</small><span>${net}</span></div>
-      ${d.gaming.supported ? `<div class="perf-card wide${d.gaming.active ? ' gaming' : ''}"><small>Gaming-Modus</small><span>${!d.gaming.on ? 'Ausgeschaltet' : d.gaming.active ? `<b>Aktiv</b> – ${esc(d.gaming.game)} läuft, Sakura hält sich zurück` : 'Bereit – startet von selbst, wenn du ein Spiel öffnest'}</span></div>` : ''}
+      ${d.gaming.supported ? `<div class="perf-card wide${d.gaming.active ? ' gaming' : ''}"><small>Gaming-Modus</small><span>${!d.gaming.on ? 'Ausgeschaltet' : d.gaming.active ? `<b>Aktiv</b> – ${esc(d.gaming.game)} läuft, Sakura hält sich zurück` : 'Bereit – startet von selbst, wenn du ein Spiel öffnest'}</span>
+        <label class="switch"><input type="checkbox" id="perf-gaming"${d.gaming.on ? ' checked' : ''}><span>Gaming-Modus ${d.gaming.on ? 'an' : 'aus'}</span></label></div>` : ''}
     </div>
     <div class="row perf-actions"><button class="btn" id="perf-sleep-all"${awake ? '' : ' disabled'}>Alle Hintergrund-Tabs schlafen legen</button></div>
     <p class="perf-hint">Ein schlafender Tab braucht fast keinen Speicher. Beim Anklicken lädt er neu.</p>
@@ -1486,6 +1488,7 @@ async function renderPerformance() {
   body.onclick = async e => {
     const s = e.target.closest('[data-sleep]');
     if (s) { await api.call('sleepTab', Number(s.dataset.sleep)); renderPerformance(); return; }
+    if (e.target.id === 'perf-gaming') { await api.call('setPrefs', { gaming: e.target.checked }); renderPerformance(); return; }
     if (e.target.closest('#perf-sleep-all')) { await api.call('sleepBackground'); renderPerformance(); return; }
     const t = e.target.closest('[data-tab]');
     if (t) { api.call('focusTab', Number(t.dataset.tab)); closeOverlay(); }

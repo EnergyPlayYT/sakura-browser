@@ -37,8 +37,17 @@ class TempMail {
   async inbox() {
     const a = this.acc;
     if (!a) return [];
-    if (!a.token) await this.login();
-    const d = await this.json('/messages', { token: this.acc.token });
+    let d;
+    try {
+      if (!a.token) await this.login();
+      d = await this.json('/messages', { token: this.acc.token });
+    } catch (e) {
+      // Adresse gibt es beim Dienst nicht mehr (Anmeldung abgelehnt): neue anlegen statt Fehler zeigen
+      if (!/\(401\)/.test(e.message)) throw e;
+      await this.create();
+      this.renewed = true;
+      return [];
+    }
     const list = (d && (d['hydra:member'] || d.member || d)) || [];
     return (Array.isArray(list) ? list : []).slice(0, 50).map(m => ({
       id: String(m.id || ''), from: String((m.from && (m.from.name || m.from.address)) || ''), subject: String(m.subject || '(ohne Betreff)'),

@@ -2684,6 +2684,7 @@ const uiCommands = {
     if ('accent' in patch && patch.accent !== '' && !Themes.isHex(patch.accent)) delete patch.accent;
     store.setPrefs(patch);
     if ('siteTheme' in patch) applySiteTheme();
+    if ('gaming' in patch && gameWatch) gameWatch.check().catch(() => {}); // sofort an- oder abschalten
     if (patch.adblockExtended) { try { await blocker.refreshExtended(true); } catch (e) { return { error: e.message }; } }
     broadcastState();
     return { ok: true, blocklistSize: blocker.size, restart: (store.prefs().siteTheme === 'force') !== (startTheme === 'force') };
@@ -2859,7 +2860,13 @@ const uiCommands = {
   // Wegwerf-E-Mail (mail.tm)
   tempMail: () => tempMail ? tempMail.info() : null,
   tempMailCreate: async () => { try { return await tempMail.create(); } catch (e) { return { error: e.message }; } },
-  tempMailInbox: async () => { try { return await tempMail.inbox(); } catch (e) { return { error: e.message }; } },
+  tempMailInbox: async () => {
+    try {
+      const list = await tempMail.inbox();
+      if (tempMail.renewed) { tempMail.renewed = false; return { renewed: true }; }
+      return list;
+    } catch (e) { return { error: e.message }; }
+  },
   tempMailMessage: async (w, id) => { try { return await tempMail.message(String(id)); } catch (e) { return { error: e.message }; } },
   tempMailForget: () => { tempMail.forget(); return true; },
   tempMailCopy: () => { const i = tempMail && tempMail.info(); if (i) clipboard.writeText(i.address); return !!i; },
@@ -3402,7 +3409,8 @@ app.whenReady().then(async () => {
   setInterval(screenTimeTick, 15000);
   setInterval(discordTick, 15000); setTimeout(discordTick, 5000);
   try { for (const ev of ['on-battery', 'on-ac']) powerMonitor.on(ev, () => broadcastState()); } catch {}
-  tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
+  // Node-fetch statt net.fetch: Chromium gibt den Anmelde-Kopf (Authorization) an mail.tm nicht zuverlässig weiter
+  tempMail = new TempMail({ store, fetch: (u, o) => (globalThis.fetch || net.fetch)(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
   setInterval(seasonTick, 5 * 60e3); seasonTick();
   setInterval(broadcastState, 20 * 60e3); // Tab-Garten: Tabs welken auch ohne Klicks weiter

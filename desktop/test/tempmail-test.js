@@ -3,12 +3,13 @@ const assert = require('assert');
 const { TempMail } = require('../lib/tempmail');
 const store = { data: {}, save() {} };
 const calls = [];
-let tokenOk = true;
+let tokenOk = true, gone = false;
 const res = (status, body) => ({ ok: status < 300, status, json: async () => body });
 const fetch = async (url, o) => {
   const path = url.replace('https://api.mail.tm', ''); calls.push(o.method + ' ' + path);
   if (path === '/domains') return res(200, { 'hydra:member': [{ domain: 'mail.example' }] });
   if (path === '/accounts') return res(201, { id: 'acc' });
+  if (path === '/token' && gone && JSON.parse(o.body).address === gone) return res(401, {});
   if (path === '/token') { tokenOk = true; return res(200, { token: 'T1' }); }
   if (!tokenOk) return res(401, {});
   assert.equal(o.headers.Authorization, 'Bearer T1');
@@ -25,6 +26,9 @@ const fetch = async (url, o) => {
   const m = await tm.message('m1'); assert(!m.text.includes('<') && !m.text.includes('böse'), 'nur Text'); assert.deepEqual(m.links, ['https://x.de/ok?t=1']);
   assert.equal(await tm.message('../böse'), null);
   tokenOk = false; const again = await tm.inbox(); assert.equal(again.length, 1, 'Token wird erneuert');
+  const old = tm.info().address; tokenOk = false; gone = old;
+  const r = await tm.inbox().catch(e => e); gone = false;
+  assert.deepEqual(r, [], 'abgelaufene Adresse: kein Fehler'); assert(tm.renewed); assert.notEqual(tm.info().address, old, 'neue Adresse');
   tm.forget(); assert.equal(tm.info(), null); assert.deepEqual(await tm.inbox(), []);
   console.log('Wegwerf-E-Mail ok');
 })().catch(e => { console.error(e); process.exit(1); });
