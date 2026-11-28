@@ -516,7 +516,7 @@ function syncHtml(si) {
       <p class="msg-error" id="s-err" hidden></p>
       <div class="row"><button class="btn primary" id="sync-now">Jetzt synchronisieren</button><button class="btn" id="sync-out">Trennen</button></div>`;
   }
-  if (!si.email && si.state === 'off') {
+  if (!si.email) { // Abgleich per Sync-Code (eigenes Firebase-Projekt wird nicht mehr angeboten)
     return `<h3>Synchronisation</h3>
       <p>Verbinde deinen PC und dein Handy mit einem Sync-Code. Danach gleichen sie sich automatisch ab – ohne Konto, Ende-zu-Ende-verschlüsselt.</p>
       ${si.message ? `<p class="msg-error">${esc(si.message)}</p>` : ''}
@@ -524,8 +524,7 @@ function syncHtml(si) {
       <label class="field" style="margin-top:12px">Oder Code von einem anderen Gerät eingeben
         <input id="s-codein" spellcheck="false" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
       <p class="msg-error" id="s-err" hidden></p>
-      <div class="row"><button class="btn" id="s-connect">Verbinden</button></div>
-      <details><summary>Stattdessen ein eigenes Firebase-Projekt verwenden</summary>${firebaseHtml(si)}</details>`;
+      <div class="row"><button class="btn" id="s-connect">Verbinden</button></div>`;
   }
   if (si.email && si.state === 'needkey') {
     return `<h3>Synchronisation</h3>
@@ -552,28 +551,9 @@ function syncHtml(si) {
         <div class="row"><button class="btn primary" id="s-change-go">Ändern</button></div>
       </div>`;
   }
-  return `<h3>Synchronisation</h3>${firebaseHtml(si)}`;
+  return '';
 }
 
-function firebaseHtml(si) {
-  return `
-    <p>Melde dich auf dem PC und in der Android-App mit demselben Konto an. Dafür brauchst du ein kostenloses Firebase-Projekt.</p>
-    <details><summary>So richtest du Firebase ein</summary><ol>
-      <li>In der Firebase-Konsole ein Projekt anlegen.</li>
-      <li>Authentication → Anmeldemethode → <code>E-Mail/Passwort</code> aktivieren.</li>
-      <li>Firestore Database erstellen und die Regeln aus <code>firebase/firestore.rules</code> einfügen.</li>
-      <li>Projekteinstellungen → Allgemein: „Web-API-Schlüssel“ und „Projekt-ID“ hier eintragen.</li>
-    </ol></details>
-    ${si.state === 'error' && si.message ? `<p class="msg-error">${esc(si.message)}</p>` : ''}
-    <label class="field">Web-API-Schlüssel<input id="s-key" spellcheck="false" value="${esc(si.apiKey || '')}"></label>
-    <label class="field">Projekt-ID<input id="s-pid" spellcheck="false" value="${esc(si.projectId || '')}"></label>
-    <label class="field">E-Mail<input id="s-mail" type="email" spellcheck="false" value="${esc(si.email || '')}"></label>
-    <label class="field">Konto-Passwort<input id="s-pw" type="password"></label>
-    <label class="field">Sync-Passwort (für die Verschlüsselung, mind. 8 Zeichen)<input id="s-sync" type="password" autocomplete="new-password"></label>
-    <p>${SYNC_PW_HINT}</p>
-    <p class="msg-error" id="s-err" hidden></p>
-    <div class="row"><button class="btn primary" id="s-login">Anmelden</button><button class="btn" id="s-create">Konto anlegen</button></div>`;
-}
 
 function bindSync() {
   const sec = $('#sync-section');

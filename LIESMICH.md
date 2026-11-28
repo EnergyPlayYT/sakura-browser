@@ -4,9 +4,8 @@ Zwei Apps, ein Konto:
 
 - **desktop/** – Browser für Windows (Chromium-Engine über Electron)
 - **android/** – Browser-App für Android (System-WebView)
-- **firebase/** – Sicherheitsregeln für die Synchronisation
 
-Beide teilen sich die Startseite (Uhr, Suche, Kacheln, Nachtszene mit Kirschblüten) und gleichen über Firebase Lesezeichen, Startseiten-Kacheln, Verlauf und Einstellungen ab.
+Beide teilen sich die Startseite (Uhr, Suche, Kacheln, Nachtszene mit Kirschblüten) und gleichen per Sync-Code Lesezeichen, Startseiten-Kacheln, Verlauf und Einstellungen ab.
 
 ---
 
@@ -84,24 +83,13 @@ Bedienung: Tabs-Knopf unten (zeigt die Anzahl) öffnet die Tab-Übersicht mit �
 
 ---
 
-## 3. Synchronisation einrichten (einmalig, kostenlos)
+## 3. Synchronisation einrichten (einmalig, kostenlos, ohne Konto)
 
-Der Abgleich ist **Ende-zu-Ende-verschlüsselt**: Bevor Daten dein Gerät verlassen, werden sie mit deinem **Sync-Passwort** verschlüsselt (AES-256-GCM, Schlüssel über PBKDF2 mit 310.000 Runden). Auf dem Server liegt nur unlesbarer Datensalat – weder Google noch jemand mit Zugriff auf dein Firebase-Projekt kann ihn lesen. Das Sync-Passwort selbst verlässt nie dein Gerät; gespeichert wird nur der daraus berechnete Schlüssel, in Sakuras privatem Datenordner.
+Der Abgleich läuft über einen **Sync-Code** und ist **Ende-zu-Ende-verschlüsselt**: Bevor Daten dein Gerät verlassen, werden sie mit einem Schlüssel aus deinem Sync-Code verschlüsselt (AES-256-GCM). Der Sakura-Sync-Dienst sieht nur unlesbare Daten.
 
-- Das **Konto-Passwort** meldet dich bei Firebase an, das **Sync-Passwort** verschlüsselt. Nimm zwei verschiedene.
-- Auf allen Geräten dasselbe Sync-Passwort verwenden.
-- **Vergessen?** Dann sind die Daten auf dem Server nicht mehr zu retten. Deine Geräte behalten aber ihre eigenen Daten: unter „Sync-Passwort vergessen?“ legst du die Server-Daten mit einem neuen Passwort neu an.
-- **Ändern:** Einstellungen → „Sync-Passwort ändern“. Die anderen Geräte fragen dann nach dem neuen.
-- Wer Sakura schon vorher genutzt hat, wird einmal nach einem Sync-Passwort gefragt; die bisherigen unverschlüsselten Daten werden dabei übernommen und verschlüsselt.
-
-1. Auf [console.firebase.google.com](https://console.firebase.google.com) ein neues Projekt anlegen (Google Analytics kannst du abwählen).
-2. **Authentication** → *Jetzt starten* → Anmeldemethode **E-Mail/Passwort** aktivieren.
-3. **Firestore Database** → *Datenbank erstellen* (Standort z. B. `europe-west3`, Produktionsmodus).
-4. In Firestore unter **Regeln** den Inhalt von `firebase/firestore.rules` einfügen und veröffentlichen.
-5. **Projekteinstellungen → Allgemein**: „Web-API-Schlüssel“ und „Projekt-ID“ notieren.
-   (Falls dort kein Web-API-Schlüssel steht: unten eine Web-App hinzufügen – dann erscheint er.)
-6. Im Windows-Browser: Menü → *Einstellungen und Synchronisation* → Werte, Konto-Passwort und ein **Sync-Passwort** (mind. 8 Zeichen) eintragen → **Konto anlegen**.
-7. In der Android-App: Menü → *Einstellungen und Synchronisation* → dieselben Werte und dasselbe Sync-Passwort → **Anmelden**.
+1. Am PC: Menü → *Einstellungen* → *Synchronisation* → **Sync-Code erstellen**.
+2. Am Handy: Menü → *Einstellungen und Synchronisation* → denselben Code eingeben → **Verbinden**.
+3. Behandle den Code wie ein Passwort.
 
 Danach gleichen beide Geräte sich automatisch ab: beim Start, wenige Sekunden nach jeder Änderung und alle 5 Minuten. Gelöschte Einträge werden auf allen Geräten gelöscht.
 

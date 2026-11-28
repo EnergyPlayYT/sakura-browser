@@ -15,7 +15,7 @@ desktop/            Windows-Browser (Electron 45, kein Framework, kein Build-Sch
   pages/            sakura://newtab (Startseite), sakura://error und themes.js (Designs) – auch von Android genutzt;
                     sakura://settings (settings.html/.js, Einstellungsseite – nur PC, Befehle über pageCommands.settings mit fester Liste)
   assets/           blocklist.txt, cookie-reject.js (Cookie-Banner), youtube.js/.css (Werbung, SponsorBlock, Qualität), video.js (Weiterschauen, Intro, nächste Folge), media.js (Kino-Modus, Helligkeit, Ton, Sleep-Timer) – auch Android
-  lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), passwords.js (Passwortmanager, safeStorage), emotes.js (7TV/BTTV/FFZ), steam.js, sponsorblock.js, sync.js (Firebase, Ende-zu-Ende-verschlüsselt),
+  lib/              model.js (Datenmodell + Zusammenführen), store.js, importer.js (Import aus anderen Browsern), passwords.js (Passwortmanager, safeStorage), emotes.js (7TV/BTTV/FFZ), steam.js, sponsorblock.js, sync.js (Abgleich per Sync-Code, Ende-zu-Ende-verschlüsselt; alter Firebase-Modus nur noch für bestehende Verbindungen),
                     crypto.js, adblock.js, extensions.js + crx.js (Chrome-Erweiterungen), downloads.js,
                     updater.js (electron-updater), favicons.js
   test/             Tests ohne Electron (electron-mock.js ersetzt es) → `npm test` im Ordner desktop
@@ -25,7 +25,6 @@ android/            Android-App (Kotlin, ein Activity, WebView) – app/src/main
 sync-server/        Sakura-Sync-Dienst (Netlify Function + Blobs) für den Abgleich per Sync-Code – speichert nur Verschlüsseltes;
                     läuft auf https://sakura-sync.netlify.app; nach Änderungen von Hand neu hochladen (siehe sync-server/LIESMICH.md)
 website/            Sakura-Webseite (statisch) auf https://sakura-browser.netlify.app (Netlify-Projekt sakura-browser) – nach Änderungen von Hand neu hochladen
-firebase/           firestore.rules (alternativer Abgleich über ein eigenes Firebase-Projekt)
 ```
 
 ## Regeln

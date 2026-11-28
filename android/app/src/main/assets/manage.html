@@ -513,13 +513,12 @@ function syncHtml(si) {
       <p>Dein Sync-Code: <code id="code" style="filter:blur(5px)">${esc(si.code)}</code> <small>(antippen zum Anzeigen)</small></p>
       <div class="row" style="justify-content:flex-start"><button class="btn primary" id="now">Jetzt synchronisieren</button><button class="btn" id="out">Trennen</button></div>`;
   }
-  if (!si.email && (!si.state || si.state === 'off')) {
+  if (!si.email) { // Abgleich per Sync-Code (eigenes Firebase-Projekt wird nicht mehr angeboten)
     return `<h2>Synchronisation</h2>
       <p>Gib den Sync-Code ein, den dir Sakura auf dem PC zeigt (Einstellungen → Synchronisation). Danach gleichen sich deine Geräte automatisch ab.</p>
       <label class="f">Sync-Code<input id="codein" spellcheck="false" autocapitalize="characters" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
       <p class="err" id="err" hidden>${esc(si.message || '')}</p>
-      <div class="row" style="justify-content:flex-start"><button class="btn primary" id="connect">Verbinden</button><button class="btn" id="newcode">Neuen Code erstellen</button></div>
-      <details><summary>Stattdessen ein eigenes Firebase-Projekt verwenden</summary>${firebaseHtml(si)}</details>`;
+      <div class="row" style="justify-content:flex-start"><button class="btn primary" id="connect">Verbinden</button><button class="btn" id="newcode">Neuen Code erstellen</button></div>`;
   }
   if (si.email && si.state === 'needkey') {
     return `<h2>Synchronisation</h2>
@@ -545,23 +544,7 @@ function syncHtml(si) {
         <button class="btn primary" id="chggo">Ändern</button>
       </div>`;
   }
-  return `<h2>Synchronisation</h2>${firebaseHtml(si)}`;
-}
-function firebaseHtml(si) {
-  return `
-    <p>Melde dich mit demselben Konto und Sync-Passwort an wie im Sakura-Browser auf dem PC.</p>
-    <details><summary>Woher bekomme ich die Werte?</summary><ol>
-      <li>Firebase-Konsole → dein Projekt → Projekteinstellungen.</li>
-      <li>„Web-API-Schlüssel“ und „Projekt-ID“ abschreiben – dieselben wie am PC.</li>
-    </ol></details>
-    <label class="f">Web-API-Schlüssel<input id="k" spellcheck="false" autocapitalize="off" value="${esc(si.apiKey || '')}"></label>
-    <label class="f">Projekt-ID<input id="pid" spellcheck="false" autocapitalize="off" value="${esc(si.projectId || '')}"></label>
-    <label class="f">E-Mail<input id="mail" type="email" autocapitalize="off" value="${esc(si.email || '')}"></label>
-    <label class="f">Konto-Passwort<input id="pw" type="password"></label>
-    <label class="f">Sync-Passwort (mind. 8 Zeichen)<input id="sp" type="password" autocomplete="off"></label>
-    <p>Damit werden deine Daten verschlüsselt, bevor sie das Handy verlassen – auch Google kann sie nicht lesen. Auf allen Geräten dasselbe verwenden. Vergisst du es, sind die Daten auf dem Server verloren; deine Geräte behalten ihre eigenen.</p>
-    <p class="err" id="err" hidden></p>
-    <div class="row" style="justify-content:flex-start"><button class="btn primary" id="in">Anmelden</button><button class="btn" id="new">Konto anlegen</button></div>`;
+  return '';
 }
 function bindSync() {
   const sec = $('#sync');
