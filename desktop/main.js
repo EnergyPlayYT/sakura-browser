@@ -719,7 +719,7 @@ class SakuraWindow {
       w.sendState();
     });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
-    wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); offerTranslate(tab); });
+    wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); offerTranslate(tab); if (!tab.w.isPrivate) hlPaint(tab); });
     // Google-Anmeldung: auch für Skripte der Seite als Firefox erscheinen (siehe LOGIN_UA)
     wc.on('did-start-navigation', d => {
       if (!d.isMainFrame) return;
@@ -745,7 +745,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { tab.darkKey = null; applySiteLook(tab); tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); runPip(wc); applySiteMedia(tab); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.darkKey = null; tab.hlCss = false; applySiteLook(tab); tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); runPip(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); runPip(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -1244,8 +1244,9 @@ class SakuraWindow {
       items.push(
         { label: 'Kopieren', role: 'copy' },
         { label: `Suchen nach „${sel.length > 30 ? sel.slice(0, 30) + '…' : sel}“`, click: () => this.newTab(M.toUrl(sel, store.prefs().searchEngine), { index: this.tabs.indexOf(tab) + 1 }) },
-        { label: 'Auswahl übersetzen', click: () => this.newTab('https://translate.google.com/?sl=auto&tl=de&op=translate&text=' + encodeURIComponent(p.selectionText.slice(0, 4000)), { index: this.tabs.indexOf(tab) + 1 }) },
-        { label: `Mit ${kiProvider().label} erklären`, click: () => kiAsk(this, 'ask', p.selectionText) }
+        { label: 'Auswahl übersetzen', click: () => this.newTab(`https://translate.google.com/?sl=auto&tl=${translateTo()}&op=translate&text=` + encodeURIComponent(p.selectionText.slice(0, 4000)), { index: this.tabs.indexOf(tab) + 1 }) },
+        { label: `Mit ${kiProvider().label} erklären`, click: () => kiAsk(this, 'ask', p.selectionText) },
+        ...(!this.isPrivate && noteKey(tab.url) ? [{ label: 'Markieren', submenu: [['gelb', 'Gelb'], ['rosa', 'Rosa'], ['gruen', 'Grün'], ['blau', 'Blau']].map(([c, l]) => ({ label: l, click: () => hlAdd(tab, c) })) }] : [])
       );
     } else if (!p.linkURL && p.mediaType === 'none') {
       items.push(
@@ -1735,6 +1736,37 @@ function focusReloadTabs() {
     try { h = new URL(t.url).hostname; } catch {}
     if (h && !t.pending && Focus.blocks(h, store.data.focus)) t.view.webContents.reload();
   }
+}
+
+// Textmarker (assets/highlight.js): Markierungen pro Seite (Schlüssel wie bei den Notizen)
+let hlScript = null;
+const HL_CSS = `::highlight(sakura-gelb) { background-color: rgba(255, 214, 10, .5); }
+::highlight(sakura-rosa) { background-color: rgba(242, 140, 175, .5); }
+::highlight(sakura-gruen) { background-color: rgba(120, 220, 140, .45); }
+::highlight(sakura-blau) { background-color: rgba(120, 180, 255, .45); }`;
+async function hlRun(tab, expr) {
+  const wc = tab.view.webContents;
+  if (wc.isDestroyed()) return null;
+  if (hlScript == null) { try { hlScript = fs.readFileSync(path.join(__dirname, 'assets', 'highlight.js'), 'utf8'); } catch { hlScript = ''; } }
+  if (!hlScript) return null;
+  if (!tab.hlCss) { tab.hlCss = true; Promise.resolve(wc.insertCSS(HL_CSS)).catch(() => {}); }
+  try { return await wc.executeJavaScript(`${hlScript}\n;(${expr})`, false); } catch { return null; }
+}
+const hlList = url => { const k = noteKey(url); return (k && store.data.highlights && store.data.highlights[k]) || []; };
+async function hlAdd(tab, color) {
+  const url = tab.w.displayUrl(tab.url), k = noteKey(url);
+  if (!k) return;
+  const r = await hlRun(tab, `window.__sakuraHL.addSelection(${JSON.stringify(color)})`);
+  if (!r || !r.text) { tab.w.ui.webContents.send('toast', 'Markieren geht hier leider nicht.'); return; }
+  if (!store.data.highlights || typeof store.data.highlights !== 'object') store.data.highlights = {};
+  const list = store.data.highlights[k] || (store.data.highlights[k] = []);
+  list.push({ id: M.newId(), text: String(r.text).slice(0, 5000), prefix: String(r.prefix || '').slice(0, 40), suffix: String(r.suffix || '').slice(0, 40), color, url, title: tab.title || url, at: Date.now() });
+  store.save();
+  broadcast('highlights-changed');
+}
+async function hlPaint(tab) {
+  const list = hlList(tab.view.webContents.getURL());
+  if (list.length) await hlRun(tab, `window.__sakuraHL.paint(${JSON.stringify(list)})`);
 }
 
 // Pro Seite gemerkt: Zoom und Dunkelmodus
@@ -2435,6 +2467,15 @@ const uiCommands = {
   splitWith: (w, id) => w.splitWith(id),
   unsplit: w => w.unsplit(),
   translate: w => translatePage(w),
+  highlights: () => Object.values(store.data.highlights || {}).flat().sort((a, b) => b.at - a.at).slice(0, 500),
+  highlightRemove: async (w, id) => {
+    for (const [k, list] of Object.entries(store.data.highlights || {})) {
+      const rest = list.filter(h => h.id !== id);
+      if (rest.length !== list.length) { if (rest.length) store.data.highlights[k] = rest; else delete store.data.highlights[k]; store.save(); }
+    }
+    for (const x of windows) for (const t of x.allTabs()) if (t.hlCss) hlRun(t, `window.__sakuraHL.paint(${JSON.stringify(hlList(t.view.webContents.getURL()))})`);
+    return true;
+  },
   translateDo: (w, lang) => { if (LANGS[lang]) { store.data.translateTo = lang; store.save(); } translatePage(w, translateTo()); w.layout(); w.sendState(); return true; },
   translateNever: w => {
     const o = w.active && w.active.translateOffer;

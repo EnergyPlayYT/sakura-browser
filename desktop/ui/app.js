@@ -644,8 +644,8 @@ $('#find-prev').onclick = () => doFind(true, false);
 $('#find-close').onclick = () => api.call('closeFind');
 
 // ------------------------------------------------------------ Seitenleiste
-const TITLES = { tempmail: 'Wegwerf-E-Mail', archive: 'Tab-Archiv', screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
-const RENDER = () => ({ tempmail: renderTempMail, archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
+const TITLES = { highlights: 'Markierungen', tempmail: 'Wegwerf-E-Mail', archive: 'Tab-Archiv', screentime: 'Bildschirmzeit', live: 'Live-Kanäle', notes: 'Notizen', sessions: 'Sitzungen', readlist: 'Leseliste', watches: 'Überwachte Seiten', passwords: 'Passwörter', performance: 'Leistung', about: 'Über Sakura', bookmarks: 'Lesezeichen', history: 'Verlauf', settings: 'Einstellungen', downloads: 'Downloads', extensions: 'Erweiterungen', scripts: 'Eigene Skripte' };
+const RENDER = () => ({ highlights: renderHighlights, tempmail: renderTempMail, archive: renderArchive, screentime: renderScreenTime, live: renderLive, notes: renderNotes, sessions: renderSessions, readlist: renderReadlist, watches: renderWatches, passwords: renderPasswords, performance: renderPerformance, about: renderAbout, bookmarks: renderBookmarks, history: renderHistory, downloads: renderDownloads, extensions: renderExtensions, scripts: renderScripts });
 function openPanel(kind) {
   if (kind === 'settings') { closeOverlay(); api.call('openSettings'); return; }
   if (!TITLES[kind]) return;
@@ -974,6 +974,23 @@ async function renderReadlist() {
     if (e.target.closest('.rl-open')) { api.call('readlistOpen', row.dataset.id); closeOverlay(); }
   };
 }
+// ------------------------------------------------------------ Markierungen (Textmarker)
+async function renderHighlights() {
+  const body = $('#panel-body');
+  const list = (await api.call('highlights')) || [];
+  if (panelKind !== 'highlights') return;
+  body.innerHTML = list.length ? list.map(h => `<div class="p-item hl" data-id="${esc(h.id)}">
+      <div class="txt" data-url="${esc(h.url)}" title="${esc(h.url)}"><div class="hl-text hl-${esc(h.color)}">${esc(h.text)}</div><small>${esc(h.title)} · ${esc(timeAgo(h.at))}</small></div>
+      <button class="icon small" data-act="del" title="Markierung entfernen"><svg><use href="#i-trash"/></svg></button></div>`).join('')
+    : '<p class="p-empty">Noch keine Markierungen. Wähle auf einer Seite Text aus, Rechtsklick → „Markieren“ – Sakura zeigt die Markierung beim nächsten Besuch wieder.</p>';
+  body.onclick = async e => {
+    if (openFromPanel(e)) return;
+    const b = e.target.closest('button[data-act="del"]');
+    if (b) { await api.call('highlightRemove', b.closest('.p-item').dataset.id); renderHighlights(); }
+  };
+}
+api.on('highlights-changed', () => { if (panelKind === 'highlights') renderHighlights(); });
+
 // ------------------------------------------------------------ Wegwerf-E-Mail
 let tmTimer = null;
 async function renderTempMail(note = '') {

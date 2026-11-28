@@ -2,7 +2,7 @@
 // Die Tests laufen ohne Electron – ein Nachbau (electron-mock.js) ersetzt es.
 const { execFileSync } = require('child_process');
 const order = ['test', 'ab', 'crx-test', 'ext-test', 'dl-test', 'upd-test', 'fav-test', 'main-test', 'restore-test',
-  'group-test', 'group-restore', 'bg-test', 'bar-test', 'drag-test', 'import-test', 'theme-test', 'cookie-test', 'youtube-test', 'sleep-test', 'cookie-import-test', 'gaming-test', 'video-test', 'media-test', 'popup-test', 'synccode-test', 'password-test', 'watch-test', 'twitch-test', 'steam-test', 'reader-test', 'gesture-test', 'twitch-audio-test', 'live-test', 'phish-test', 'pin-test', 'sendtab-test', 'focus-test', 'screentime-test', 'pip-test', 'tempmail-test', 'clip-test', 'space-restore-test'];
+  'group-test', 'group-restore', 'bg-test', 'bar-test', 'drag-test', 'import-test', 'theme-test', 'cookie-test', 'youtube-test', 'sleep-test', 'cookie-import-test', 'gaming-test', 'video-test', 'media-test', 'popup-test', 'synccode-test', 'password-test', 'watch-test', 'twitch-test', 'steam-test', 'reader-test', 'gesture-test', 'twitch-audio-test', 'live-test', 'phish-test', 'pin-test', 'sendtab-test', 'focus-test', 'screentime-test', 'pip-test', 'tempmail-test', 'clip-test', 'space-restore-test', 'highlight-test'];
 let failed = 0;
 for (const name of order) {
   try {

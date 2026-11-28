@@ -99,7 +99,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Dunkelmodus pro Seite (Mond-Knopf in der Adressleiste).
 - [x] Bilder rückwärts suchen (Google Lens, Bing, Yandex).
 - [x] Übersetzen-Leiste: fremdsprachige Seiten erkennen, in eine wählbare Sprache übersetzen.
-- [ ] Textmarker: Text auf Seiten farbig markieren, bleibt beim nächsten Besuch.
+- [x] Textmarker: Text auf Seiten farbig markieren, bleibt beim nächsten Besuch.
 - [ ] Webseite als App: eigenes Fenster mit Verknüpfung im Startmenü.
 - [ ] Akku-Sparmodus für Laptops.
 - [ ] Discord-Anzeige („Surft mit Sakura“), standardmäßig aus.
