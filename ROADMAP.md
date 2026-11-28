@@ -98,7 +98,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Zoom pro Seite merken.
 - [x] Dunkelmodus pro Seite (Mond-Knopf in der Adressleiste).
 - [x] Bilder rückwärts suchen (Google Lens, Bing, Yandex).
-- [ ] Übersetzen-Leiste: fremdsprachige Seiten erkennen, in eine wählbare Sprache übersetzen.
+- [x] Übersetzen-Leiste: fremdsprachige Seiten erkennen, in eine wählbare Sprache übersetzen.
 - [ ] Textmarker: Text auf Seiten farbig markieren, bleibt beim nächsten Besuch.
 - [ ] Webseite als App: eigenes Fenster mit Verknüpfung im Startmenü.
 - [ ] Akku-Sparmodus für Laptops.

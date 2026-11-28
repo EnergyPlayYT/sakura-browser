@@ -85,6 +85,19 @@ function render() {
   $('#scripts-ind').hidden = !S.scripts;
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
+  // Übersetzen-Leiste
+  const tr = S.translate;
+  $('#translatebar').hidden = !tr;
+  document.body.classList.toggle('has-tbar', !!tr);
+  if (tr) {
+    $('#tb-text').textContent = `Diese Seite ist auf ${tr.name}.`;
+    $('#tb-never').textContent = `Nie für ${tr.name}`;
+    const sel = $('#tb-lang');
+    if (sel.dataset.filled !== tr.target) {
+      sel.innerHTML = Object.entries(tr.langs).sort((a, b) => a[1].localeCompare(b[1], 'de')).map(([k, n]) => `<option value="${esc(k)}"${k === tr.target ? ' selected' : ''}>${esc(n)}</option>`).join('');
+      sel.dataset.filled = tr.target;
+    }
+  }
   $('#dark-btn').hidden = !/^https?:/.test(S.url || '');
   $('#dark-btn').classList.toggle('on', !!S.darkSite);
   $('#dark-btn').title = S.darkSite ? 'Dunkelmodus für diese Seite ausschalten' : 'Diese Seite dunkel anzeigen';
@@ -1463,6 +1476,9 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+$('#tb-go').onclick = () => api.call('translateDo', $('#tb-lang').value);
+$('#tb-never').onclick = () => api.call('translateNever');
+$('#tb-close').onclick = () => api.call('translateClose');
 $('#dark-btn').onclick = async () => { const on = await api.call('darkSite'); if (on != null) showToast(on ? 'Diese Seite wird jetzt dunkel angezeigt.' : 'Dunkelmodus für diese Seite aus.'); };
 $('#ki-btn').onclick = () => api.call('kiToggle');
 // Medien-Leiste

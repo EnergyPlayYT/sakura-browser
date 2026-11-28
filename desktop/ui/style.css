@@ -188,7 +188,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 #find-count { min-width: 64px; color: var(--usuzumi); padding: 0 8px; font-variant-numeric: tabular-nums; }
 
 /* ---------------- Overlays ---------------- */
-#backdrop { position: fixed; inset: calc(var(--tabbar) + var(--toolbar) + var(--bar)) 0 0 0; background: rgba(8, 6, 18, .42); }
+#backdrop { position: fixed; inset: calc(var(--tabbar) + var(--toolbar) + var(--bar) + var(--tbar, 0px)) 0 0 0; background: rgba(8, 6, 18, .42); }
 #backdrop.clear { background: transparent; }
 
 .pop {
@@ -569,7 +569,7 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
   --glass-shadow: 0 0 0 1px var(--rim), inset 0 1px 0 var(--hi), 0 22px 56px rgba(4, 2, 12, .42), 0 4px 14px rgba(4, 2, 12, .22);
 }
 
-body { --page-top: calc(var(--tabbar) + var(--toolbar) + var(--bar)); } /* am body, damit die Favoritenleiste mitzählt */
+body { --page-top: calc(var(--tabbar) + var(--toolbar) + var(--bar) + var(--tbar, 0px)); } /* am body, damit die Favoritenleiste mitzählt */
 
 /* Kopfbereich: eine durchgehende, ruhige Fläche */
 #tabbar { align-items: center; gap: 4px; background: var(--yoru); }
@@ -845,3 +845,14 @@ body.side .tab.closing { animation-name: tab-out-v !important; }
 #dark-btn:hover { opacity: 1; }
 #dark-btn.on { color: var(--sakura); opacity: 1; }
 #dark-btn.on svg { fill: currentColor; }
+
+/* Übersetzen-Leiste */
+body.has-tbar { --tbar: 40px; }
+#translatebar { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 14px; background: var(--yoru); border-bottom: 1px solid var(--rim); font-size: 13px; }
+#translatebar[hidden] { display: none; }
+#translatebar .tb-ico { width: 15px; height: 15px; color: var(--sakura); }
+#tb-text { color: var(--washi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#translatebar label { display: flex; align-items: center; gap: 6px; color: var(--usuzumi); }
+#tb-lang { height: 28px; padding: 0 8px; border: 0; border-radius: 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--rim); }
+#translatebar .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
+#tb-close { margin-left: auto; }

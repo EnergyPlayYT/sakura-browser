@@ -55,6 +55,13 @@ const TABBAR_H = 40;
 const TOOLBAR_H = 46;
 const FINDBAR_H = 44;
 const BOOKMARKBAR_H = 32;
+const TRANSLATE_H = 40; // Übersetzen-Leiste
+// Sprachen für die Übersetzen-Leiste (Kürzel → Name auf Deutsch)
+const LANGS = { de: 'Deutsch', en: 'Englisch', tr: 'Türkisch', ar: 'Arabisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch', pt: 'Portugiesisch',
+  nl: 'Niederländisch', pl: 'Polnisch', ru: 'Russisch', uk: 'Ukrainisch', ja: 'Japanisch', ko: 'Koreanisch', zh: 'Chinesisch', hi: 'Hindi',
+  sv: 'Schwedisch', da: 'Dänisch', no: 'Norwegisch', fi: 'Finnisch', cs: 'Tschechisch', el: 'Griechisch', ro: 'Rumänisch', hu: 'Ungarisch',
+  bg: 'Bulgarisch', hr: 'Kroatisch', sr: 'Serbisch', fa: 'Persisch', he: 'Hebräisch', id: 'Indonesisch', vi: 'Vietnamesisch', th: 'Thailändisch', ku: 'Kurdisch' };
+const translateTo = () => LANGS[store.data.translateTo] ? store.data.translateTo : 'de';
 let spaceCounter = 0;
 const SIDE_W = 244; // vertikale Tabs: Breite der Seitenleiste
 const KI_W = 420, KI_HEAD = 44; // KI-Seitenleiste rechts
@@ -478,7 +485,7 @@ class SakuraWindow {
   get pinnedCount() { return this.tabs.filter(t => t.pinned).length; }
   topHeight() {
     if (this.htmlFullscreen) return 0;
-    return TABBAR_H + TOOLBAR_H + (barVisible() ? BOOKMARKBAR_H : 0) + (this.findOpen ? FINDBAR_H : 0);
+    return TABBAR_H + TOOLBAR_H + (barVisible() ? BOOKMARKBAR_H : 0) + (this.findOpen ? FINDBAR_H : 0) + (this.active && this.active.translateOffer ? TRANSLATE_H : 0);
   }
 
   /** Vertikale Tabs: eigene Ebene links (dieselbe Oberfläche im Modus „side“), unter Menüs und Leisten */
@@ -712,7 +719,7 @@ class SakuraWindow {
       w.sendState();
     });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
-    wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); });
+    wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); offerTranslate(tab); });
     // Google-Anmeldung: auch für Skripte der Seite als Firefox erscheinen (siehe LOGIN_UA)
     wc.on('did-start-navigation', d => {
       if (!d.isMainFrame) return;
@@ -726,6 +733,7 @@ class SakuraWindow {
       if (tab.sleeping) return;
       tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false; tab.audioOnly = false; tab.clipArmed = false;
       applySiteLook(tab);
+      if (tab.translateOffer) { tab.translateOffer = null; tab.w.layout(); }
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
       const note = !tab.w.isPrivate && noteFor(u);
@@ -1051,6 +1059,7 @@ class SakuraWindow {
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl),
+      translate: a && a.translateOffer ? { lang: a.translateOffer.lang, name: LANGS[a.translateOffer.lang], target: translateTo(), langs: LANGS } : null,
       darkSite: !!(host && Array.isArray(store.data.darkSites) && store.data.darkSites.includes(host)),
       remote: remoteControl,
       vertical: !!this.side,
@@ -1265,10 +1274,25 @@ function stamp() {
 }
 function safeName(s) { return String(s || 'Seite').replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Seite'; }
 
-function translatePage(w) {
+function translatePage(w, lang = translateTo()) {
   const a = w.active;
   const u = a && w.displayUrl(a.url);
-  if (u && /^https?:/.test(u)) a.view.webContents.loadURL('https://translate.google.com/translate?sl=auto&tl=de&u=' + encodeURIComponent(u));
+  if (!LANGS[lang]) lang = 'de';
+  if (u && /^https?:/.test(u)) { a.translateOffer = null; a.view.webContents.loadURL(`https://translate.google.com/translate?sl=auto&tl=${lang}&u=` + encodeURIComponent(u)); }
+}
+/** Nach dem Laden: Sprache der Seite (lang-Angabe) mit der Wunschsprache vergleichen und ggf. die Leiste anbieten */
+async function offerTranslate(tab) {
+  const wc = tab.view.webContents;
+  const url = wc.getURL();
+  if (!/^https?:/i.test(url) || /\.translate\.goog$/i.test(hostOfUrl(url)) || store.data.translateOff) return;
+  let lang = '';
+  try { lang = String(await wc.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: '(document.documentElement.lang || "").toLowerCase()' }]) || ''); } catch {}
+  lang = lang.split(/[-_]/)[0];
+  const never = Array.isArray(store.data.translateNever) ? store.data.translateNever : [];
+  if (!LANGS[lang] || lang === translateTo() || never.includes(lang) || tab.translateDismissed === hostOfUrl(url)) return;
+  if (tab.translateOffer && tab.translateOffer.lang === lang) return;
+  tab.translateOffer = { lang };
+  tab.w.layout(); tab.w.sendState();
 }
 
 async function savePdf(w) {
@@ -2411,6 +2435,13 @@ const uiCommands = {
   splitWith: (w, id) => w.splitWith(id),
   unsplit: w => w.unsplit(),
   translate: w => translatePage(w),
+  translateDo: (w, lang) => { if (LANGS[lang]) { store.data.translateTo = lang; store.save(); } translatePage(w, translateTo()); w.layout(); w.sendState(); return true; },
+  translateNever: w => {
+    const o = w.active && w.active.translateOffer;
+    if (o) { store.data.translateNever = [...new Set([...(store.data.translateNever || []), o.lang])]; store.save(); w.active.translateOffer = null; w.layout(); w.sendState(); }
+    return true;
+  },
+  translateClose: w => { const a = w.active; if (a) { a.translateDismissed = hostOfUrl(a.view.webContents.getURL()); a.translateOffer = null; w.layout(); w.sendState(); } return true; },
   darkSite: w => {
     const t = w.active;
     const host = t && hostOfUrl(t.view.webContents.getURL());
