@@ -264,11 +264,15 @@ if (location.hostname === 'chromewebstore.google.com') {
     return b;
   }
 
+  // Nur sichtbare, kurze Knöpfe – der Store blendet seinen Knopf für andere Browser teils aus
+  // (dann liefe unser Knopf daneben unsichtbar mit) und das Hinweisband „Zu Chrome wechseln“ ist kein Knopf
+  const shown = el => { const r = el.getBoundingClientRect(); return r.width > 20 && r.height > 10 && getComputedStyle(el).visibility !== 'hidden'; };
   function findChromeButton() {
     for (const el of document.querySelectorAll('button, [role="button"]')) {
       if (el.dataset.sakura) continue;
       const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-      if (CHROME_BTN.test(t) || SHORT_BTN.test(t)) return el;
+      if (t.length > 40 || !(CHROME_BTN.test(t) || SHORT_BTN.test(t))) continue;
+      if (el.dataset.sakuraHidden || shown(el)) return el;
     }
     return null;
   }
@@ -278,7 +282,7 @@ if (location.hostname === 'chromewebstore.google.com') {
     if (!id) { if (ours) { ours.remove(); ours = null; } return; }
     const original = findChromeButton();
     if (original) {
-      if (original.style.display !== 'none') original.style.display = 'none';
+      if (original.style.display !== 'none') { original.style.display = 'none'; original.dataset.sakuraHidden = '1'; }
       if (!ours || ours.isConnected === false || ours.previousElementSibling !== original || ours.dataset.floating) {
         if (ours) ours.remove();
         ours = makeButton(false);
