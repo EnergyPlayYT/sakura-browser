@@ -22,6 +22,8 @@ const focusPending = new Map(); // webContentsId → im Fokus-Modus gesperrte Ad
 const Focus = require('./lib/focus');
 const { ScreenTime } = require('./lib/screentime');
 const { TempMail } = require('./lib/tempmail');
+const WebApps = require('./lib/webapps');
+const appWindows = new Map(); // Web-App-ID → BaseWindow
 let tempMail = null;
 const focusCfg = () => Focus.normalize(store.data.focus);
 const fmtTime = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -2714,6 +2716,18 @@ const uiCommands = {
   tempMailMessage: async (w, id) => { try { return await tempMail.message(String(id)); } catch (e) { return { error: e.message }; } },
   tempMailForget: () => { tempMail.forget(); return true; },
   tempMailCopy: () => { const i = tempMail && tempMail.info(); if (i) clipboard.writeText(i.address); return !!i; },
+  // Webseite als App
+  webAppInstall: async w => { const r = await installWebApp(w); w.ui.webContents.send('toast', r.error || r.message); return r; },
+  webApps: () => webApps().map(({ id, url, title, at }) => ({ id, url, title, at })),
+  webAppOpen: (w, id) => openWebApp(String(id)),
+  webAppRemove: (w, id) => {
+    const a = webApps().find(x => x.id === id);
+    if (!a) return false;
+    WebApps.removeShortcut(a);
+    const win = appWindows.get(a.id); if (win && !win.isDestroyed()) win.close();
+    store.data.webApps = webApps().filter(x => x !== a); store.save();
+    return true;
+  },
   // Tab-Archiv
   archive: () => (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > Date.now() - 30 * 864e5),
   archiveOpen: (w, id) => {
@@ -3077,7 +3091,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen', 'webApps', 'webAppOpen', 'webAppRemove'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
@@ -3090,9 +3104,94 @@ for (const k of ['history', 'removeHistory', 'pwList', 'pwReveal', 'pwCopy', 'pw
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 
+// ---------------------------------------------------------------- Webseite als App
+// Eigenes schlichtes Fenster (ohne Tabs und Adressleiste) für eine Seite, gestartet über eine Verknüpfung.
+const webApps = () => (Array.isArray(store.data.webApps) ? store.data.webApps : (store.data.webApps = []));
+function openWebApp(id) {
+  const a = webApps().find(x => x.id === id);
+  if (!a) return false;
+  const ex = appWindows.get(id);
+  if (ex && !ex.isDestroyed()) { if (ex.isMinimized()) ex.restore(); ex.focus(); return true; }
+  const b = a.bounds || {};
+  const win = new BaseWindow({ width: b.width || 1100, height: b.height || 760, ...(b.x != null ? { x: b.x, y: b.y } : {}), minWidth: 360, minHeight: 300,
+    title: a.title, backgroundColor: theme().colors.yoru, ...(a.icon && fs.existsSync(a.icon) ? { icon: a.icon } : { icon: ICON }) });
+  prepareSession(session.defaultSession, false);
+  const view = new WebContentsView({ webPreferences: { session: session.defaultSession, preload: path.join(__dirname, 'preload-page.js'), sandbox: true, contextIsolation: true } });
+  win.contentView.addChildView(view);
+  const fit = () => { const r = win.getContentBounds(); view.setBounds({ x: 0, y: 0, width: r.width, height: r.height }); };
+  fit(); win.on('resize', fit);
+  const wc = view.webContents;
+  wc.on('page-title-updated', (e, t) => win.setTitle(t || a.title));
+  // Links in neue Fenster: als Tab im normalen Sakura öffnen
+  wc.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\/(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com)\//.test(url)) return { action: 'allow' };
+    if (/^https?:/i.test(url)) { const w = [...windows].find(x => !x.isPrivate) || new SakuraWindow(); w.newTab(url); w.win.focus(); }
+    return { action: 'deny' };
+  });
+  wc.on('before-input-event', (e, i) => {
+    if (i.type !== 'keyDown') return;
+    const c = i.control || i.meta, k = i.key.toLowerCase();
+    const h = wc.navigationHistory;
+    if (k === 'f5' || (c && k === 'r')) wc.reload();
+    else if (i.alt && k === 'arrowleft') { if (h.canGoBack()) h.goBack(); }
+    else if (i.alt && k === 'arrowright') { if (h.canGoForward()) h.goForward(); }
+    else if (c && (k === '+' || k === '=')) wc.setZoomLevel(Math.min(5, wc.getZoomLevel() + .5));
+    else if (c && k === '-') wc.setZoomLevel(Math.max(-5, wc.getZoomLevel() - .5));
+    else if (c && k === '0') wc.setZoomLevel(0);
+    else if (k === 'f11') win.setFullScreen(!win.isFullScreen());
+    else return;
+    e.preventDefault();
+  });
+  win.on('close', () => { a.bounds = win.getBounds(); store.save(); });
+  win.on('closed', () => { appWindows.delete(id); if (!wc.isDestroyed()) wc.close(); });
+  appWindows.set(id, win);
+  wc.loadURL(a.url).catch(() => {});
+  return true;
+}
+/** Logo der Seite als großes PNG: zuerst das Apple-Touch-Symbol (180 px), sonst das Favicon */
+async function webAppIcon(tab, url) {
+  const tries = [];
+  try { tries.push(new URL('/apple-touch-icon.png', url).href); } catch {}
+  if (tab.favicon && /^https?:/i.test(tab.favicon)) tries.push(tab.favicon);
+  for (const u of tries) {
+    try {
+      const r = await net.fetch(u, { signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      const img = nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer()));
+      if (img.isEmpty()) continue;
+      return img.resize({ width: 256, height: 256, quality: 'best' }).toPNG();
+    } catch {}
+  }
+  return null;
+}
+async function installWebApp(w) {
+  const t = w.active;
+  const url = t ? w.displayUrl(t.url) : '';
+  if (!/^https?:/i.test(url) || w.isPrivate) return { error: 'Nur normale Webseiten lassen sich als App installieren.' };
+  const exists = webApps().find(x => x.url === url);
+  if (exists) { openWebApp(exists.id); return { ok: true, message: `„${exists.title}“ ist schon eine App.` }; }
+  const title = String(t.title || hostOfUrl(url)).replace(/\s+[-–|·].*$/, '').slice(0, 50) || hostOfUrl(url);
+  const a = { id: M.newId(), url, title, at: Date.now() };
+  const png = await webAppIcon(t, url);
+  try {
+    a.shortcut = WebApps.createShortcut({
+      platform: process.platform, shell, execPath: process.execPath, appImage: process.env.APPIMAGE,
+      startMenuDir: path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+      appsDir: path.join(app.getPath('home'), '.local', 'share', 'applications'),
+      iconDir: path.join(app.getPath('userData'), 'App-Symbole')
+    }, a, png);
+    if (png) a.icon = path.join(app.getPath('userData'), 'App-Symbole', a.id + (process.platform === 'win32' ? '.ico' : '.png'));
+  } catch { a.shortcut = null; }
+  webApps().push(a); store.save();
+  openWebApp(a.id);
+  return { ok: true, message: a.shortcut ? `„${title}“ ist jetzt eine App – du findest sie im Startmenü.` : `„${title}“ ist jetzt eine App (Einstellungen → Web-Apps).` };
+}
+
 function urlsFromArgv(argv) { return argv.filter(a => /^https?:\/\//i.test(a)); }
 
 app.on('second-instance', (e, argv) => {
+  const appId = WebApps.appIdFromArgv(argv);
+  if (appId && openWebApp(appId)) return;
   const urls = urlsFromArgv(argv);
   const w = [...windows].find(x => !x.isPrivate) || new SakuraWindow();
   for (const u of urls) w.newTab(u);
@@ -3257,6 +3356,9 @@ app.whenReady().then(async () => {
   prepareSession(session.defaultSession, false);
   await extensions.init().catch(err => console.error('Erweiterungen:', err));
 
+  // Start über eine App-Verknüpfung: nur das App-Fenster öffnen
+  const startApp = WebApps.appIdFromArgv(process.argv);
+  if (startApp && openWebApp(startApp)) return;
   const first = urlsFromArgv(process.argv);
   const saved = store.prefs().restoreSession && Array.isArray(store.data.session) ? store.data.session : [];
   if (saved.length) for (const s of saved) new SakuraWindow({ restore: s });

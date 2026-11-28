@@ -146,6 +146,7 @@ async function renderSettings() {
   <section class="set" id="pin-sec"></section>
   <section class="set" id="remote-sec"></section>
   <section class="set" id="focus-sec"><h3>Fokus-Modus</h3></section>
+  <section class="set" id="apps-sec"><h3>Web-Apps</h3></section>
   <section class="set">
     <h3>Popups</h3>
     <label class="switch"><input type="checkbox" id="pp-on"${p.popupBlock !== false ? ' checked' : ''}><span>Werbefenster und Klickfallen blockieren</span></label>
@@ -245,6 +246,7 @@ async function renderSettings() {
   bindPin();
   bindRemote();
   bindFocus();
+  bindApps();
   $('#st-mode').onchange = e => api.call('setPrefs', { streamerMode: e.target.value });
   $('#w-hours').onchange = e => api.call('setPrefs', { watchHours: Number(e.target.value) });
   $('#pw-on').onchange = e => {
@@ -330,6 +332,24 @@ function bindUpdate(info) {
     showUpdate(await api.call('updateCheck'));
   };
   if (info && info.state !== 'idle') showUpdate(info);
+}
+
+// Web-Apps: Seiten, die als eigenes Fenster mit Startmenü-Verknüpfung installiert sind
+async function bindApps() {
+  const sec = $('#apps-sec');
+  if (!sec) return;
+  const list = (await api.call('webApps')) || [];
+  sec.innerHTML = `<h3>Web-Apps</h3>
+    <p>Öffne eine Seite und wähle im Menü „Diese Seite → Als App installieren“. Sie bekommt ein eigenes Fenster ohne Tabs und eine Verknüpfung im Startmenü.</p>
+    ${list.length ? list.map(a => `<div class="row app-row" data-id="${esc(a.id)}"><span style="flex:1;min-width:0"><b>${esc(a.title)}</b><br><small style="color:var(--usuzumi)">${esc(hostOf(a.url))}</small></span>
+      <button class="btn" data-act="open">Öffnen</button><button class="btn danger" data-act="del">Entfernen</button></div>`).join('') : ''}`;
+  sec.onclick = async e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const id = b.closest('[data-id]').dataset.id;
+    if (b.dataset.act === 'open') api.call('webAppOpen', id);
+    else { await api.call('webAppRemove', id); bindApps(); }
+  };
 }
 
 // Fokus-Modus: ablenkende Seiten sperren (feste Zeiten oder spontan)
@@ -589,7 +609,7 @@ const CATS = [
   ['look', 'Erscheinungsbild', ['Design', 'Darstellung und Start']],
   ['privacy', 'Datenschutz & Sicherheit', ['Werbeblocker', 'Cookie-Banner', 'Popups', 'Streamer-Modus', 'Daten']],
   ['passwords', 'Passwörter', ['Passwörter']],
-  ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung', 'Fokus-Modus']],
+  ['tabs', 'Tabs und Surfen', ['Konto-Tabs', 'Seitenüberwachung', 'Fokus-Modus', 'Web-Apps']],
   ['video', 'Videos und YouTube', ['YouTube', 'Videos und Serien']],
   ['twitch', 'Twitch und Steam', ['Twitch', 'Multistream', 'Steam']],
   ['perf', 'Leistung und Gaming', ['Leistung']],
