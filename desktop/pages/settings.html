@@ -142,6 +142,9 @@ body { background: radial-gradient(1100px 600px at 90% -10%, rgba(var(--sakura-r
 ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(var(--washi-rgb), .16); border-radius: 5px; border: 3px solid transparent; background-clip: padding-box; }
 @media (prefers-reduced-motion: reduce) { #content .set { animation: none; } }
+/* Aufgeklappte Auswahllisten: Design-Farben statt heller Systemfarben (sonst kaum lesbar) */
+select option, select optgroup { background-color: var(--fukai); color: var(--washi); }
+select option:checked { background-color: var(--sakura); color: var(--fukai); }
 </style>
 </head>
 <body>

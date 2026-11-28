@@ -869,3 +869,6 @@ body.has-tbar { --tbar: 40px; }
 .gchip { align-self: center; }
 body.side #tabs { height: auto; }
 body.side .tab { height: 34px; border: 0; border-radius: 10px; }
+/* Aufgeklappte Auswahllisten lesbar (Design-Farben statt Systemfarben) */
+select option, select optgroup { background-color: var(--fukai); color: var(--washi); }
+select option:checked { background-color: var(--sakura); color: var(--fukai); }
