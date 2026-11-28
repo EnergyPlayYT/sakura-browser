@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: sakura:; style-src 'self' 'unsafe-inline'">
+<title>KI-Seitenleiste</title>
+<link rel="stylesheet" href="ki.css">
+</head>
+<body>
+<header>
+  <button id="prov" aria-haspopup="menu" title="Anbieter wählen"><span id="prov-name">Anthropic Claude</span><svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></button>
+  <button id="sum" title="Seite zusammenfassen">Seite zusammenfassen</button>
+  <button id="close" class="ic" title="Seitenleiste schließen"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</header>
+<div id="menu" hidden role="menu"></div>
+<script src="ki.js"></script>
+</body>
+</html>

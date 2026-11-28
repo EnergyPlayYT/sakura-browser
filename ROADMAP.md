@@ -84,3 +84,12 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Wegwerf-E-Mail: anonyme Adresse per Klick, Posteingang in Sakura.
 - [x] Clip-Knopf: die letzten 30 Sekunden eines Videos/Streams speichern.
 - [x] Android: Widget für den Startbildschirm (Suchfeld, öffnet Sakura).
+
+## Etappe 10 – Das große Update
+- [x] KI-Seitenleiste wie in Firefox: Anthropic Claude, ChatGPT, Google Gemini, Mistral (eigenes Konto), „Seite zusammenfassen“.
+- [ ] Medien-Leiste: Musik und Videos aller Tabs oben steuern.
+- [ ] Arbeitsbereiche: getrennte Tab-Sammlungen (z. B. Schule, Gaming, Privat) mit eigener Farbe.
+- [ ] Linux-Version (AppImage, aktualisiert sich selbst).
+- [ ] Sakura-Webseite mit Download für Windows, Linux und Android.
+- [ ] Sync 2.0: Passwörter verschlüsselt zwischen PC und Handy abgleichen, Passwortmanager am Handy.
+- [ ] Handy-App im Liquid-Glass-Look (Tab-Übersicht als Karten, schwebendes Menü, Animationen).

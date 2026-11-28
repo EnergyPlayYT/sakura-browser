@@ -56,6 +56,15 @@ const TOOLBAR_H = 46;
 const FINDBAR_H = 44;
 const BOOKMARKBAR_H = 32;
 const SIDE_W = 244; // vertikale Tabs: Breite der Seitenleiste
+const KI_W = 420, KI_HEAD = 44; // KI-Seitenleiste rechts
+// KI-Seitenleiste wie in Firefox: die Webseite des Anbieters, angemeldet mit dem eigenen Konto (Reihenfolge wie bei Firefox)
+const KI_PROVIDERS = [
+  { id: 'claude', label: 'Anthropic Claude', url: 'https://claude.ai/new', q: 'https://claude.ai/new?q=' },
+  { id: 'chatgpt', label: 'ChatGPT', url: 'https://chatgpt.com/', q: 'https://chatgpt.com/?q=' },
+  { id: 'gemini', label: 'Google Gemini', url: 'https://gemini.google.com/app', q: null },
+  { id: 'mistral', label: 'Mistral', url: 'https://chat.mistral.ai/chat', q: 'https://chat.mistral.ai/chat?q=' }
+];
+const kiProvider = () => KI_PROVIDERS.find(p => p.id === (store.data.ki && store.data.ki.provider)) || KI_PROVIDERS[0];
 const barVisible = () => store.prefs().bookmarksBar !== false;
 const ICON = path.join(__dirname, 'assets', 'icon.png');
 const BG = { normal: '#1C1A33', private: '#141022' };
@@ -227,6 +236,7 @@ class SakuraWindow {
       for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.close();
+      if (this.ki) for (const v of [this.ki.view, this.ki.head]) if (!v.webContents.isDestroyed()) v.webContents.close();
       windows.delete(this);
       this.closeLinkPreview(true);
       // Private Daten erst löschen, wenn kein anderes Fenster dieselbe private Sitzung nutzt
@@ -383,12 +393,56 @@ class SakuraWindow {
     }
   }
   sideW() { return this.side && !this.htmlFullscreen ? SIDE_W : 0; }
+  kiW() { return this.ki && !this.htmlFullscreen ? KI_W : 0; }
+
+  // ---------- KI-Seitenleiste (rechts): Kopfleiste (ui/ki.html) + Seite des Anbieters
+  toggleKi(open = !this.ki, prompt = null) {
+    if (open && !this.ki) {
+      const head = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'preload-ui.js'), contextIsolation: true, sandbox: true } });
+      head.setBackgroundColor(this.bgColor());
+      head.webContents.loadFile(path.join(__dirname, 'ui', 'ki.html'));
+      const view = new WebContentsView({ webPreferences: { session: this.ses, sandbox: true, contextIsolation: true } });
+      view.setBackgroundColor(this.bgColor());
+      const wc = view.webContents;
+      // Anmelde-Fenster (Google, Apple, Microsoft) als Fenster erlauben, alles andere als neuen Tab öffnen
+      wc.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\/(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|auth\.openai\.com|auth0\.openai\.com)\//.test(url)) return { action: 'allow' };
+        if (/^https?:/i.test(url)) this.newTab(url, { index: this.tabs.indexOf(this.active) + 1 });
+        return { action: 'deny' };
+      });
+      attachShortcuts(wc, this);
+      attachShortcuts(head.webContents, this);
+      this.ki = { head, view, menu: false };
+      this.win.contentView.addChildView(view);
+      this.win.contentView.addChildView(head);
+      this.win.contentView.addChildView(this.ui); // Menüs bleiben obenauf
+      if (this.preview) this.win.contentView.addChildView(this.preview);
+      wc.loadURL(prompt || kiProvider().url).catch(() => {});
+    } else if (open && this.ki && prompt) {
+      this.ki.view.webContents.loadURL(prompt).catch(() => {});
+    } else if (!open && this.ki) {
+      const k = this.ki;
+      this.ki = null;
+      for (const v of [k.view, k.head]) { try { this.win.contentView.removeChildView(v); } catch {} if (!v.webContents.isDestroyed()) v.webContents.close(); }
+    }
+    if (!store.data.ki || typeof store.data.ki !== 'object') store.data.ki = {};
+    store.data.ki.open = !!this.ki; store.save();
+    this.layout();
+    this.sendState();
+  }
 
   layout() {
     if (this.win.isDestroyed()) return;
     const { width: fullW, height: h } = this.win.getContentBounds();
     const top = this.topHeight();
-    const left = this.sideW(), w = fullW - left;
+    const left = this.sideW(), right = this.kiW(), w = fullW - left - right;
+    if (this.ki) {
+      this.ki.head.setVisible(!!right); this.ki.view.setVisible(!!right);
+      if (right) {
+        this.ki.head.setBounds({ x: fullW - right, y: top, width: right, height: this.ki.menu ? 240 : KI_HEAD });
+        this.ki.view.setBounds({ x: fullW - right, y: top + KI_HEAD, width: right, height: Math.max(0, h - top - KI_HEAD) });
+      }
+    }
     if (this.side) { this.side.setVisible(!!left); if (left) this.side.setBounds({ x: 0, y: top, width: left, height: Math.max(0, h - top) }); }
     this.ui.setVisible(!this.htmlFullscreen);
     this.ui.setBounds({ x: 0, y: 0, width: fullW, height: this.overlay ? h : top });
@@ -409,7 +463,7 @@ class SakuraWindow {
   // ---------- Link-Vorschau: Seite in einem schwebenden Fenster über dem Tab
   previewRect() {
     const { width: fullW, height: h } = this.win.getContentBounds();
-    const top = this.topHeight(), left = this.sideW(), w = fullW - left;
+    const top = this.topHeight(), left = this.sideW(), w = fullW - left - this.kiW();
     const pw = Math.min(1100, Math.round(w * .82)), ph = Math.max(200, Math.round((h - top) * .86) - 56);
     return { x: left + Math.round((w - pw) / 2), y: top + 56 + Math.round(((h - top) - 56 - ph) / 2), width: pw, height: ph };
   }
@@ -871,6 +925,7 @@ class SakuraWindow {
       note: !this.isPrivate && !!noteFor(realUrl),
       remote: remoteControl,
       vertical: !!this.side,
+      kiOpen: !!this.ki,
       focusUntil: Focus.activeUntil(store.data.focus), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
@@ -888,6 +943,7 @@ class SakuraWindow {
       const st = this.state();
       this.ui.webContents.send('state', st);
       if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.send('state', st);
+      if (this.ki && !this.ki.head.webContents.isDestroyed()) this.ki.head.webContents.send('state', st);
       const a = this.active;
       this.win.setTitle((a && a.title ? a.title + ' – ' : '') + (this.isPrivate ? 'Sakura Privat' : 'Sakura'));
       if (!this.isPrivate) saveSession();
@@ -1042,7 +1098,8 @@ class SakuraWindow {
       items.push(
         { label: 'Kopieren', role: 'copy' },
         { label: `Suchen nach „${sel.length > 30 ? sel.slice(0, 30) + '…' : sel}“`, click: () => this.newTab(M.toUrl(sel, store.prefs().searchEngine), { index: this.tabs.indexOf(tab) + 1 }) },
-        { label: 'Auswahl übersetzen', click: () => this.newTab('https://translate.google.com/?sl=auto&tl=de&op=translate&text=' + encodeURIComponent(p.selectionText.slice(0, 4000)), { index: this.tabs.indexOf(tab) + 1 }) }
+        { label: 'Auswahl übersetzen', click: () => this.newTab('https://translate.google.com/?sl=auto&tl=de&op=translate&text=' + encodeURIComponent(p.selectionText.slice(0, 4000)), { index: this.tabs.indexOf(tab) + 1 }) },
+        { label: `Mit ${kiProvider().label} erklären`, click: () => kiAsk(this, 'ask', p.selectionText) }
       );
     } else if (!p.linkURL && p.mediaType === 'none') {
       items.push(
@@ -1517,6 +1574,28 @@ function focusReloadTabs() {
     try { h = new URL(t.url).hostname; } catch {}
     if (h && !t.pending && Focus.blocks(h, store.data.focus)) t.view.webContents.reload();
   }
+}
+
+// KI-Seitenleiste: Frage oder Zusammenfassung an den gewählten Anbieter geben.
+// Claude, ChatGPT und Mistral nehmen den Text über die Adresse (?q=), bei Gemini kommt er in die Zwischenablage.
+async function kiAsk(w, kind, text) {
+  const t = w.active;
+  const url = t ? w.displayUrl(t.pending || t.url) : '';
+  let prompt = '';
+  if (kind === 'summary') {
+    if (!/^https?:/i.test(url)) { w.ui.webContents.send('toast', 'Öffne zuerst eine Webseite.'); return false; }
+    let body = '';
+    try { body = await t.view.webContents.executeJavaScriptInIsolatedWorld(READER_WORLD, [{ code: '(document.body ? document.body.innerText : "").replace(/\\s+/g, " ").trim().slice(0, 3500)' }]); } catch {}
+    prompt = `Fasse diese Webseite kurz auf Deutsch zusammen (Stichpunkte):\n${t.title || ''}\n${url}\n\n${body || ''}`;
+  } else prompt = `Erkläre mir das bitte kurz auf Deutsch:\n\n${String(text || '').slice(0, 3500)}\n\n(Quelle: ${url})`;
+  const p = kiProvider();
+  if (p.q) w.toggleKi(true, p.q + encodeURIComponent(prompt));
+  else {
+    clipboard.writeText(prompt);
+    w.toggleKi(true);
+    w.ui.webContents.send('toast', `Text kopiert – füge ihn bei ${p.label} mit Strg+V ein.`);
+  }
+  return true;
 }
 
 // Tabs an andere Geräte senden (über den Sync)
@@ -2082,7 +2161,7 @@ function bookmarkMenu(w, id) {
   ]).popup();
 }
 function broadcast(channel, data) { for (const w of windows) if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send(channel, data); }
-function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender || (w.side && w.side.webContents === sender)); }
+function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender || (w.side && w.side.webContents === sender) || (w.ki && w.ki.head.webContents === sender)); }
 
 // ---------------------------------------------------------------- Befehle aus der Oberfläche
 const uiCommands = {
@@ -2288,6 +2367,20 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), clip: !!t.clipArmed, cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  // KI-Seitenleiste
+  kiState: w => ({ open: !!w.ki, provider: kiProvider().id, providers: KI_PROVIDERS.map(({ id, label }) => ({ id, label })), theme: w.isPrivate ? null : theme().vars }),
+  kiToggle: (w, open) => { w.toggleKi(open == null ? !w.ki : !!open); return !!w.ki; },
+  kiMenu: (w, open) => { if (w.ki) { w.ki.menu = !!open; w.layout(); } return true; },
+  kiProvider: (w, id) => {
+    const p = KI_PROVIDERS.find(x => x.id === id);
+    if (!p) return false;
+    store.data.ki = { ...(store.data.ki || {}), provider: p.id }; store.save();
+    if (w.ki) w.ki.view.webContents.loadURL(p.url).catch(() => {});
+    w.sendState();
+    return true;
+  },
+  kiSummarize: (w, text) => kiAsk(w, 'summary', text),
+  kiAsk: (w, text) => kiAsk(w, 'ask', text),
   editGroup: (w, id) => { w.ui.webContents.send('edit-group', id); w.sendState(); return true; },
   linkPreviewClose: w => { w.closeLinkPreview(); return true; },
   linkPreviewOpenTab: w => {

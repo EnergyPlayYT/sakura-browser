@@ -794,3 +794,4 @@ body.side .tab .gline { display: none; }
 .tm-text { margin: 0 8px 12px; white-space: pre-wrap; word-break: break-word; font: 13px/1.55 var(--gothic); color: var(--washi); user-select: text; }
 .tm-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 8px; }
 #media-pop .m-hint { color: var(--usuzumi); align-self: center; margin-left: 6px; }
+#ki-btn.on { color: var(--sakura); background: rgba(var(--sakura-rgb), .14); }

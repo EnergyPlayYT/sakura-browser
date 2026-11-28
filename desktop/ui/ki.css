@@ -1,0 +1,18 @@
+/* Kopfleiste der KI-Seitenleiste – Farben kommen aus dem Design (Variablen setzt ki.js) */
+:root { --yoru: #1C1A33; --pop: #2C2950; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --fukai: #16142A; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: visible; background: var(--yoru); color: var(--washi); font: 13px/1.3 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; user-select: none; }
+header { height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 8px; border-left: 1px solid rgba(var(--washi-rgb), .08); border-bottom: 1px solid rgba(var(--washi-rgb), .08); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: default; }
+svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#prov { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px 0 10px; border-radius: 15px; font-weight: 600; min-width: 0; }
+#prov span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#prov:hover, .ic:hover { background: rgba(var(--washi-rgb), .08); }
+#sum { margin-left: auto; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(var(--sakura-rgb), .9); color: var(--fukai); font-weight: 600; white-space: nowrap; transition: transform .3s cubic-bezier(.34,1.36,.64,1); }
+#sum:active { transform: scale(.95); }
+.ic { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; flex: none; }
+#menu { position: fixed; top: 40px; left: 8px; z-index: 5; min-width: 200px; padding: 5px; border-radius: 14px; background: var(--pop);
+  box-shadow: 0 0 0 1px rgba(var(--washi-rgb), .1), 0 16px 40px rgba(4, 2, 12, .5); }
+#menu button { display: flex; width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; text-align: left; }
+#menu button:hover { background: rgba(var(--washi-rgb), .08); }
+#menu button.on::after { content: "✓"; margin-left: auto; color: var(--sakura); }

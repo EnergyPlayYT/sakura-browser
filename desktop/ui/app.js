@@ -77,6 +77,7 @@ function render() {
   $('#scripts-ind').hidden = !S.scripts;
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
+  $('#ki-btn').classList.toggle('on', !!S.kiOpen);
   $('#remote-tag').hidden = !S.remote;
   $('#focus-tag').hidden = !S.focusUntil;
   if (S.focusUntil) $('#focus-tag').textContent = 'Fokus bis ' + new Date(S.focusUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -1399,6 +1400,7 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+$('#ki-btn').onclick = () => api.call('kiToggle');
 
 // ------------------------------------------------------------ Link-Vorschau (langes Drücken auf einen Link)
 let lpClosing = false;

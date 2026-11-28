@@ -186,6 +186,15 @@ setTimeout(async()=>{
     await call('closeTab', (await call('state')).activeId); }
   // Wegwerf-E-Mail: ohne Netz eine verständliche Meldung statt Absturz
   { assert.equal(await call('tempMail'), null); const r = await call('tempMailCreate'); assert(r && r.error); }
+  // KI-Seitenleiste: öffnen, Anbieter wechseln, Frage per Adresse
+  { const ks = await call('kiState'); assert.deepEqual(ks.providers.map(p=>p.id), ['claude','chatgpt','gemini','mistral']); assert.equal(ks.open, false);
+    assert.equal(await call('kiToggle', true), true); assert.equal((await call('state')).kiOpen, true);
+    const kv = () => mock._all.filter(x=>x.view && !x.destroyed && /claude\.ai|chatgpt|mistral/.test(x.url)).pop();
+    assert(kv() && kv().url.startsWith('https://claude.ai/new'));
+    await call('kiProvider', 'chatgpt'); assert.equal((await call('kiState')).provider, 'chatgpt');
+    await call('kiAsk', 'Kirschblüte'); assert(kv().url.startsWith('https://chatgpt.com/?q=') && decodeURIComponent(kv().url).includes('Kirschblüte'));
+    await call('kiProvider', 'claude');
+    assert.equal(await call('kiToggle', false), false); assert.equal((await call('state')).kiOpen, false); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));
