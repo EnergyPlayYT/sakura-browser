@@ -640,8 +640,8 @@ class SakuraWindow {
       wc.loadURL('sakura://error/?u=' + encodeURIComponent(failedUrl) + '&d=' + encodeURIComponent(desc) + '&c=' + code);
     });
     wc.on('audio-state-changed', e => { tab.audible = !!e.audible; upd(); });
-    wc.on('media-started-playing', () => { tab.audible = true; tab.hadMedia = true; upd(); });
-    wc.on('media-paused', () => { tab.audible = false; upd(); });
+    wc.on('media-started-playing', () => { tab.audible = true; tab.hadMedia = true; mediaTabId = tab.id; refreshMediaTitle(tab); upd(); broadcastState(); });
+    wc.on('media-paused', () => { tab.audible = false; tab.mediaPaused = true; upd(); broadcastState(); });
     wc.on('found-in-page', (e, r) => tab.w.ui.webContents.send('find-result', { active: r.activeMatchOrdinal, total: r.matches }));
     wc.on('context-menu', (e, p) => { if (Date.now() - (tab.gestureAt || 0) < 700) return; tab.w.pageMenu(tab, p); });
     // Mausgesten (rechte Taste halten und ziehen)
@@ -926,6 +926,7 @@ class SakuraWindow {
       remote: remoteControl,
       vertical: !!this.side,
       kiOpen: !!this.ki,
+      mediaBar: mediaBarInfo(this),
       focusUntil: Focus.activeUntil(store.data.focus), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
       media: !!(a && (a.hadMedia || a.audible)),
@@ -1575,6 +1576,35 @@ function focusReloadTabs() {
     if (h && !t.pending && Focus.blocks(h, store.data.focus)) t.view.webContents.reload();
   }
 }
+
+// Medien-Leiste: zuletzt spielender Tab, oben in allen Fenstern steuerbar
+let mediaTabId = null;
+async function refreshMediaTitle(tab) {
+  tab.mediaPaused = false;
+  try {
+    const m = await tab.view.webContents.executeJavaScript('(() => { const d = navigator.mediaSession && navigator.mediaSession.metadata; return d ? { title: String(d.title || ""), artist: String(d.artist || "") } : null; })()', false);
+    tab.mediaTitle = m && m.title ? (m.artist ? `${m.title} – ${m.artist}` : m.title).slice(0, 120) : '';
+    broadcastState();
+  } catch {}
+}
+function mediaBarInfo(w) {
+  const f = mediaTabId != null ? findTab(mediaTabId) : null;
+  if (!f || f.t.view.webContents.isDestroyed() || !f.t.hadMedia) return null;
+  if (f.w === w && f.w.activeId === f.t.id) return null; // im aktiven Tab braucht es keine Leiste
+  return { tabId: f.t.id, title: f.t.mediaTitle || f.t.title || '', host: hostOfUrl(f.t.url), playing: !!f.t.audible, private: f.w.isPrivate };
+}
+// Weiter/Zurück: bekannte Knöpfe großer Seiten, sonst 10 Sekunden springen
+const MEDIA_JS = `(function (act) {
+  const media = [...document.querySelectorAll('video, audio')];
+  const cur = media.find(m => !m.paused) || media.sort((a, b) => b.currentTime - a.currentTime)[0];
+  const click = sels => { for (const s of sels) { const b = document.querySelector(s); if (b) { b.click(); return true; } } return false; };
+  if (act === 'toggle') { if (!cur) return null; if (cur.paused) cur.play(); else cur.pause(); return cur.paused ? 'paused' : 'playing'; }
+  if (act === 'next') return click(['.ytp-next-button', 'ytmusic-player-bar .next-button', '[data-testid="control-button-skip-forward"]', '.skipControl__next', 'button[aria-label*="Next" i]', 'button[aria-label*="Nächste" i]'])
+    || (cur ? (cur.currentTime = Math.min(cur.duration || 1e9, cur.currentTime + 10), true) : false);
+  if (act === 'prev') return click(['ytmusic-player-bar .previous-button', '[data-testid="control-button-skip-back"]', '.skipControl__previous', 'button[aria-label*="Previous" i]', 'button[aria-label*="Vorherige" i]'])
+    || (cur ? (cur.currentTime = Math.max(0, cur.currentTime - 10), true) : false);
+  return null;
+})`;
 
 // KI-Seitenleiste: Frage oder Zusammenfassung an den gewählten Anbieter geben.
 // Claude, ChatGPT und Mistral nehmen den Text über die Adresse (?q=), bei Gemini kommt er in die Zwischenablage.
@@ -2634,6 +2664,13 @@ const uiCommands = {
     return { open, closed };
   },
   reopenClosedAt: (w, index) => reopenClosed(w, Number(index)),
+  mediaBar: async (w, act) => {
+    const f = mediaTabId != null ? findTab(mediaTabId) : null;
+    if (!f) return null;
+    if (act === 'focus') { f.w.activate(f.t.id); f.w.win.focus(); return true; }
+    if (!['toggle', 'next', 'prev'].includes(act)) return null;
+    try { const r = await f.t.view.webContents.executeJavaScript(`${MEDIA_JS}(${JSON.stringify(act)})`, true); setTimeout(() => refreshMediaTitle(f.t), 800); return r; } catch { return null; }
+  },
   focusTab: (w, id) => { const f = findTab(id); if (f) { f.w.activate(id); f.w.win.focus(); } },
   // Downloads
   downloads: () => downloads.list(),

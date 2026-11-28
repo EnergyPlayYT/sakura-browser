@@ -795,3 +795,13 @@ body.side .tab .gline { display: none; }
 .tm-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 8px; }
 #media-pop .m-hint { color: var(--usuzumi); align-self: center; margin-left: 6px; }
 #ki-btn.on { color: var(--sakura); background: rgba(var(--sakura-rgb), .14); }
+/* Medien-Leiste */
+#mbar { display: flex; align-items: center; gap: 0; height: 32px; padding: 0 4px; margin: 0 4px; border-radius: 16px; max-width: 280px; min-width: 0;
+  background: rgba(var(--washi-rgb), .06); box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px var(--rim); animation: glass-in .35s var(--spring); }
+#mbar[hidden] { display: none; }
+#mbar .icon.small { width: 26px; height: 26px; }
+#mbar .icon.small svg { width: 14px; height: 14px; }
+#mb-play { color: var(--sakura); }
+#mb-title { display: grid; min-width: 0; padding: 0 8px 0 4px; text-align: left; line-height: 1.15; }
+#mb-title b { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mb-title small { font-size: 10.5px; color: var(--usuzumi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

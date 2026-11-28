@@ -78,6 +78,14 @@ function render() {
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
   $('#ki-btn').classList.toggle('on', !!S.kiOpen);
+  const mb = S.mediaBar;
+  $('#mbar').hidden = !mb || (mb.private && !S.private);
+  if (mb) {
+    $('#mb-title b').textContent = mb.title;
+    $('#mb-title small').textContent = mb.host;
+    $('#mb-play use').setAttribute('href', mb.playing ? '#i-pause' : '#i-play');
+    $('#mb-play').title = mb.playing ? 'Pause' : 'Weiter';
+  }
   $('#remote-tag').hidden = !S.remote;
   $('#focus-tag').hidden = !S.focusUntil;
   if (S.focusUntil) $('#focus-tag').textContent = 'Fokus bis ' + new Date(S.focusUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -1401,6 +1409,11 @@ function saveNote() {
 }
 $('#note-btn').onclick = openNote;
 $('#ki-btn').onclick = () => api.call('kiToggle');
+// Medien-Leiste
+$('#mb-play').onclick = () => api.call('mediaBar', 'toggle');
+$('#mb-next').onclick = () => api.call('mediaBar', 'next');
+$('#mb-prev').onclick = () => api.call('mediaBar', 'prev');
+$('#mb-title').onclick = () => api.call('mediaBar', 'focus');
 
 // ------------------------------------------------------------ Link-Vorschau (langes Drücken auf einen Link)
 let lpClosing = false;
