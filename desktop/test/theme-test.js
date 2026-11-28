@@ -24,3 +24,15 @@ for (const f of ['themes.js', 'newtab.html']) {
   assert.equal(fs.readFileSync(path.join(A, f), 'utf8'), fs.readFileSync(src, 'utf8'), f + ' nach Android kopieren!');
 }
 console.log('Designs ok, ' + T.list.length + ' Stück');
+// Jahreszeiten-Design
+{
+  const at = (m, h) => new Date(2026, m - 1, 15, h, 0).getTime();
+  const r = (m, h) => T.resolve({ theme: 'jahreszeit' }, at(m, h));
+  assert.equal(r(4, 12).colors.yoru, '#1C1A33'); assert.equal(r(4, 12).scene.fall, 'petals');
+  assert.equal(r(7, 12).scene.fall, 'fireflies'); assert.equal(r(10, 12).scene.fall, 'leaves'); assert.equal(r(1, 12).scene.fall, 'snow');
+  assert.equal(r(10, 12).accent, '#F0905F', 'Herbst = Momiji');
+  assert(r(4, 23).scene.night && r(4, 23).colors.yoru !== '#1C1A33', 'nachts dunkler');
+  assert.equal(r(4, 12).id, 'jahreszeit'); assert.equal(T.list[1].id, 'jahreszeit');
+  assert.equal(T.resolve({ theme: 'yuki' }).scene.fall, 'snow');
+  console.log('Jahreszeiten ok');
+}

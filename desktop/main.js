@@ -124,6 +124,14 @@ app.userAgentFallback = app.userAgentFallback
 
 /** Aktuelles Design (Farben) aus den Einstellungen */
 function theme() { return Themes.resolve(store.prefs()); }
+// Jahreszeiten-Design: bei Wechsel von Jahres- oder Tageszeit Oberfläche und Startseiten neu färben
+let lastSeasonKey = null;
+function seasonTick() {
+  if (store.prefs().theme !== 'jahreszeit') { lastSeasonKey = null; return; }
+  const r = theme(), key = r.colors.yoru + r.scene.fall;
+  if (lastSeasonKey && key !== lastSeasonKey) { for (const w of windows) w.applyTheme(); broadcastState(); }
+  lastSeasonKey = key;
+}
 
 function applySiteTheme() {
   nativeTheme.themeSource = store.prefs().siteTheme === 'system' ? 'system' : 'dark';
@@ -3274,6 +3282,7 @@ app.whenReady().then(async () => {
   try { for (const ev of ['on-battery', 'on-ac']) powerMonitor.on(ev, () => broadcastState()); } catch {}
   tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
+  setInterval(seasonTick, 5 * 60e3); seasonTick();
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
   blocker.onFocus = (id, url) => focusPending.set(id, url);
   setInterval(() => { const on = !!Focus.activeUntil(store.data.focus); if (on !== focusWasOn) { focusWasOn = on; broadcastState(); if (on) focusReloadTabs(); } }, 30000);
