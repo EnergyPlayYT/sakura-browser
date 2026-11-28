@@ -71,10 +71,11 @@
       ],
       "category": "Network",
       "synopsis": "Browser im japanischen Sakura-Stil",
-      "description": "Sakura – ein ruhiger, schneller Browser mit Werbeblocker, Passwortmanager und Sync.",
-      "desktop": {
-        "MimeType": "x-scheme-handler/http;x-scheme-handler/https;text/html;"
-      }
+      "mimeTypes": [
+        "x-scheme-handler/http",
+        "x-scheme-handler/https",
+        "text/html"
+      ]
     },
     "appImage": {
       "artifactName": "Sakura-${version}.${ext}"
