@@ -861,3 +861,11 @@ body.has-tbar { --tbar: 40px; }
 .hl-gelb { background: rgba(255, 214, 10, .22); } .hl-rosa { background: rgba(242, 140, 175, .25); } .hl-gruen { background: rgba(120, 220, 140, .22); } .hl-blau { background: rgba(120, 180, 255, .22); }
 /* Akku-Sparmodus */
 #saver-tag { align-self: center; margin-right: 8px; padding: 3px 11px; border-radius: 99px; font: 600 12px var(--gothic); color: var(--washi); background: rgba(var(--washi-rgb), .08); box-shadow: inset 0 0 0 1px var(--rim); }
+
+/* Tabs bis ganz oben anklickbar: Klickfläche so hoch wie die Tab-Leiste, die sichtbare Kapsel bleibt gleich
+   (durchsichtiger Rand oben/unten, Hintergrund nur innen) */
+#tabs { height: var(--tabbar); align-self: stretch; }
+.tab { height: var(--tabbar); border-top: 5px solid transparent; border-bottom: 5px solid transparent; background-clip: padding-box; border-radius: 15px; }
+.gchip { align-self: center; }
+body.side #tabs { height: auto; }
+body.side .tab { height: 34px; border: 0; border-radius: 10px; }
