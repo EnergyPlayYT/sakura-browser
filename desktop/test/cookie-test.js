@@ -13,7 +13,11 @@ const CASES = [
   ['Fremder Ablehnen-Knopf', `<div class="comments"><button onclick="r='wrong'">Ablehnen</button></div>`, undefined],
   ['Unsichtbar', `<div class="consent" style="display:none"><button onclick="r='hidden'">Reject all</button></div>`, undefined],
   ['Später eingeblendet', `<script>setTimeout(()=>{document.body.insertAdjacentHTML('beforeend','<div id="cmp-box"><button onclick="r=\\'reject\\'">Reject all</button></div>')},600)</script>`, 'reject'],
-  ['Shadow-DOM', `<div id="usercentrics-root"></div><script>const s=document.querySelector('#usercentrics-root').attachShadow({mode:'open'});s.innerHTML='<div class="banner"><button onclick="window.r=\\'accept\\'">OK</button><button data-testid="uc-deny-all-button" onclick="window.r=\\'reject\\'">Ablehnen</button></div>'</script>`, 'reject']
+  ['Shadow-DOM', `<div id="usercentrics-root"></div><script>const s=document.querySelector('#usercentrics-root').attachShadow({mode:'open'});s.innerHTML='<div class="banner"><button onclick="window.r=\\'accept\\'">OK</button><button data-testid="uc-deny-all-button" onclick="window.r=\\'reject\\'">Ablehnen</button></div>'</script>`, 'reject'],
+  ['Borlabs 2', `<div id="BorlabsCookieBox"><div class="_brlbs-bar"><a class="_brlbs-btn" href="#" onclick="r='accept';return false">Alle akzeptieren</a><p class="_brlbs-refuse"><a href="#" data-cookie-refuse onclick="r='reject';return false">Ablehnen</a></p></div></div>`, 'reject'],
+  ['Dialog ohne Namen', `<div role="dialog" aria-modal="true" class="x1"><h2>Privatsphäre-Einstellungen</h2><p>Wir nutzen Cookies.</p><button onclick="r='accept'">Alle akzeptieren</button><button onclick="r='reject'">Ablehnen</button></div>`, 'reject'],
+  ['Fremder Dialog', `<div role="dialog" class="x1"><p>Freundschaftsanfrage</p><button onclick="r='wrong'">Ablehnen</button></div>`, undefined],
+  ['Unbekanntes Shadow-DOM', `<div id="xyz"></div><script>const t=document.querySelector('#xyz').attachShadow({mode:'open'});t.innerHTML='<div class="brlbs-cmpnt-dialog"><button onclick="window.r=\\'accept\\'">Alle akzeptieren</button><button onclick="window.r=\\'reject\\'">Ablehnen</button></div>'</script>`, 'reject']
 ];
 (async () => {
   const b = await chromium.launch();

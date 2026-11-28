@@ -24,7 +24,11 @@
     '[data-cookiefirst-action="reject"]',
     '.cky-btn-reject',                                               // CookieYes
     '#cmplz-deny, .cmplz-deny',                                      // Complianz
-    'button[data-cookiebanner="accept_only_essential_button"]'       // Facebook/Instagram
+    'button[data-cookiebanner="accept_only_essential_button"]',      // Facebook/Instagram
+    '#BorlabsCookieBox [data-cookie-refuse]',                        // Borlabs Cookie 2 (WordPress)
+    '#BorlabsCookieBox ._brlbs-refuse-btn a',
+    '.brlbs-btn-accept-only-essential',                              // Borlabs Cookie 3
+    '[data-borlabs-cookie-actions="accept-only-essential"]'
   ];
   // Shadow-DOM-Banner (Usercentrics u. a.)
   const SHADOW_HOSTS = ['#usercentrics-root', '#usercentrics-cmp-ui', 'aside#usercentrics-cmp-ui', '#cmpwrapper', 'div#__tealiumGDPRecModal'];
@@ -41,7 +45,7 @@
     'alles weigeren', 'weigeren', 'odrzuć wszystkie', 'reddet', 'tümünü reddet'
   ].join('|') + ')$', 'i');
 
-  const CONTAINER = /cookie|consent|gdpr|cmp|privacy|datenschutz|onetrust|didomi|usercentrics|cookiebot|truste|sp_message|banner/i;
+  const CONTAINER = /cookie|consent|gdpr|cmp|privacy|privatsph|datenschutz|brlbs|borlabs|onetrust|didomi|usercentrics|cookiebot|truste|sp_message|banner/i;
   const host = location.hostname;
   // Eigene Zustimmungsseiten (Google, YouTube) und eingebettete Zustimmungs-Rahmen: die ganze Seite ist der Banner
   const wholePage = /^consent\.(google|youtube)\./.test(host) || (window.top !== window && /consent|cmp|privacy|sourcepoint|cookie|sp-prod/.test(host));
@@ -61,6 +65,9 @@
     for (let p = el, i = 0; p && i < 12; i++) {
       if (p.nodeType === 1 && CONTAINER.test((p.id || '') + ' ' + (typeof p.className === 'string' ? p.className : '') + ' ' + (p.getAttribute('aria-label') || ''))) return true;
       if (p.nodeType === 1 && /^(ytd-consent-bump|tp-yt-paper-dialog)/i.test(p.tagName)) return true;
+      // Dialoge ohne sprechende Namen: zählt, wenn darin von Cookies oder Datenschutz die Rede ist
+      if (p.nodeType === 1 && (p.getAttribute('role') === 'dialog' || p.getAttribute('aria-modal') === 'true' || p.tagName === 'DIALOG')
+        && /cookie|datenschutz|privatsph|privacy|consent|einwilligung/i.test(String(p.textContent).slice(0, 4000))) return true;
       p = p.parentNode && p.parentNode.nodeType === 11 ? p.parentNode.host : p.parentNode; // aus Shadow-DOM heraus
     }
     return false;
@@ -88,7 +95,15 @@
       const el = sr.querySelector('[data-testid="uc-deny-all-button"], button[data-action="deny"]') || byText(sr);
       if (el && visible(el)) return el;
     }
-    return byText(document);
+    const el = byText(document);
+    if (el) return el;
+    // Banner in unbekannten (offenen) Shadow-DOMs
+    for (const h of document.querySelectorAll('body *')) {
+      if (!h.shadowRoot) continue;
+      const x = byText(h.shadowRoot);
+      if (x) return x;
+    }
+    return null;
   }
 
   let done = false, timer = null, observer = null;
