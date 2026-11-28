@@ -840,3 +840,8 @@ body.side .tab.closing { animation-name: tab-out-v !important; }
 #backdrop.leaving { animation: fade-out .19s var(--ease) forwards !important; pointer-events: none; }
 @keyframes fade-out { to { opacity: 0; } }
 #toast.leaving { animation: fade-out .2s var(--ease) forwards; }
+/* Dunkelmodus pro Seite */
+#dark-btn { color: var(--usuzumi); opacity: .7; }
+#dark-btn:hover { opacity: 1; }
+#dark-btn.on { color: var(--sakura); opacity: 1; }
+#dark-btn.on svg { fill: currentColor; }

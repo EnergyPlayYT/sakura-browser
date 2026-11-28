@@ -207,6 +207,12 @@ setTimeout(async()=>{
     await call('spaceSwitch', sid); assert.equal((await call('state')).url, 'https://schule.example/');
     assert.equal(await call('spaceRemove', sid), true); s2 = await call('state'); assert.equal(s2.spaceId, home); assert.equal(s2.spaces.length, 1);
     assert.equal(await call('spaceRemove', home), false, 'letzter Bereich bleibt'); }
+  // Zoom und Dunkelmodus pro Seite merken
+  { await call('navigate', 'https://zoom.example/a'); await new Promise(x=>setTimeout(x,30));
+    await call('zoom', 0.5);
+    assert.equal(await call('darkSite'), true); assert.equal((await call('state')).darkSite, true);
+    assert.equal(await call('darkSite'), false); assert.equal((await call('state')).darkSite, false);
+    await call('zoom', 0); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

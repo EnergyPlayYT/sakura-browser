@@ -725,6 +725,7 @@ class SakuraWindow {
     wc.on('did-navigate', (e, u) => {
       if (tab.sleeping) return;
       tab.url = u; tab.favicon = null; tab.reader = false; tab.readable = false; tab.audioOnly = false; tab.clipArmed = false;
+      applySiteLook(tab);
       if (!tab.w.isPrivate && !u.startsWith('sakura:')) store.visit(u, wc.getTitle());
       upd();
       const note = !tab.w.isPrivate && noteFor(u);
@@ -736,7 +737,7 @@ class SakuraWindow {
       if (!tab.w.isPrivate) store.visit(u, wc.getTitle());
       upd();
     });
-    wc.on('dom-ready', () => { tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); runPip(wc); applySiteMedia(tab); runUserScripts(wc); });
+    wc.on('dom-ready', () => { tab.darkKey = null; applySiteLook(tab); tab.hadMedia = false; tab.media = null; runCookieReject(wc); runYouTube(wc); runTwitch(wc); runSteam(wc); runVideoHelper(wc); runPip(wc); applySiteMedia(tab); runUserScripts(wc); });
     // Zustimmungs-Banner und Video-Player stecken oft in eingebetteten Rahmen
     wc.on('did-frame-finish-load', (e, isMain, pid, rid) => { if (!isMain) { runCookieReject(wc, pid, rid); runVideoHelper(wc, pid, rid); runPip(wc, pid, rid); } });
     wc.on('did-fail-load', (e, code, desc, failedUrl, isMain) => {
@@ -987,7 +988,15 @@ class SakuraWindow {
   zoom(step) {
     const wc = this.active && this.active.view.webContents;
     if (!wc) return;
-    wc.setZoomLevel(step === 0 ? 0 : Math.max(-5, Math.min(5, wc.getZoomLevel() + step)));
+    const level = step === 0 ? 0 : Math.max(-5, Math.min(5, wc.getZoomLevel() + step));
+    wc.setZoomLevel(level);
+    // pro Seite merken (nicht im privaten Fenster)
+    const host = hostOfUrl(wc.getURL());
+    if (host && !this.isPrivate) {
+      if (!store.data.zoomSites || typeof store.data.zoomSites !== 'object') store.data.zoomSites = {};
+      if (level) store.data.zoomSites[host] = level; else delete store.data.zoomSites[host];
+      store.save();
+    }
     this.sendState();
   }
 
@@ -1042,6 +1051,7 @@ class SakuraWindow {
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl),
+      darkSite: !!(host && Array.isArray(store.data.darkSites) && store.data.darkSites.includes(host)),
       remote: remoteControl,
       vertical: !!this.side,
       kiOpen: !!this.ki,
@@ -1191,6 +1201,11 @@ class SakuraWindow {
         { label: 'Bild speichern unter …', click: () => wc.downloadURL(p.srcURL) },
         { label: 'Bild kopieren', click: () => wc.copyImageAt(p.x, p.y) },
         { label: 'Bildadresse kopieren', click: () => clipboard.writeText(p.srcURL) },
+        ...(/^https?:/i.test(p.srcURL) ? [{ label: 'Bild rückwärts suchen', submenu: [
+          { label: 'Mit Google Lens', click: () => this.newTab('https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(p.srcURL), { index: this.tabs.indexOf(tab) + 1 }) },
+          { label: 'Mit Bing', click: () => this.newTab('https://www.bing.com/images/search?view=detailv2&iss=sbi&q=imgurl:' + encodeURIComponent(p.srcURL), { index: this.tabs.indexOf(tab) + 1 }) },
+          { label: 'Mit Yandex', click: () => this.newTab('https://yandex.com/images/search?rpt=imageview&url=' + encodeURIComponent(p.srcURL), { index: this.tabs.indexOf(tab) + 1 }) }
+        ] }] : []),
         { type: 'separator' }
       );
     }
@@ -1696,6 +1711,21 @@ function focusReloadTabs() {
     try { h = new URL(t.url).hostname; } catch {}
     if (h && !t.pending && Focus.blocks(h, store.data.focus)) t.view.webContents.reload();
   }
+}
+
+// Pro Seite gemerkt: Zoom und Dunkelmodus
+// Dunkelmodus für Seiten ohne eigenen: Farben umkehren, Bilder und Videos zurückdrehen
+const DARK_CSS = `html { filter: invert(.9) hue-rotate(180deg) !important; background: #fff !important; }
+img, video, picture, canvas, iframe, embed, object, svg image, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }`;
+function applySiteLook(tab) {
+  const wc = tab.view.webContents;
+  if (wc.isDestroyed()) return;
+  const host = hostOfUrl(wc.getURL());
+  const z = host && store.data.zoomSites && store.data.zoomSites[host];
+  if (z != null) { try { wc.setZoomLevel(Number(z) || 0); } catch {} }
+  const dark = !!(host && Array.isArray(store.data.darkSites) && store.data.darkSites.includes(host));
+  if (dark && !tab.darkKey) Promise.resolve(wc.insertCSS(DARK_CSS, { cssOrigin: 'user' })).then(k => { tab.darkKey = k; }).catch(() => {});
+  else if (!dark && tab.darkKey) { Promise.resolve(wc.removeInsertedCSS(tab.darkKey)).catch(() => {}); tab.darkKey = null; }
 }
 
 // Medien-Leiste: zuletzt spielender Tab, oben in allen Fenstern steuerbar
@@ -2381,6 +2411,17 @@ const uiCommands = {
   splitWith: (w, id) => w.splitWith(id),
   unsplit: w => w.unsplit(),
   translate: w => translatePage(w),
+  darkSite: w => {
+    const t = w.active;
+    const host = t && hostOfUrl(t.view.webContents.getURL());
+    if (!host) return null;
+    const list = new Set(Array.isArray(store.data.darkSites) ? store.data.darkSites : []);
+    if (list.has(host)) list.delete(host); else list.add(host);
+    store.data.darkSites = [...list].slice(-500); store.save();
+    for (const x of windows) for (const tt of x.allTabs()) if (hostOfUrl(tt.view.webContents.getURL()) === host) applySiteLook(tt);
+    broadcastState();
+    return list.has(host);
+  },
   devtools: w => w.active && w.active.view.webContents.toggleDevTools(),
   suggest: (w, q) => store.suggest(q),
   bookmarks: () => store.bookmarks(),

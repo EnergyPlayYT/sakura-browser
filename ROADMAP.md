@@ -93,3 +93,13 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 - [x] Sakura-Webseite mit Download für Windows, Linux und Android.
 - [ ] Sync 2.0: Passwörter verschlüsselt zwischen PC und Handy abgleichen, Passwortmanager am Handy.
 - [ ] Handy-App im Liquid-Glass-Look (Tab-Übersicht als Karten, schwebendes Menü, Animationen).
+
+## Etappe 11 – Komfort und Extras
+- [x] Zoom pro Seite merken.
+- [x] Dunkelmodus pro Seite (Mond-Knopf in der Adressleiste).
+- [x] Bilder rückwärts suchen (Google Lens, Bing, Yandex).
+- [ ] Übersetzen-Leiste: fremdsprachige Seiten erkennen, in eine wählbare Sprache übersetzen.
+- [ ] Textmarker: Text auf Seiten farbig markieren, bleibt beim nächsten Besuch.
+- [ ] Webseite als App: eigenes Fenster mit Verknüpfung im Startmenü.
+- [ ] Akku-Sparmodus für Laptops.
+- [ ] Discord-Anzeige („Surft mit Sakura“), standardmäßig aus.

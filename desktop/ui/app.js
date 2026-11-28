@@ -85,6 +85,9 @@ function render() {
   $('#scripts-ind').hidden = !S.scripts;
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
+  $('#dark-btn').hidden = !/^https?:/.test(S.url || '');
+  $('#dark-btn').classList.toggle('on', !!S.darkSite);
+  $('#dark-btn').title = S.darkSite ? 'Dunkelmodus für diese Seite ausschalten' : 'Diese Seite dunkel anzeigen';
   $('#ki-btn').classList.toggle('on', !!S.kiOpen);
   const sp = (S.spaces || []).find(x => x.id === S.spaceId);
   if (sp) {
@@ -1460,6 +1463,7 @@ function saveNote() {
   api.call('noteSet', v);
 }
 $('#note-btn').onclick = openNote;
+$('#dark-btn').onclick = async () => { const on = await api.call('darkSite'); if (on != null) showToast(on ? 'Diese Seite wird jetzt dunkel angezeigt.' : 'Dunkelmodus für diese Seite aus.'); };
 $('#ki-btn').onclick = () => api.call('kiToggle');
 // Medien-Leiste
 $('#mb-play').onclick = () => api.call('mediaBar', 'toggle');
