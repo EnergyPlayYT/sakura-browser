@@ -107,7 +107,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 ## Etappe 12 – Was Sakura einzigartig macht
 - [x] Jahreszeiten-Design: wechselt mit Jahres- und Tageszeit, Blüten, Blätter oder Schnee auf der Startseite.
 - [x] Tab-Garten: lange nicht genutzte Tabs verblühen, mit einem Klick aufräumen.
-- [ ] Spiele-Overlay: durchsichtiges Fenster über Spielen, per Taste ein- und ausblenden, Klicks gehen durch.
+- [x] Spiele-Overlay: durchsichtiges Fenster über Spielen, per Taste ein- und ausblenden, Klicks gehen durch.
 - [ ] Gemeinsam schauen: Videos mit Freunden synchron schauen, verbunden über einen Code.
 - [ ] Anime-Liste: gesehene Folgen automatisch bei AniList eintragen.
 - [ ] Preiswecker: Preise in Shops beobachten, Meldung bei Preissenkung, Preisverlauf.

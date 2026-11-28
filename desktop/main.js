@@ -1202,6 +1202,7 @@ class SakuraWindow {
       { label: 'In neues Fenster verschieben', enabled: this.tabs.length > 1, click: () => uiCommands.tabToNewWindow(this, id) },
       { label: t.pinned ? 'Loslösen' : 'Anheften', click: () => this.togglePin(id) },
       { label: t.floating ? 'Video zurück in den Tab' : 'Video schweben lassen', accelerator: 'CmdOrCtrl+Alt+P', click: () => t.floating ? unfloat() : floatVideo(this, id) },
+      ...(t.floating ? [] : [{ label: 'Als Spiele-Overlay über Spielen zeigen', click: () => gameOverlay(this, id) }]),
       { label: 'Tab schlafen legen', enabled: t.id !== this.activeId && !t.pending && /^https?:/i.test(t.url), click: () => this.sleepTab(id) },
       { type: 'separator' },
       { label: 'Zu neuer Gruppe hinzufügen', click: () => this.newGroup(id) },
@@ -2065,9 +2066,11 @@ async function unfloat(closed = false) {
   const f = floating;
   if (!f) return;
   floating = null;
+  overlayKeys(false);
   try { globalShortcut.unregister(FLOAT_KEY); } catch {}
   const t = f.tab, wc = t.view.webContents;
   t.floating = false;
+  if (f.head && !f.head.webContents.isDestroyed()) f.head.webContents.close();
   if (!f.win.isDestroyed()) f.win.contentView.removeChildView(t.view);
   if (!closed && !f.win.isDestroyed()) f.win.close();
   if (wc.isDestroyed()) return;
@@ -2086,6 +2089,8 @@ function dropFloat() {
   if (!f) return;
   floating = null;
   f.tab.floating = false;
+  overlayKeys(false);
+  if (f.head && !f.head.webContents.isDestroyed()) f.head.webContents.close();
   try { globalShortcut.unregister(FLOAT_KEY); } catch {}
   if (!f.win.isDestroyed()) { f.win.contentView.removeChildView(f.tab.view); f.win.close(); }
 }
@@ -2094,6 +2099,7 @@ function dropFloat() {
 function toggleFloatThrough() {
   const f = floating;
   if (!f || f.win.isDestroyed()) return;
+  if (f.overlay) return overlayThrough();
   f.through = !f.through;
   try {
     f.win.setIgnoreMouseEvents(f.through);
@@ -2105,11 +2111,86 @@ function toggleFloatThrough() {
 function floatMenu() {
   const f = floating;
   if (!f) return;
+  if (f.overlay) return Menu.buildFromTemplate([
+    { label: 'Zurück in den Tab', click: () => unfloat() },
+    { label: 'Durchklicken', type: 'checkbox', checked: f.through, accelerator: 'CmdOrCtrl+Alt+L', click: () => overlayThrough() },
+    { label: 'Overlay ein-/ausblenden', accelerator: 'CmdOrCtrl+Alt+O', click: () => overlayToggle() }
+  ]).popup();
   Menu.buildFromTemplate([
     { label: 'Zurück in den Tab', click: () => unfloat() },
     { label: 'Durchklickbar machen', type: 'checkbox', checked: f.through, accelerator: 'CmdOrCtrl+Alt+K', click: () => toggleFloatThrough() },
     { label: 'Deckkraft', submenu: [100, 85, 70, 50].map(v => ({ label: v + ' %', click: () => { if (!f.win.isDestroyed()) f.win.setOpacity(v / 100); } })) }
   ]).popup();
+}
+
+// ---------------------------------------------------------------- Spiele-Overlay
+// Der ganze Tab (z. B. Twitch-Chat, Discord, eine Anleitung) schwebt randlos und halb durchsichtig über dem Spiel.
+// Strg+Alt+O blendet es ein/aus, Strg+Alt+L schaltet Durchklicken um (Klicks gehen dann ans Spiel).
+// Hinweis: über Spielen im exklusiven Vollbild liegt kein Fenster – dort „Randloses Fenster“ im Spiel wählen.
+const OVERLAY_HEAD = 32, OVERLAY_SHOW = 'CommandOrControl+Alt+O', OVERLAY_CLICK = 'CommandOrControl+Alt+L';
+function overlayKeys(on) {
+  for (const [k, fn] of [[OVERLAY_SHOW, overlayToggle], [OVERLAY_CLICK, overlayThrough]]) {
+    try { if (on) globalShortcut.register(k, fn); else globalShortcut.unregister(k); } catch {}
+  }
+}
+function overlayCfg() {
+  const c = store.data.gameOverlay || {};
+  return { opacity: Math.max(25, Math.min(100, Number(c.opacity) || 90)), bounds: c.bounds || null };
+}
+function overlaySave(patch) { store.data.gameOverlay = { ...overlayCfg(), ...patch }; store.save(); }
+async function gameOverlay(w, tabId) {
+  const t = tabId ? w.tabs.find(x => x.id === tabId) : w.active;
+  if (!t || t.floating) return { error: 'Kein Tab' };
+  if (floating) await unfloat();
+  if (t.pending) { await w.activate(t.id); }
+  const cfg = overlayCfg();
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const b = cfg.bounds || { width: 420, height: 560, x: area.x + area.width - 444, y: area.y + 80 };
+  const fw = new BaseWindow({
+    ...b, minWidth: 220, minHeight: 140, frame: false, alwaysOnTop: true, skipTaskbar: true, minimizable: false, maximizable: false,
+    fullscreenable: false, title: 'Spiele-Overlay – Sakura', backgroundColor: theme().colors.yoru, icon: ICON
+  });
+  try { fw.setAlwaysOnTop(true, 'screen-saver'); fw.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); fw.setOpacity(cfg.opacity / 100); } catch {}
+  const head = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'preload-ui.js'), contextIsolation: true, sandbox: true } });
+  head.setBackgroundColor(theme().colors.yoru);
+  head.webContents.loadFile(path.join(__dirname, 'ui', 'overlay.html'));
+  w.win.contentView.removeChildView(t.view);
+  fw.contentView.addChildView(head);
+  fw.contentView.addChildView(t.view);
+  t.floating = true;
+  floating = { tab: t, win: fw, head, through: false, overlay: true };
+  const fit = () => {
+    if (fw.isDestroyed()) return;
+    const cb = fw.getContentBounds();
+    head.setBounds({ x: 0, y: 0, width: cb.width, height: OVERLAY_HEAD });
+    t.view.setVisible(true);
+    t.view.setBounds({ x: 0, y: OVERLAY_HEAD, width: cb.width, height: Math.max(0, cb.height - OVERLAY_HEAD) });
+  };
+  let saveT = null;
+  const remember = () => { fit(); clearTimeout(saveT); saveT = setTimeout(() => { if (!fw.isDestroyed()) overlaySave({ bounds: fw.getBounds() }); }, 400); };
+  fw.on('resize', remember); fw.on('move', remember);
+  fit();
+  fw.on('closed', () => { if (floating && floating.win === fw) unfloat(true); });
+  overlayKeys(true);
+  if (w.activeId === t.id) {
+    const other = w.tabs.find(x => x !== t && !x.floating);
+    if (other) w.activate(other.id); else w.newTab(NEWTAB);
+  }
+  w.sendState();
+  return { ok: true };
+}
+function overlayToggle() {
+  const f = floating;
+  if (!f || !f.overlay || f.win.isDestroyed()) return;
+  if (f.win.isVisible()) f.win.hide(); else { f.win.showInactive(); try { f.win.setAlwaysOnTop(true, 'screen-saver'); } catch {} }
+}
+function overlayThrough() {
+  const f = floating;
+  if (!f || !f.overlay || f.win.isDestroyed()) return;
+  f.through = !f.through;
+  try { f.win.setIgnoreMouseEvents(f.through); } catch {}
+  if (f.through && !f.win.isVisible()) f.win.showInactive();
+  if (!f.head.webContents.isDestroyed()) f.head.webContents.executeJavaScript(`document.querySelector('#through').textContent = ${JSON.stringify(f.through ? 'Durchklicken an – Strg+Alt+L' : 'Durchklicken')}`).catch(() => {});
 }
 
 // ---------------------------------------------------------------- Leistung
@@ -2469,7 +2550,10 @@ function bookmarkMenu(w, id) {
   ]).popup();
 }
 function broadcast(channel, data) { for (const w of windows) if (!w.ui.webContents.isDestroyed()) w.ui.webContents.send(channel, data); }
-function winOf(sender) { return [...windows].find(w => w.ui.webContents === sender || (w.side && w.side.webContents === sender) || (w.ki && w.ki.head.webContents === sender)); }
+function winOf(sender) {
+  if (floating && floating.head && floating.head.webContents === sender) return floating.tab.w;
+  return [...windows].find(w => w.ui.webContents === sender || (w.side && w.side.webContents === sender) || (w.ki && w.ki.head.webContents === sender));
+}
 
 // ---------------------------------------------------------------- Befehle aus der Oberfläche
 const uiCommands = {
@@ -2810,6 +2894,21 @@ const uiCommands = {
     return true;
   },
   gardenTidy: w => gardenTidy(w),
+  // Spiele-Overlay
+  gameOverlay: (w, id) => gameOverlay(w, id),
+  overlayState: () => {
+    const f = floating;
+    if (!f || !f.overlay) return null;
+    return { title: f.tab.title || '', opacity: overlayCfg().opacity, through: f.through, theme: theme().vars };
+  },
+  overlayCmd: (w, { act, value } = {}) => {
+    const f = floating;
+    if (!f || !f.overlay || f.win.isDestroyed()) return null;
+    if (act === 'opacity') { const v = Math.max(25, Math.min(100, Number(value) || 90)); f.win.setOpacity(v / 100); overlaySave({ opacity: v }); }
+    else if (act === 'through') overlayThrough();
+    else if (act === 'back') unfloat();
+    return true;
+  },
   archiveRemove: (w, id) => { store.data.tabArchive = (store.data.tabArchive || []).filter(x => x.id !== id); store.save(); return true; },
   archiveNow: (w, o = {}) => archiveTick(Number(o && o.now) || Date.now(), String((o && o.host) || '')),
   // Bildschirmzeit
