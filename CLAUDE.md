@@ -24,6 +24,7 @@ android/            Android-App (Kotlin, ein Activity, WebView) – app/src/main
 .github/workflows/  release.yml (baut + veröffentlicht), security-update.yml (wöchentlich Electron-Patches)
 sync-server/        Sakura-Sync-Dienst (Netlify Function + Blobs) für den Abgleich per Sync-Code – speichert nur Verschlüsseltes;
                     läuft auf https://sakura-sync.netlify.app; nach Änderungen von Hand neu hochladen (siehe sync-server/LIESMICH.md)
+website/            Sakura-Webseite (statisch) auf https://sakura-browser.netlify.app (Netlify-Projekt sakura-browser) – nach Änderungen von Hand neu hochladen
 firebase/           firestore.rules (alternativer Abgleich über ein eigenes Firebase-Projekt)
 ```
 
