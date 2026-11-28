@@ -47,6 +47,7 @@
 
 <header id="tabbar">
   <div class="seal" title="Sakura">桜</div>
+  <button id="space-btn" title="Arbeitsbereich wechseln (Alt+1 … 9)"><i></i><span></span></button>
   <div id="tabs" role="tablist"></div>
   <button id="newtab" class="icon" title="Neuer Tab (Strg+T) – Rechtsklick: Konto-Tab"><svg><use href="#i-plus"/></svg></button>
   <div class="drag-fill"></div>
@@ -136,6 +137,7 @@
     <button data-cmd="reopenClosed">Geschlossenen Tab öffnen<kbd>Strg+Umschalt+T</kbd></button>
     <button data-tabsearch>Tabs durchsuchen<kbd>Strg+Umschalt+A</kbd></button>
     <button data-cmd="split" id="menu-split">Geteilter Bildschirm</button>
+    <button data-cmd="spaceOpenPop">Arbeitsbereiche …</button>
     <button data-panel="sessions">Sitzungen</button>
     <button data-panel="archive">Tab-Archiv</button>
     <button data-panel="performance">Leistung und Tabs<kbd>Umschalt+Esc</kbd></button>
@@ -186,6 +188,13 @@
   </div>
 </div>
 
+<div id="space-pop" class="pop" hidden role="dialog" aria-label="Arbeitsbereiche">
+  <div id="space-list"></div>
+  <hr>
+  <input id="space-name" maxlength="40" spellcheck="false" aria-label="Name des Arbeitsbereichs" placeholder="Name">
+  <div id="space-colors" role="radiogroup" aria-label="Farbe"></div>
+  <div class="row"><button class="btn" id="space-del">Bereich löschen</button><button class="btn primary" id="space-new">Neuer Bereich</button></div>
+</div>
 <div id="group-pop" class="pop" hidden>
   <input id="group-name" placeholder="Gruppe benennen" maxlength="40" spellcheck="false" aria-label="Name der Gruppe">
   <div id="group-colors" role="radiogroup" aria-label="Farbe"></div>

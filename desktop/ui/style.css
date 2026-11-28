@@ -805,3 +805,25 @@ body.side .tab .gline { display: none; }
 #mb-title { display: grid; min-width: 0; padding: 0 8px 0 4px; text-align: left; line-height: 1.15; }
 #mb-title b { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mb-title small { font-size: 10.5px; color: var(--usuzumi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Arbeitsbereiche */
+#space-btn { display: flex; align-items: center; gap: 7px; height: 28px; max-width: 150px; padding: 0 11px 0 9px; margin-right: 6px; border-radius: 14px; flex: none;
+  color: var(--washi); font-size: 12.5px; font-weight: 600; background: rgba(var(--washi-rgb), .06); box-shadow: inset 0 0 0 1px var(--rim); transition: background-color .2s var(--ease); }
+#space-btn:hover { background: rgba(var(--washi-rgb), .11); }
+#space-btn i, #space-list i { width: 9px; height: 9px; border-radius: 50%; background: var(--sc, var(--sakura)); flex: none; box-shadow: 0 0 8px var(--sc, var(--sakura)); }
+#space-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tabbar { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--space, transparent) 55%, transparent); }
+#space-pop { width: 290px; padding: 8px; }
+#space-list button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 11px; text-align: left; }
+#space-list button:hover { background: rgba(var(--washi-rgb), .08); }
+#space-list button.on { background: rgba(var(--washi-rgb), .1); }
+#space-list span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#space-list small { color: var(--usuzumi); font-size: 11px; }
+#space-name { width: 100%; height: 34px; padding: 0 12px; margin: 4px 0 0; border: 0; outline: 0; border-radius: 10px; background: var(--fukai); color: var(--washi); font: inherit; box-shadow: inset 0 0 0 1px var(--rim); user-select: text; }
+#space-name:focus { box-shadow: inset 0 0 0 1px rgba(var(--sakura-rgb), .75), 0 0 0 4px rgba(var(--sakura-rgb), .14); }
+#space-colors { display: flex; justify-content: space-between; margin: 12px 4px 10px; }
+#space-colors button { width: 24px; height: 24px; border-radius: 50%; background: var(--c); display: grid; place-items: center; }
+#space-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--pop), 0 0 0 4px var(--c); }
+#space-colors button svg { width: 13px; height: 13px; stroke: var(--fukai); stroke-width: 2.4; opacity: 0; }
+#space-colors button[aria-checked="true"] svg { opacity: 1; }
+#space-pop .row { display: flex; gap: 8px; justify-content: space-between; }
+body.side #space-btn { order: -2; max-width: none; width: 100%; margin: 0 0 2px; height: 34px; border-radius: 11px; }

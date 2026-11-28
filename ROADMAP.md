@@ -88,7 +88,7 @@ Vorbild ist der „Beta Browser“ (https://beta-browser.de/). Jede Etappe wird 
 ## Etappe 10 – Das große Update
 - [x] KI-Seitenleiste wie in Firefox: Anthropic Claude, ChatGPT, Google Gemini, Mistral (eigenes Konto), „Seite zusammenfassen“.
 - [x] Medien-Leiste: Musik und Videos aller Tabs oben steuern.
-- [ ] Arbeitsbereiche: getrennte Tab-Sammlungen (z. B. Schule, Gaming, Privat) mit eigener Farbe.
+- [x] Arbeitsbereiche: getrennte Tab-Sammlungen (z. B. Schule, Gaming, Privat) mit eigener Farbe.
 - [ ] Linux-Version (AppImage, aktualisiert sich selbst).
 - [ ] Sakura-Webseite mit Download für Windows, Linux und Android.
 - [ ] Sync 2.0: Passwörter verschlüsselt zwischen PC und Handy abgleichen, Passwortmanager am Handy.

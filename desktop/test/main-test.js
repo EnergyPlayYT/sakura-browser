@@ -195,6 +195,18 @@ setTimeout(async()=>{
     await call('kiAsk', 'Kirschblüte'); assert(kv().url.startsWith('https://chatgpt.com/?q=') && decodeURIComponent(kv().url).includes('Kirschblüte'));
     await call('kiProvider', 'claude');
     assert.equal(await call('kiToggle', false), false); assert.equal((await call('state')).kiOpen, false); }
+  // Arbeitsbereiche: anlegen, wechseln (eigene Tabs), merken, löschen
+  { let s1 = await call('state'); const home = s1.spaceId, n0 = s1.tabs.length;
+    const sid = await call('spaceNew', { name: 'Schule' }); let s2 = await call('state');
+    assert.equal(s2.spaceId, sid); assert.equal(s2.tabs.length, 1, 'neuer Bereich hat einen leeren Tab'); assert.equal(s2.spaces.length, 2);
+    await call('navigate', 'https://schule.example/'); await new Promise(x=>setTimeout(x,30));
+    await call('spaceUpdate', { id: sid, patch: { name: 'Schule 2', color: 'matcha' } });
+    await call('spaceSwitch', home); s2 = await call('state'); assert.equal(s2.tabs.length, n0, 'alte Tabs wieder da');
+    const ft = (await call('tabSearch')).open.find(t => t.url === 'https://schule.example/'); assert(ft, 'Tabs anderer Bereiche bleiben auffindbar');
+    await new Promise(x=>setTimeout(x,40));
+    await call('spaceSwitch', sid); assert.equal((await call('state')).url, 'https://schule.example/');
+    assert.equal(await call('spaceRemove', sid), true); s2 = await call('state'); assert.equal(s2.spaceId, home); assert.equal(s2.spaces.length, 1);
+    assert.equal(await call('spaceRemove', home), false, 'letzter Bereich bleibt'); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

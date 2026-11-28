@@ -78,6 +78,13 @@ function render() {
   $('#reader-btn').hidden = !S.readable;
   $('#note-btn').hidden = !S.note;
   $('#ki-btn').classList.toggle('on', !!S.kiOpen);
+  const sp = (S.spaces || []).find(x => x.id === S.spaceId);
+  if (sp) {
+    $('#space-btn span').textContent = sp.name;
+    $('#space-btn').style.setProperty('--sc', `var(--g-${sp.color})`);
+    if ((S.spaces || []).length > 1) document.body.style.setProperty('--space', `var(--g-${sp.color})`); else document.body.style.removeProperty('--space');
+  }
+  if (overlay === 'space') paintSpacePop();
   const mb = S.mediaBar;
   $('#mbar').hidden = !mb || (mb.private && !S.private);
   if (mb) {
@@ -407,7 +414,7 @@ function closeOverlay(keep) {
   clearTimeout(tmTimer);
   if (overlay === 'linkpreview') { $('#lp-bar').hidden = true; if (!lpClosing) api.call('linkPreviewClose'); }
   if (overlay === 'note') saveNote();
-  for (const s of ['#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
+  for (const s of ['#space-pop', '#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);
   editingGroup = null;
   $('#backdrop').hidden = true;
@@ -449,6 +456,7 @@ $('#menu').addEventListener('click', e => {
   if ('palette' in b.dataset) { openTabSearch('all'); return; }
   if (b.dataset.settings) { closeOverlay(); api.call('openSettings', b.dataset.settings); return; }
   if (b.dataset.cmd === 'noteOpen') { openNote(); return; }
+  if (b.dataset.cmd === 'spaceOpenPop') { openSpacePop(); return; }
   if (b.dataset.cmd === 'qrOpen') { openQr(); return; }
   if (b.dataset.cmd === 'liveToggle') { closeOverlay(); api.call('liveToggle').then(r => r && showToast(r.error || r.message)); return; }
   closeOverlay();
@@ -1428,6 +1436,36 @@ api.on('link-preview', d => {
 });
 $('#lp-x').onclick = () => closeOverlay();
 $('#lp-tab').onclick = () => { lpClosing = true; closeOverlay(); lpClosing = false; api.call('linkPreviewOpenTab'); };
+
+// ------------------------------------------------------------ Arbeitsbereiche
+function openSpacePop() {
+  if (isSide) { api.call('spaceMenu'); return; } // in der Seitenleiste: Hauptoberfläche zeigt das Fenster
+  if (overlay === 'space') return closeOverlay();
+  hideTabPreview();
+  openOverlay('space');
+  const pop = $('#space-pop');
+  const r = $('#space-btn').getBoundingClientRect();
+  pop.style.left = (r.width ? Math.max(8, r.left) : (S.vertical ? 252 : 8)) + 'px';
+  pop.style.right = 'auto';
+  pop.style.top = (r.width ? r.bottom + 6 : $('#toolbar').getBoundingClientRect().bottom + 8) + 'px';
+  pop.hidden = false;
+  paintSpacePop();
+}
+function paintSpacePop() {
+  const cur = (S.spaces || []).find(x => x.id === S.spaceId) || {};
+  $('#space-list').innerHTML = (S.spaces || []).map((s, i) => `<button data-space="${esc(s.id)}" class="${s.id === S.spaceId ? 'on' : ''}" style="--sc:var(--g-${esc(s.color)})"><i></i><span>${esc(s.name)}</span><small>${s.count} Tab${s.count === 1 ? '' : 's'} · Alt+${i + 1}</small></button>`).join('');
+  if (document.activeElement !== $('#space-name')) $('#space-name').value = cur.name || '';
+  $('#space-colors').innerHTML = Object.entries(GROUP_COLORS).map(([k, label]) =>
+    `<button data-color="${k}" role="radio" aria-checked="${k === cur.color}" title="${label}" style="--c:var(--g-${k})"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`).join('');
+  $('#space-del').disabled = (S.spaces || []).length <= 1;
+}
+$('#space-btn').onclick = openSpacePop;
+api.on('space-pop', openSpacePop);
+$('#space-list').addEventListener('click', e => { const b = e.target.closest('[data-space]'); if (b) { api.call('spaceSwitch', b.dataset.space); closeOverlay(); } });
+$('#space-name').addEventListener('input', e => api.call('spaceUpdate', { id: S.spaceId, patch: { name: e.target.value } }));
+$('#space-colors').addEventListener('click', e => { const b = e.target.closest('[data-color]'); if (b) api.call('spaceUpdate', { id: S.spaceId, patch: { color: b.dataset.color } }); });
+$('#space-new').onclick = async () => { await api.call('spaceNew', {}); setTimeout(() => { $('#space-name').focus(); $('#space-name').select(); }, 60); };
+$('#space-del').onclick = () => { if (confirm('Diesen Arbeitsbereich mit allen seinen Tabs schließen?')) { api.call('spaceRemove', S.spaceId); closeOverlay(); } };
 
 // ------------------------------------------------------------ Tab-Vorschau
 let tpTimer = null, tpFor = null, tpShown = false;

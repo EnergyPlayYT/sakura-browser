@@ -55,6 +55,7 @@ const TABBAR_H = 40;
 const TOOLBAR_H = 46;
 const FINDBAR_H = 44;
 const BOOKMARKBAR_H = 32;
+let spaceCounter = 0;
 const SIDE_W = 244; // vertikale Tabs: Breite der Seitenleiste
 const KI_W = 420, KI_HEAD = 44; // KI-Seitenleiste rechts
 // KI-Seitenleiste wie in Firefox: die Webseite des Anbieters, angemeldet mit dem eigenen Konto (Reihenfolge wie bei Firefox)
@@ -207,6 +208,9 @@ class SakuraWindow {
     this.htmlFullscreen = false;
     this.popup = null;
     this.groups = new Map(); // id → { id, name, color, collapsed }
+    // Arbeitsbereiche: this.tabs/groups/activeId gehören immer zum aktuellen; die anderen liegen in this.spaces
+    this.spaceId = 'sp' + (++spaceCounter);
+    this.spaces = [{ id: this.spaceId, name: 'Allgemein', color: 'sakura', tabs: null, groups: null, activeId: null }];
 
     this.win = new BaseWindow({
       width: 1300, height: 840, minWidth: 560, minHeight: 400, show: false, icon: ICON, ...(bounds || {}),
@@ -233,7 +237,7 @@ class SakuraWindow {
     this.win.on('closed', () => {
       this.closePopup();
       if (floating && floating.tab.w === this) dropFloat();
-      for (const t of this.tabs) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
+      for (const t of this.allTabs()) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.close();
       if (this.ki) for (const v of [this.ki.view, this.ki.head]) if (!v.webContents.isDestroyed()) v.webContents.close();
@@ -245,26 +249,99 @@ class SakuraWindow {
     });
 
     windows.add(this);
-    if (restore && restore.tabs && restore.tabs.length) {
-      const act = Math.min(restore.active || 0, restore.tabs.length - 1);
-      for (const g of restore.groups || []) {
-        const id = 'g' + (++groupCounter);
-        this.groups.set(id, { id, name: g.name || '', color: GROUP_COLORS.includes(g.color) ? g.color : 'sakura', collapsed: !!g.collapsed, old: g.id });
-      }
-      const gid = old => { for (const g of this.groups.values()) if (g.old === old) return g.id; return null; };
-      this.restoring = true;
-      restore.tabs.forEach((t, i) => {
-        this.newTab(t.url, { background: true, lazy: i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null, container: t.container });
-        const nt = this.tabs[this.tabs.length - 1];
-        if (nt && Number(t.lastActive) > 0) nt.lastActive = Number(t.lastActive); // fürs Tab-Archiv über Neustarts hinweg
+    if (restore && ((restore.tabs && restore.tabs.length) || (restore.spaces && restore.spaces.length))) {
+      const list = restore.spaces && restore.spaces.length ? restore.spaces : [{ name: 'Allgemein', color: 'sakura', tabs: restore.tabs, active: restore.active, groups: restore.groups }];
+      const cur = Math.min(Math.max(0, Number(restore.space) || 0), list.length - 1);
+      this.spaces = [];
+      list.forEach((sp, i) => {
+        const id = 'sp' + (++spaceCounter);
+        this.spaces.push({ id, name: String(sp.name || 'Arbeitsbereich').slice(0, 40), color: GROUP_COLORS.includes(sp.color) ? sp.color : 'sakura', tabs: null, groups: null, activeId: null });
+        this.spaceId = id; this.tabs = []; this.groups = new Map(); this.activeId = null;
+        this.restoreTabs(sp.tabs && sp.tabs.length ? sp : { tabs: [{ url: NEWTAB }], active: 0 }, i !== cur);
+        this.stashSpace();
       });
-      for (const g of this.groups.values()) delete g.old;
-      this.restoring = false;
-      this.normalize();
-      this.activate(this.tabs[act].id);
+      this.loadSpace(this.spaces[cur].id);
+      this.activate((this.tabs.find(t => t.id === this.activeId) || this.tabs[0]).id);
     } else if (adopt) this.adoptTab(adopt);
     else this.newTab(url || NEWTAB);
     this.layout();
+  }
+
+
+  /** Tabs (und Gruppen) eines gemerkten Arbeitsbereichs öffnen; background = nichts laden außer gemerkt */
+  restoreTabs(restore, background = false) {
+    const act = Math.min(restore.active || 0, restore.tabs.length - 1);
+    for (const g of restore.groups || []) {
+      const id = 'g' + (++groupCounter);
+      this.groups.set(id, { id, name: g.name || '', color: GROUP_COLORS.includes(g.color) ? g.color : 'sakura', collapsed: !!g.collapsed, old: g.id });
+    }
+    const gid = old => { for (const g of this.groups.values()) if (g.old === old) return g.id; return null; };
+    this.restoring = true;
+    restore.tabs.forEach((t, i) => {
+      this.newTab(t.url, { background: true, lazy: background || i !== act, title: t.title, pinned: t.pinned, group: t.group ? gid(t.group) : null, container: t.container });
+      const nt = this.tabs[this.tabs.length - 1];
+      if (nt && Number(t.lastActive) > 0) nt.lastActive = Number(t.lastActive); // fürs Tab-Archiv über Neustarts hinweg
+    });
+    for (const g of this.groups.values()) delete g.old;
+    this.restoring = false;
+    this.normalize();
+    if (background) this.activeId = this.tabs[Math.min(act, this.tabs.length - 1)].id;
+    else this.activate(this.tabs[Math.min(act, this.tabs.length - 1)].id);
+  }
+
+  // ---------- Arbeitsbereiche
+  allTabs() { return [...this.tabs, ...this.spaces.filter(s => s.id !== this.spaceId && s.tabs).flatMap(s => s.tabs)]; }
+  /** aktuellen Bereich wegpacken (Tabs unsichtbar) */
+  stashSpace() {
+    const s = this.spaces.find(x => x.id === this.spaceId);
+    if (!s) return;
+    s.tabs = this.tabs; s.groups = this.groups; s.activeId = this.activeId;
+    for (const t of this.tabs) if (!t.floating) t.view.setVisible(false);
+  }
+  loadSpace(id) {
+    const s = this.spaces.find(x => x.id === id);
+    if (!s) return;
+    this.spaceId = id;
+    this.tabs = s.tabs || []; this.groups = s.groups || new Map(); this.activeId = s.activeId;
+    s.tabs = null; s.groups = null;
+  }
+  switchSpace(id) {
+    if (id === this.spaceId || !this.spaces.some(x => x.id === id)) return false;
+    if (this.findOpen) this.closeFind();
+    this.split = null;
+    this.stashSpace();
+    this.loadSpace(id);
+    if (!this.tabs.length) this.newTab(NEWTAB);
+    else this.activate((this.tabs.find(t => t.id === this.activeId) || this.tabs[0]).id);
+    this.layout();
+    this.sendState();
+    return true;
+  }
+  newSpace(name, color) {
+    if (this.spaces.length >= 9) return null;
+    const used = this.spaces.map(s => s.color);
+    const id = 'sp' + (++spaceCounter);
+    this.spaces.push({ id, name: String(name || '').trim().slice(0, 40) || `Bereich ${this.spaces.length + 1}`, color: GROUP_COLORS.includes(color) ? color : (GROUP_COLORS.find(c => !used.includes(c)) || 'sakura'), tabs: [], groups: new Map(), activeId: null });
+    this.switchSpace(id);
+    return id;
+  }
+  updateSpace(id, patch = {}) {
+    const s = this.spaces.find(x => x.id === id);
+    if (!s) return false;
+    if (typeof patch.name === 'string') s.name = patch.name.trim().slice(0, 40) || s.name;
+    if (GROUP_COLORS.includes(patch.color)) s.color = patch.color;
+    this.sendState();
+    return true;
+  }
+  removeSpace(id) {
+    if (this.spaces.length <= 1) return false;
+    const s = this.spaces.find(x => x.id === id);
+    if (!s) return false;
+    if (id === this.spaceId) this.switchSpace(this.spaces.find(x => x.id !== id).id);
+    for (const t of s.tabs || []) { try { this.win.contentView.removeChildView(t.view); } catch {} if (!t.view.webContents.isDestroyed()) t.view.webContents.close(); }
+    this.spaces = this.spaces.filter(x => x !== s);
+    this.sendState();
+    return true;
   }
 
   // ---------- Tabs zwischen Fenstern verschieben
@@ -670,7 +747,12 @@ class SakuraWindow {
 
   activate(id) {
     const t = this.tabs.find(x => x.id === id);
-    if (!t) return;
+    if (!t) {
+      // Tab liegt in einem anderen Arbeitsbereich → dorthin wechseln
+      const sp = this.spaces.find(s => s.id !== this.spaceId && s.tabs && s.tabs.some(x => x.id === id));
+      if (sp) { this.switchSpace(sp.id); if (this.tabs.some(x => x.id === id)) this.activate(id); }
+      return;
+    }
     if (t.floating) { unfloat(); return; } // Klick auf den Tab holt das Video zurück
     const prev = this.active;
     if (prev) prev.lastActive = Date.now(); // zuletzt benutzt = als er verlassen wurde
@@ -926,6 +1008,8 @@ class SakuraWindow {
       remote: remoteControl,
       vertical: !!this.side,
       kiOpen: !!this.ki,
+      spaceId: this.spaceId,
+      spaces: this.spaces.map(s => ({ id: s.id, name: s.name, color: s.color, count: s.id === this.spaceId ? this.tabs.length : (s.tabs || []).length })),
       mediaBar: mediaBarInfo(this),
       focusUntil: Focus.activeUntil(store.data.focus), canNote: !this.isPrivate && !!noteKey(realUrl),
       streamer: streamerActive() ? { app: streamerApp, manual: (store.prefs().streamerMode || 'auto') === 'on' } : null,
@@ -1975,7 +2059,7 @@ function archiveAdd(it) {
 }
 
 function findTab(id) {
-  for (const w of windows) { const t = w.tabs.find(x => x.id === id); if (t) return { w, t }; }
+  for (const w of windows) { const t = w.allTabs().find(x => x.id === id); if (t) return { w, t }; }
   return null;
 }
 
@@ -2004,12 +2088,20 @@ function noteKey(url) {
 }
 function noteFor(url) { const k = noteKey(url); return k && store.data.notes && store.data.notes[k] || null; }
 
-function windowSnapshot(w) {
+function tabsSnapshot(w, tabs, activeId, groups) {
   return {
-    active: Math.max(0, w.tabs.findIndex(t => t.id === w.activeId)),
-    tabs: w.tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined, lastActive: t.lastActive || undefined })),
-    groups: [...w.groups.values()]
+    active: Math.max(0, tabs.findIndex(t => t.id === activeId)),
+    tabs: tabs.map(t => ({ url: w.displayUrl(t.pending || t.url) || NEWTAB, title: t.title, pinned: t.pinned || undefined, group: t.group || undefined, container: t.container || undefined, lastActive: t.lastActive || undefined })),
+    groups: [...groups.values()]
   };
+}
+function windowSnapshot(w) {
+  const snap = tabsSnapshot(w, w.tabs, w.activeId, w.groups);
+  if (w.spaces.length > 1 || w.spaces[0].name !== 'Allgemein') {
+    snap.space = w.spaces.findIndex(s => s.id === w.spaceId);
+    snap.spaces = w.spaces.map(s => ({ name: s.name, color: s.color, ...(s.id === w.spaceId ? tabsSnapshot(w, w.tabs, w.activeId, w.groups) : tabsSnapshot(w, s.tabs || [], s.activeId, s.groups || new Map())) }));
+  }
+  return snap;
 }
 
 function saveSession() {
@@ -2027,7 +2119,7 @@ function openTabsForSync() {
   const out = [];
   for (const w of windows) {
     if (w.isPrivate) continue;
-    for (const t of w.tabs) {
+    for (const t of w.allTabs()) {
       const u = w.displayUrl(t.pending || t.url);
       if (/^https?:/.test(u)) out.push({ url: u, title: t.title || u });
     }
@@ -2086,6 +2178,7 @@ function attachShortcuts(wc, winOrGetter) {
     else if (c && k === 'n') new SakuraWindow();
     else if (c && k === 'w') w.closeTab(w.activeId);
     else if (c && k === 'tab') w.cycle(i.shift ? -1 : 1);
+    else if (i.alt && !c && /^[1-9]$/.test(k) && w.spaces[Number(k) - 1]) w.switchSpace(w.spaces[Number(k) - 1].id);
     else if (c && /^[1-8]$/.test(k)) { const t = w.tabs[Number(k) - 1]; if (t) w.activate(t.id); }
     else if (c && k === '9') w.activate(w.tabs[w.tabs.length - 1].id);
     else if ((c && k === 'l') || (i.alt && k === 'd') || k === 'f6') { w.ui.webContents.focus(); w.ui.webContents.send('focus-address'); }
@@ -2397,6 +2490,12 @@ const uiCommands = {
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
     return { host, ...siteMedia(host), clip: !!t.clipArmed, cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
   },
+  // Arbeitsbereiche
+  spaceSwitch: (w, id) => w.switchSpace(String(id)),
+  spaceNew: (w, o = {}) => w.newSpace(o && o.name, o && o.color),
+  spaceUpdate: (w, { id, patch } = {}) => w.updateSpace(String(id), patch || {}),
+  spaceRemove: (w, id) => w.removeSpace(String(id)),
+  spaceMenu: w => { w.ui.webContents.send('space-pop'); return true; },
   // KI-Seitenleiste
   kiState: w => ({ open: !!w.ki, provider: kiProvider().id, providers: KI_PROVIDERS.map(({ id, label }) => ({ id, label })), theme: w.isPrivate ? null : theme().vars }),
   kiToggle: (w, open) => { w.toggleKi(open == null ? !w.ki : !!open); return !!w.ki; },
@@ -2655,7 +2754,7 @@ const uiCommands = {
     for (const x of windows) {
       const hide = x.isPrivate && !w.isPrivate; // private Tabs nicht in normalen Fenstern zeigen
       if (hide) continue;
-      for (const t of x.tabs) {
+      for (const t of x.allTabs()) {
         const url = x.displayUrl(t.pending || t.url);
         open.push({ id: t.id, title: t.title || url || 'Neuer Tab', url, here: x === w, active: x.activeId === t.id && x === w, sleeping: !!t.pending, private: x.isPrivate, audible: t.audible });
       }
