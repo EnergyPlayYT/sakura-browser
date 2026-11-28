@@ -13,9 +13,13 @@ class Updater extends EventEmitter {
     this.state = { state: 'idle', version: null, percent: null, message: '' };
     this.lastCheck = 0;
     // Nur die installierte Version (Installer) kann sich selbst aktualisieren – nicht „npm start“ und nicht die portable .exe
-    this.supported = !!(this.au && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR);
+    // Store-Version (process.windowsStore): Updates kommen über den Microsoft Store
+    this.store = !!process.windowsStore;
+    this.supported = !!(this.au && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR && !this.store);
     if (!this.supported) {
-      this.state = { state: 'unsupported', version: null, percent: null, message: !app.isPackaged
+      this.state = { state: 'unsupported', version: null, percent: null, message: this.store
+        ? 'Diese Version kommt aus dem Microsoft Store – Updates installiert der Store automatisch.'
+        : !app.isPackaged
         ? 'Im Entwicklungsmodus gibt es keine automatischen Updates.'
         : 'Die portable Version aktualisiert sich nicht selbst. Lade neue Versionen bei GitHub herunter oder nutze den Installer.' };
       return;

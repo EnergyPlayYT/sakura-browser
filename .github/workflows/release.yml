@@ -94,6 +94,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis portable --publish always
+      - name: Store-Paket bauen (Microsoft Store, nur wenn der Publisher eingetragen ist)
+        working-directory: desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! node -e "process.exit(require('./package.json').build.appx.publisher ? 0 : 1)"; then echo "Kein Publisher eingetragen – Store-Paket übersprungen."; exit 0; fi
+          npx electron-builder --win appx --publish never
+          gh release upload "v${{ needs.version.outputs.version }}" dist/Sakura-Store-*.appx --clobber --repo "$GITHUB_REPOSITORY"
 
   linux:
     name: Linux bauen

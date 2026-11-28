@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datenschutz – Sakura</title>
+<meta name="description" content="Datenschutzerklärung des Sakura-Browsers: was gespeichert wird, was nicht, und welche Dienste Sakura wofür anfragt.">
+<link rel="icon" href="img/icon.png">
+<style>
+  :root { --yoru: #1C1A33; --washi: #EEE7E2; --usuzumi: #A59EB8; --sakura: #F2B3C5; --beni: #D9566F; --washi-rgb: 238, 231, 226; --sakura-rgb: 242, 179, 197;
+    --mincho: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", Georgia, serif; --gothic: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--washi); font: 16px/1.7 var(--gothic); background: var(--yoru);
+    background-image: radial-gradient(1000px 600px at 90% -10%, rgba(var(--sakura-rgb), .14), transparent 60%); }
+  main { max-width: 780px; margin: 0 auto; padding: 40px 24px 80px; }
+  a { color: var(--sakura); }
+  .logo { display: inline-flex; align-items: center; gap: 10px; font: 400 20px var(--mincho); color: var(--washi); text-decoration: none; margin-bottom: 40px; }
+  .seal { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--beni); color: #FBEFEF; font: 600 18px/1 var(--mincho); }
+  h1 { font: 400 40px/1.15 var(--mincho); margin: 0 0 8px; }
+  h2 { font: 400 24px var(--mincho); margin: 40px 0 10px; }
+  p, li { color: #D6CFD8; }
+  .meta { color: var(--usuzumi); margin: 0 0 30px; }
+  .box { padding: 18px 22px; border-radius: 18px; background: rgba(var(--washi-rgb), .05); box-shadow: inset 0 1px 0 rgba(var(--washi-rgb), .12), inset 0 0 0 1px rgba(var(--washi-rgb), .08); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td, th { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid rgba(var(--washi-rgb), .08); }
+  th { color: var(--usuzumi); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <a class="logo" href="./"><span class="seal">桜</span>Sakura</a>
+  <h1>Datenschutz</h1>
+  <p class="meta">Stand: November 2026 · gilt für Sakura für Windows, Linux und Android</p>
+
+  <div class="box"><p><strong>Kurz gesagt:</strong> Sakura sammelt keine Nutzungsdaten, zeigt keine Werbung und hat keine Konten. Deine Lesezeichen, Passwörter, dein Verlauf und deine Einstellungen bleiben auf deinem Gerät. Nur wenn du den Sync einschaltest, werden sie – vorher auf deinem Gerät verschlüsselt – zwischen deinen Geräten abgeglichen.</p></div>
+
+  <h2>Was auf deinem Gerät gespeichert wird</h2>
+  <p>Lesezeichen, Verlauf, offene Tabs, Einstellungen, Notizen, Leseliste, Bildschirmzeit und Downloads speichert Sakura nur lokal. Passwörter werden zusätzlich mit deinem Windows-Konto verschlüsselt. Private Fenster speichern nichts dauerhaft.</p>
+
+  <h2>Sync (nur wenn du ihn einschaltest)</h2>
+  <p>Beim Abgleich per Sync-Code werden deine Daten auf deinem Gerät mit einem Schlüssel aus deinem Sync-Code verschlüsselt (AES-256-GCM) und erst dann an den Sakura-Sync-Dienst (sakura-sync.netlify.app, gehostet bei Netlify) geschickt. Der Dienst sieht nur unlesbare Daten und kann sie nicht entschlüsseln. Du kannst den Sync jederzeit beenden. Alternativ lässt sich ein eigenes Firebase-Projekt nutzen.</p>
+
+  <h2>Dienste, die Sakura anfragt</h2>
+  <p>Für einzelne Funktionen fragt Sakura öffentliche Dienste an. Dabei werden keine persönlichen Daten gesendet – nur das, was für die Funktion nötig ist:</p>
+  <table>
+    <tr><th>Funktion</th><th>Dienst</th><th>Was gesendet wird</th></tr>
+    <tr><td>Updates</td><td>GitHub</td><td>Abfrage der neuesten Version</td></tr>
+    <tr><td>Werbe- und Phishing-Listen</td><td>GitHub, GitLab (öffentliche Listen)</td><td>Abruf der Liste</td></tr>
+    <tr><td>Passwort-Leck-Prüfung</td><td>Have I Been Pwned</td><td>nur die ersten 5 Zeichen eines Prüfwerts (k-Anonymität) – nie das Passwort</td></tr>
+    <tr><td>YouTube-Sponsorabschnitte</td><td>SponsorBlock</td><td>Teil eines Prüfwerts der Video-ID</td></tr>
+    <tr><td>Wetter auf der Startseite</td><td>Open-Meteo</td><td>der Ort, den du eingibst</td></tr>
+    <tr><td>Twitch-Emotes</td><td>7TV, BetterTTV, FrankerFaceZ</td><td>Name des Kanals</td></tr>
+    <tr><td>Steam-Infos</td><td>Steam, SteamSpy, IsThereAnyDeal (nur mit eigenem Schlüssel)</td><td>Spiel-Nummer</td></tr>
+    <tr><td>Live-Benachrichtigungen</td><td>Twitch, YouTube</td><td>Abruf der öffentlichen Kanalseite</td></tr>
+    <tr><td>Wegwerf-E-Mail</td><td>mail.tm</td><td>nur wenn du eine Adresse erzeugst</td></tr>
+    <tr><td>KI-Seitenleiste</td><td>Claude, ChatGPT, Gemini, Mistral</td><td>Sakura öffnet nur deren Webseite; was du dort eingibst, unterliegt deren Datenschutz</td></tr>
+  </table>
+  <p>Webseiten, die du besuchst, sehen dich wie in jedem Browser. Sakura blockiert dabei bekannte Tracker und Werbung.</p>
+
+  <h2>Keine Analyse, keine Werbung</h2>
+  <p>Sakura enthält keine Analyse-, Absturz- oder Werbe-Tracker und gibt keine Daten an Dritte weiter oder verkauft sie.</p>
+
+  <h2>Kontakt und Quellcode</h2>
+  <p>Sakura ist quelloffen: <a href="https://github.com/EnergyPlayYT/sakura-browser">github.com/EnergyPlayYT/sakura-browser</a>. Fragen und Hinweise gern über die <a href="https://github.com/EnergyPlayYT/sakura-browser/issues">Issues-Seite</a>.</p>
+</main>
+</body>
+</html>

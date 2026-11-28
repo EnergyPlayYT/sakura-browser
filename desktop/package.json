@@ -79,6 +79,18 @@
     },
     "appImage": {
       "artifactName": "Sakura-${version}.${ext}"
+    },
+    "appx": {
+      "identityName": "EnergyPlay.SakuraBrowser",
+      "applicationId": "Sakura",
+      "displayName": "Sakura Browser",
+      "publisherDisplayName": "EnergyPlay",
+      "backgroundColor": "#1C1A33",
+      "languages": [
+        "de-DE",
+        "en-US"
+      ],
+      "artifactName": "Sakura-Store-${version}.${ext}"
     }
   },
   "dependencies": {
