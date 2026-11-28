@@ -196,6 +196,8 @@ async function renderSettings() {
     <h3>Daten</h3>
     <label class="switch"><input type="checkbox" id="clr-cookies"><span>Auch Cookies und Anmeldungen löschen</span></label>
     <div class="row"><button class="btn danger" id="clr">Verlauf und Cache löschen</button><button class="btn" id="datadir">Datenordner öffnen</button></div>
+    <p class="perm-title"><b>Gemerkte Berechtigungen</b> – Standort, Kamera, Mikrofon, Benachrichtigungen</p>
+    <div id="perms"></div>
   </section>`;
 
   $('#engine').onchange = e => api.call('setPrefs', { searchEngine: e.target.value });
@@ -275,8 +277,21 @@ async function renderSettings() {
     $('#clr').textContent = 'Gelöscht';
   };
   $('#datadir').onclick = () => api.call('openDataFolder');
+  renderPerms(await api.call('permList'));
   bindSync();
   bindImport();
+}
+
+const PERM_LABEL = { media: 'Kamera/Mikrofon', geolocation: 'Standort', notifications: 'Benachrichtigungen', 'clipboard-read': 'Zwischenablage', midi: 'MIDI', midiSysex: 'MIDI' };
+function renderPerms(list) {
+  const box = $('#perms');
+  if (!box) return;
+  list = list || [];
+  box.innerHTML = !list.length ? '<p class="hint">Noch keine. Wenn eine Seite nach Standort, Kamera oder Benachrichtigungen fragt, merkt sich Sakura deine Antwort.</p>'
+    : list.map(x => `<div class="row perm"><span><b>${esc(x.host)}</b> · ${esc(PERM_LABEL[x.perm] || x.perm)} · ${x.ok ? 'erlaubt' : 'blockiert'}</span><button class="btn" data-perm="${esc(x.key)}">Vergessen</button></div>`).join('')
+      + '<div class="row"><button class="btn" id="perm-all">Alle vergessen</button></div>';
+  box.querySelectorAll('[data-perm]').forEach(b => b.onclick = async () => renderPerms(await api.call('permRemove', b.dataset.perm)));
+  if ($('#perm-all')) $('#perm-all').onclick = async () => renderPerms(await api.call('permRemove', null));
 }
 
 function bindDesign(p) {

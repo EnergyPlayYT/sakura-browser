@@ -187,6 +187,7 @@ function prepareSession(ses, isPrivate) {
     notifications: 'Benachrichtigungen anzeigen', 'clipboard-read': 'die Zwischenablage lesen',
     midi: 'MIDI-Geräte verwenden', midiSysex: 'MIDI-Geräte verwenden'
   };
+  // Entscheidungen bleiben gespeichert (store.data.permissions), außer in privaten Fenstern
   ses.setPermissionRequestHandler((wc, permission, cb, details) => {
     if (SAFE.has(permission)) return cb(true);
     let origin = '';
@@ -196,14 +197,27 @@ function prepareSession(ses, isPrivate) {
     if (!LABEL[permission]) return cb(false);
     const key = origin + '|' + permission;
     if (decisions.has(key)) return cb(decisions.get(key));
+    if (!isPrivate) {
+      const perms = store.data.permissions || {};
+      if (key in perms) return cb(!!perms[key]);
+    }
     const w = [...windows].find(x => x.tabs.some(t => t.view.webContents === wc));
+    // Nicht aus einem Tab (z. B. KI-Seitenleiste): Standort und Benachrichtigungen still blockieren, sonst nachfragen
+    if (!w) {
+      const kiWin = [...windows].find(x => x.ki && x.ki.view && x.ki.view.webContents === wc);
+      if (kiWin && permission !== 'media' && permission !== 'clipboard-read') return cb(false);
+    }
     dialog.showMessageBox(w ? w.win : undefined, {
       type: 'question', buttons: ['Erlauben', 'Blockieren'], defaultId: 1, cancelId: 1,
       title: 'Berechtigung', message: `${origin} möchte ${LABEL[permission]}.`,
-      checkboxLabel: 'Für diese Sitzung merken', checkboxChecked: true
+      detail: isPrivate ? '' : 'Ändern kannst du das später in den Einstellungen unter „Daten“.',
+      checkboxLabel: isPrivate ? 'Für dieses Fenster merken' : 'Entscheidung merken', checkboxChecked: true
     }).then(r => {
       const ok = r.response === 0;
-      if (r.checkboxChecked) decisions.set(key, ok);
+      if (r.checkboxChecked) {
+        if (isPrivate) decisions.set(key, ok);
+        else { store.data.permissions = { ...(store.data.permissions || {}), [key]: ok }; store.save(); }
+      }
       cb(ok);
     }).catch(() => cb(false));
   });
@@ -2542,6 +2556,14 @@ const uiCommands = {
     if (cookies) await session.defaultSession.clearStorageData();
   },
   devices: () => store.otherDevices(),
+  // Gemerkte Berechtigungen (Standort, Kamera …) anzeigen und zurücksetzen
+  permList: () => Object.entries(store.data.permissions || {}).map(([k, ok]) => { const [host, perm] = k.split('|'); return { key: k, host, perm, ok: !!ok }; }),
+  permRemove: (w, key) => {
+    const p = { ...(store.data.permissions || {}) };
+    if (key == null) store.data.permissions = {}; else { delete p[String(key)]; store.data.permissions = p; }
+    store.save();
+    return uiCommands.permList();
+  },
   prefs: () => ({ ...store.prefs(), engines: Object.keys(M.ENGINES), blocklistSize: blocker.size, startTheme, themes: Themes.list }),
   setPrefs: async (w, patch) => {
     if ('theme' in patch && !Themes.list.some(t => t.id === patch.theme)) delete patch.theme;
@@ -3110,7 +3132,7 @@ const SETTINGS_COMMANDS = new Set([
   'prefs', 'setPrefs', 'relaunch', 'clearHistory', 'openDataFolder', 'devices', 'copyText', 'openPanel', 'updateInfo',
   'syncInfo', 'syncLogin', 'syncLogout', 'syncUnlock', 'syncChangePassword', 'syncNow', 'syncCreateCode', 'syncConnectCode',
   'importSources', 'importRun', 'importHtml', 'containers', 'clearContainer', 'itadKey', 'setItadKey',
-  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen', 'webApps', 'webAppOpen', 'webAppRemove', 'discordGet', 'discordSet'
+  'pinStatus', 'pinSet', 'pinRemove', 'remoteStatus', 'remoteSet', 'updateCheck', 'updateInstall', 'focusGet', 'focusSet', 'focusStart', 'focusStop', 'welcomeOpen', 'webApps', 'webAppOpen', 'webAppRemove', 'discordGet', 'discordSet', 'permList', 'permRemove'
 ]);
 
 // PIN-Sperre: diese Befehle liefern nur { locked: true }, solange gesperrt ist
