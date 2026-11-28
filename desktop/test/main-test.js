@@ -213,6 +213,10 @@ setTimeout(async()=>{
     assert.equal(await call('darkSite'), true); assert.equal((await call('state')).darkSite, true);
     assert.equal(await call('darkSite'), false); assert.equal((await call('state')).darkSite, false);
     await call('zoom', 0); }
+  // Akku-Sparmodus
+  { assert.equal((await call('state')).saver, false);
+    await call('setPrefs', { batterySaver: 'on' }); let s3 = await call('state'); assert.equal(s3.saver, true); assert.equal(s3.animations, false);
+    await call('setPrefs', { batterySaver: 'auto' }); assert.equal((await call('state')).saver, false); }
   // QR-Code der Seite
   { await call('navigate', 'https://qr.example/seite'); await new Promise(x=>setTimeout(x,30));
     const q = await call('qr'); assert.equal(q.url, 'https://qr.example/seite'); assert(/^data:image\/gif;base64,/.test(q.img));

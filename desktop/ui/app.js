@@ -119,6 +119,7 @@ function render() {
   }
   $('#remote-tag').hidden = !S.remote;
   $('#focus-tag').hidden = !S.focusUntil;
+  $('#saver-tag').hidden = !S.saver;
   if (S.focusUntil) $('#focus-tag').textContent = 'Fokus bis ' + new Date(S.focusUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   $('#reader-btn').classList.toggle('on', !!S.reader);
   $('#reader-btn').title = S.reader ? 'Lesemodus beenden (F9)' : 'Lesemodus (F9)';

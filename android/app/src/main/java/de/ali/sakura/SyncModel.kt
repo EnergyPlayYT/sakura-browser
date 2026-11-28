@@ -37,6 +37,7 @@ object SyncModel {
         .put("linkPreview", true)
         .put("pipButton", true)
         .put("verticalTabs", false)
+        .put("batterySaver", "auto")
         .put("archiveDays", 14)
         .put("phishWarn", true)
         .put("ntWidgets", true)

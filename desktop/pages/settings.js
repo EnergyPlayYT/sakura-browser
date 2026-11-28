@@ -56,6 +56,10 @@ async function renderSettings() {
   </section>
   <section class="set">
     <h3>Leistung</h3>
+    <label class="field">Akku-Sparmodus
+      <select id="saver">${[['auto', 'Automatisch, wenn der Laptop ohne Ladekabel läuft'], ['on', 'Immer an'], ['off', 'Aus']].map(([v, l]) => `<option value="${v}"${(p.batterySaver || 'auto') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>
+    <p class="hint" style="margin-left:0">Im Sparmodus schlafen Hintergrund-Tabs nach 5 Minuten, Glas-Effekte und Animationen werden abgeschaltet.</p>
     <label class="field">Hintergrund-Tabs schlafen legen nach
       <select id="sl-after">${[[0, 'Nie'],[10, '10 Minuten'],[30, '30 Minuten'],[60, '1 Stunde'],[120, '2 Stunden']].map(([v, l]) => `<option value="${v}"${Number(p.sleepAfter || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
     </label>
@@ -252,6 +256,7 @@ async function renderSettings() {
   $('#pw-open').onclick = () => openPanel('passwords');
   $('#pp-on').onchange = e => api.call('setPrefs', { popupBlock: e.target.checked });
   $('#pp-allow').onchange = e => api.call('setPrefs', { popupAllow: lines(e.target.value).map(u => hostOf(/^https?:/.test(u) ? u : 'https://' + u)) });
+  $('#saver').onchange = e => api.call('setPrefs', { batterySaver: e.target.value });
   $('#nt-widgets').onchange = e => api.call('setPrefs', { ntWidgets: e.target.checked });
   $('#nt-city').onchange = e => api.call('setPrefs', { weatherCity: e.target.value.trim().slice(0, 60) });
   $('#phish').onchange = e => api.call('setPrefs', { phishWarn: e.target.checked });

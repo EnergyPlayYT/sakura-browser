@@ -1055,7 +1055,8 @@ class SakuraWindow {
       extActions: this.isPrivate ? [] : extensions.actions(),
       downloads: downloads.summary(),
       gaming: gameWatch && gameWatch.game ? gameWatch.game : null,
-      animations: store.prefs().animations !== false,
+      animations: store.prefs().animations !== false && !batterySaving(),
+      saver: batterySaving(),
       readable: !!(a && (a.readable || a.reader)), reader: !!(a && a.reader),
       liveOn: (() => { const c = channelFromUrl(realUrl); return !!(c && liveWatch && liveWatch.has(c.key)); })(),
       note: !this.isPrivate && !!noteFor(realUrl),
@@ -1699,6 +1700,7 @@ async function channelOfTab(t) {
 // Liquid Glass: verkleinertes Bild der Seite, das die Oberfläche verschwommen hinter Menüs und Leisten zeigt
 // (die Oberfläche liegt als eigene Ebene über der Seite und kann sie sonst nicht durchscheinen lassen)
 async function sendGlass(w) {
+  if (batterySaving()) return; // Akku sparen: kein Bild der Seite für den Glas-Effekt
   const t = w.active;
   if (!t || t.floating || t.view.webContents.isDestroyed()) return;
   try {
@@ -2135,8 +2137,17 @@ async function perfInfo(viewer) {
 }
 // Automatisch schlafen legen (Einstellungen: sleepAfter, ramLimit, cpuLimit)
 const cpuStrikes = new Map();
+// Akku-Sparmodus: ohne Ladekabel (oder immer) – Tabs schneller schlafen legen, Glas-Effekte und Animationen sparen
+function batterySaving() {
+  const mode = store.prefs().batterySaver || 'auto';
+  if (mode === 'on') return true;
+  if (mode === 'off') return false;
+  try { return !!powerMonitor.isOnBatteryPower(); } catch { return false; }
+}
+
 async function autoSleepTick() {
-  const p = store.prefs();
+  let p = store.prefs();
+  if (batterySaving()) p = { ...p, sleepAfter: Math.min(Number(p.sleepAfter) || 5, 5) }; // im Sparmodus nach spätestens 5 Minuten
   if (!Number(p.sleepAfter) && !Number(p.ramLimit) && !Number(p.cpuLimit)) return [];
   const info = await perfInfo();
   const byId = new Map(info.tabs.map(r => [r.id, r]));
@@ -3103,6 +3114,7 @@ app.whenReady().then(async () => {
   blocker.phish = phishGuard;
   blocker.onPhish = (id, url) => phishPending.set(id, url);
   setInterval(screenTimeTick, 15000);
+  try { for (const ev of ['on-battery', 'on-ac']) powerMonitor.on(ev, () => broadcastState()); } catch {}
   tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
