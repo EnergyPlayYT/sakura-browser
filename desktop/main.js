@@ -123,9 +123,24 @@ function builtinBackgrounds() {
 }
 
 // ---------------------------------------------------------------- Sitzungen
+// Google sperrt die Anmeldung in Browsern, die es für „eingebettete Apps“ hält („Dieser Browser ist unter Umständen
+// nicht sicher“). Nur auf der Google-Anmeldeseite gibt sich Sakura deshalb als Firefox aus – wie andere Chromium-Browser
+// (z. B. Min, Ferdium) auch. Alle anderen Seiten sehen weiter den normalen Chrome-Kennzeichner.
+const GOOGLE_LOGIN = /^https:\/\/accounts\.google\.com\//i;
+const LOGIN_UA = process.platform === 'win32'
+  ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0'
+  : process.platform === 'darwin' ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0'
+  : 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0';
+
 function prepareSession(ses, isPrivate) {
   if (preparedSessions.has(ses)) return;
   preparedSessions.add(ses);
+  ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*'] }, (d, cb) => {
+    const h = d.requestHeaders;
+    h['User-Agent'] = LOGIN_UA;
+    for (const k of Object.keys(h)) if (/^sec-ch-ua/i.test(k)) delete h[k]; // Chrome-Kennzeichen passen nicht zu Firefox
+    cb({ requestHeaders: h });
+  });
   ses.protocol.handle('sakura', req => {
     const u = new URL(req.url);
     if (u.hostname === 'favicon') return favicons.respond(u.searchParams.get('u') || '');
@@ -682,6 +697,12 @@ class SakuraWindow {
     });
     wc.on('did-start-loading', () => { tab.loading = true; upd(); });
     wc.on('did-stop-loading', () => { tab.loading = false; upd(); checkReadable(tab); });
+    // Google-Anmeldung: auch für Skripte der Seite als Firefox erscheinen (siehe LOGIN_UA)
+    wc.on('did-start-navigation', d => {
+      if (!d.isMainFrame) return;
+      const login = GOOGLE_LOGIN.test(d.url);
+      if (login !== !!tab.loginUA) { tab.loginUA = login; wc.setUserAgent(login ? LOGIN_UA : app.userAgentFallback); }
+    });
     wc.on('did-start-navigation', (d) => {
       if (d.isMainFrame && !d.isSameDocument) { blocker.reset(wc.id); setBg(d.url); tab.popups = []; }
     });
