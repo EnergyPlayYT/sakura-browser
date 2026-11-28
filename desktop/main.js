@@ -1062,7 +1062,8 @@ class SakuraWindow {
         container: t.container ? { n: t.container, name: containerName(t.container), color: CONTAINER_COLORS[t.container - 1] } : null,
         sleeping: !!t.pending && t.id !== this.activeId,
         split: this.inSplit(t.id) || undefined,
-        volume: t.volume != null && t.volume !== 100 ? t.volume : undefined
+        volume: t.volume != null && t.volume !== 100 ? t.volume : undefined,
+        wilt: wiltOf(this, t) || undefined
       })),
       splitOn: !!this.splitPair(),
       url: realUrl,
@@ -2213,6 +2214,27 @@ function archiveTick(now = Date.now(), onlyHost = '') {
   if (n) broadcast('archive-changed');
   return n;
 }
+// Tab-Garten: 0 = frisch, 1 = welkt (12 Std.), 2 = verblüht (2 Tage), 3 = vertrocknet (5 Tage)
+function wiltOf(w, t, now = Date.now()) {
+  if (w.isPrivate || store.prefs().tabGarden === false || t.id === w.activeId || t.pinned || t.audible || t.floating) return 0;
+  const h = (now - (t.lastActive || t.createdAt || now)) / 36e5;
+  return h >= 120 ? 3 : h >= 48 ? 2 : h >= 12 ? 1 : 0;
+}
+// Verblühte Tabs (ab Stufe 2) schließen – sie landen im Tab-Archiv und lassen sich zurückholen
+function gardenTidy(w) {
+  const now = Date.now(), pair = w.splitPair() || [];
+  let n = 0;
+  for (const t of [...w.tabs]) {
+    if (w.tabs.length <= 1) break;
+    if (wiltOf(w, t, now) < 2 || pair.includes(t)) continue;
+    const url = w.displayUrl(t.pending || t.url);
+    if (/^https?:/i.test(url)) archiveAdd({ url, title: t.title || url, at: now });
+    w.closeTab(t.id);
+    n++;
+  }
+  if (n) broadcast('archive-changed');
+  return n;
+}
 function archiveAdd(it) {
   const cut = Date.now() - 30 * 864e5;
   const list = (Array.isArray(store.data.tabArchive) ? store.data.tabArchive : []).filter(x => x.at > cut && x.url !== it.url);
@@ -2787,6 +2809,7 @@ const uiCommands = {
     w.newTab(it.url, { index: w.tabs.indexOf(w.active) + 1 });
     return true;
   },
+  gardenTidy: w => gardenTidy(w),
   archiveRemove: (w, id) => { store.data.tabArchive = (store.data.tabArchive || []).filter(x => x.id !== id); store.save(); return true; },
   archiveNow: (w, o = {}) => archiveTick(Number(o && o.now) || Date.now(), String((o && o.host) || '')),
   // Bildschirmzeit
@@ -3283,6 +3306,7 @@ app.whenReady().then(async () => {
   tempMail = new TempMail({ store, fetch: (u, o) => net.fetch(u, o) });
   setInterval(() => { try { archiveTick(); } catch {} }, 10 * 60e3);
   setInterval(seasonTick, 5 * 60e3); seasonTick();
+  setInterval(broadcastState, 20 * 60e3); // Tab-Garten: Tabs welken auch ohne Klicks weiter
   blocker.focusCheck = host => Focus.blocks(host, store.data.focus);
   blocker.onFocus = (id, url) => focusPending.set(id, url);
   setInterval(() => { const on = !!Focus.activeUntil(store.data.focus); if (on !== focusWasOn) { focusWasOn = on; broadcastState(); if (on) focusReloadTabs(); } }, 30000);

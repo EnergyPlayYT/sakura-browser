@@ -284,6 +284,10 @@ function closeTabAnimated(id) {
 } // neue Tabs gleiten herein – nur beim ersten Erscheinen
 function renderTabs() {
   const box = $('#tabs');
+  const faded = S.tabs.filter(t => t.wilt >= 2).length;
+  $('#garden').hidden = !faded;
+  $('#garden b').textContent = faded || '';
+  $('#garden').title = `${faded} verblühte ${faded === 1 ? 'Tab' : 'Tabs'} aufräumen – landen im Tab-Archiv`;
   const firstRender = !seenTabs.size;
   const groups = new Map((S.groups || []).map(g => [g.id, g]));
   const shown = S.tabs.filter(t => !t.group || !groups.get(t.group) || !groups.get(t.group).collapsed);
@@ -307,13 +311,13 @@ function renderTabs() {
     } else if (born) freshAt.delete(t.id);
     const closing = closingAt.get(t.id);
     if (closing) { el.classList.add('closing'); el.style.animationDelay = -(Date.now() - closing) + 'ms'; }
-    el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.split && S.splitOn ? ' split' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
+    el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.split && S.splitOn ? ' split' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') + (t.wilt ? ' wilt-' + t.wilt : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
     if (t.container) { el.classList.add('konto'); el.style.setProperty('--kc', `var(--g-${t.container.color})`); }
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', t.id === S.activeId);
-    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '') + (t.container ? ` – Konto-Tab „${t.container.name}“` : '') + (t.split ? ' – geteilte Ansicht' : '');
+    el.title = t.title + (g && g.name ? ` – Gruppe „${g.name}“` : '') + (t.sleeping ? ' – schläft (lädt beim Anklicken)' : '') + (t.floating ? ' – schwebt (Klick holt das Video zurück)' : '') + (t.container ? ` – Konto-Tab „${t.container.name}“` : '') + (t.split ? ' – geteilte Ansicht' : '') + (t.wilt ? ' – ' + ['', 'welkt', 'verblüht', 'vertrocknet'][t.wilt] + ' (lange nicht benutzt)' : '');
     el.draggable = true;
     el.dataset.id = t.id;
     let fav;
@@ -1153,6 +1157,10 @@ async function renderSessions(note = '') {
 api.on('readlist-changed', () => { if (panelKind === 'readlist') renderReadlist(); });
 // Kurze Meldung unten
 let toastT = null;
+$('#garden').onclick = async () => {
+  const n = await api.call('gardenTidy');
+  if (n) showToast(`${n} ${n === 1 ? 'Tab' : 'Tabs'} aufgeräumt – im Tab-Archiv wiederzufinden`);
+};
 function showToast(text) {
   const t = $('#toast');
   t.textContent = text; t.hidden = false;

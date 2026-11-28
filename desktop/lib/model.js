@@ -35,6 +35,7 @@ const DEFAULT_PREFS = {
   pipButton: true,     // Bild-in-Bild-Knopf über Videos
   verticalTabs: false,
   batterySaver: 'auto', // Akku-Sparmodus: 'auto' (ohne Ladekabel) | 'on' | 'off'
+  tabGarden: true,     // Tab-Garten: lange nicht genutzte Tabs verblühen sichtbar
   archiveDays: 14,     // unbenutzte Tabs nach so vielen Tagen ins Tab-Archiv (0 = nie) // Tabs links untereinander statt oben   // Link lange drücken = Vorschau // Mausgesten mit der rechten Maustaste
   readerSize: 20,      // Lesemodus: Schriftgröße
   readerTheme: 'sepia', // Lesemodus: hell | sepia | dunkel

@@ -38,6 +38,7 @@ object SyncModel {
         .put("pipButton", true)
         .put("verticalTabs", false)
         .put("batterySaver", "auto")
+        .put("tabGarden", true)
         .put("archiveDays", 14)
         .put("phishWarn", true)
         .put("ntWidgets", true)
