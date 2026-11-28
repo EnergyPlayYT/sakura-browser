@@ -249,6 +249,22 @@ class SakuraWindow {
     this.win.on('resize', () => this.layout());
     this.win.on('enter-full-screen', () => this.layout());
     this.win.on('leave-full-screen', () => { this.htmlFullscreen = false; this.layout(); });
+    // Fenster schließen: kurz sanft ausblenden (nicht beim Beenden/Update und nicht unter Linux, dort fehlt die Transparenz)
+    this.win.on('close', e => {
+      if (quitting || this._fadeDone || process.platform === 'linux' || store.prefs().animations === false) return;
+      e.preventDefault();
+      if (this._fading) return;
+      this._fading = true;
+      let o = 1;
+      const step = () => {
+        if (this.win.isDestroyed()) return;
+        o -= 0.2;
+        if (o <= 0.01) { this._fadeDone = true; this.win.close(); return; }
+        try { this.win.setOpacity(o); } catch { o = 0; }
+        setTimeout(step, 24);
+      };
+      step();
+    });
     this.win.on('closed', () => {
       this.closePopup();
       if (floating && floating.tab.w === this) dropFloat();

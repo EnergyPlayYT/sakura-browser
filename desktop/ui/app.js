@@ -253,7 +253,18 @@ api.on('download-started', () => {
 const GROUP_COLORS = { sakura: 'Rosa', sora: 'Blau', matcha: 'Grün', yamabuki: 'Gelb', fuji: 'Lila', momiji: 'Rot', sumi: 'Grau' };
 let pendingGroupEdit = null;
 
-const seenTabs = new Set(), freshAt = new Map(); // neue Tabs gleiten herein – nur beim ersten Erscheinen
+const seenTabs = new Set(), freshAt = new Map();
+// Tab schließen: erst schrumpfen und ausblenden, dann wirklich schließen
+const closingAt = new Map();
+function closeTabAnimated(id) {
+  if (closingAt.has(id)) return;
+  if (document.body.classList.contains('no-anim') || matchMedia('(prefers-reduced-motion: reduce)').matches) { api.call('closeTab', id); return; }
+  hideTabPreview();
+  closingAt.set(id, Date.now());
+  renderTabs();
+  setTimeout(() => api.call('closeTab', id), 200);
+  setTimeout(() => closingAt.delete(id), 1500);
+} // neue Tabs gleiten herein – nur beim ersten Erscheinen
 function renderTabs() {
   const box = $('#tabs');
   const firstRender = !seenTabs.size;
@@ -277,6 +288,8 @@ function renderTabs() {
       el.classList.add('fresh');
       el.style.animationDelay = -(Date.now() - born) + 'ms'; // beim Neuzeichnen dort weitermachen, wo die Animation war
     } else if (born) freshAt.delete(t.id);
+    const closing = closingAt.get(t.id);
+    if (closing) { el.classList.add('closing'); el.style.animationDelay = -(Date.now() - closing) + 'ms'; }
     el.className = el.className + ' tab' + (t.id === S.activeId ? ' active' : '') + (t.sleeping ? ' sleeping' : '') + (t.floating ? ' floating' : '') + (t.split && S.splitOn ? ' split' : '') + (t.pinned ? ' pinned' : narrow ? ' narrow' : '') +
       (g ? ' grouped' + (S.tabs[i - 1] && S.tabs[i - 1].group === g.id ? '' : ' first') + (next && next.group === g.id ? '' : ' last') : '');
     if (g) el.style.setProperty('--gc', `var(--g-${g.color})`);
@@ -296,12 +309,12 @@ function renderTabs() {
     const img = el.querySelector('img');
     if (img) img.onerror = () => { img.parentElement.className = 'fav letter'; img.parentElement.textContent = letterOf(t.title); };
     el.addEventListener('mousedown', e => {
-      if (e.button === 1) { e.preventDefault(); if (!t.pinned) api.call('closeTab', t.id); }
+      if (e.button === 1) { e.preventDefault(); if (!t.pinned) closeTabAnimated(t.id); }
       else if (e.button === 0 && e.target.closest('[data-mute]')) { e.stopPropagation(); api.call('toggleMute', t.id); }
       else if (e.button === 0 && !e.target.closest('.close')) api.call('activate', t.id);
     });
     el.addEventListener('contextmenu', e => { e.preventDefault(); api.call('tabMenu', t.id); });
-    el.querySelector('.close').addEventListener('click', e => { e.stopPropagation(); api.call('closeTab', t.id); });
+    el.querySelector('.close').addEventListener('click', e => { e.stopPropagation(); closeTabAnimated(t.id); });
     el.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/sakura-tab', String(t.id));
       e.dataTransfer.effectAllowed = 'move';
@@ -405,6 +418,7 @@ api.on('focus-address', focusAddress);
 
 // ------------------------------------------------------------ Overlays
 function openOverlay(kind) {
+  if (closingT) finishClose(false);
   closeOverlay(true);
   overlay = kind;
   $('#backdrop').hidden = false;
@@ -417,17 +431,38 @@ api.on('glass', url => {
   document.body.style.setProperty('--snap', `url("${url}")`);
   document.body.classList.add('has-snap');
 });
+// Schließen mit Animation: Flächen gleiten weich weg, erst danach schrumpft die Oberfläche wieder
+const OVERLAY_ELS = ['#space-pop', '#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch'];
+let closingT = null, closingEls = [];
+function finishClose(shrink) {
+  clearTimeout(closingT); closingT = null;
+  for (const el of closingEls) { el.hidden = true; el.classList.remove('leaving'); }
+  closingEls = [];
+  $('#backdrop').classList.remove('leaving');
+  if (!overlay) { $('#backdrop').hidden = true; document.body.classList.remove('has-snap'); }
+  if (shrink && !overlay) api.call('overlay', false);
+}
 function closeOverlay(keep) {
-  document.body.classList.remove('has-snap');
+  if (closingT) finishClose(false); // vorige Schließ-Animation sofort beenden
   clearTimeout(tmTimer);
   if (overlay === 'linkpreview') { $('#lp-bar').hidden = true; if (!lpClosing) api.call('linkPreviewClose'); }
   if (overlay === 'note') saveNote();
-  for (const s of ['#space-pop', '#qr-pop', '#note-pop', '#menu', '#shield-pop', '#panel', '#suggest', '#group-pop', '#media-pop', '#tabsearch']) $(s).hidden = true;
   clearTimeout(mediaTick);
   editingGroup = null;
-  $('#backdrop').hidden = true;
+  const open = OVERLAY_ELS.map(s => $(s)).filter(el => !el.hidden);
   overlay = null; panelKind = null;
-  if (!keep) api.call('overlay', false);
+  const animate = !keep && open.length && !document.body.classList.contains('no-anim') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!animate) {
+    for (const el of open) el.hidden = true;
+    $('#backdrop').hidden = true;
+    document.body.classList.remove('has-snap');
+    if (!keep) api.call('overlay', false);
+    return;
+  }
+  closingEls = open;
+  for (const el of open) el.classList.add('leaving');
+  $('#backdrop').classList.add('leaving');
+  closingT = setTimeout(() => finishClose(true), 190);
 }
 $('#backdrop').addEventListener('mousedown', () => closeOverlay());
 document.addEventListener('keydown', e => {
@@ -1085,7 +1120,8 @@ let toastT = null;
 function showToast(text) {
   const t = $('#toast');
   t.textContent = text; t.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, Math.min(7000, 2600 + String(text).length * 30));
+  t.classList.remove('leaving');
+  clearTimeout(toastT); toastT = setTimeout(() => { t.classList.add('leaving'); toastT = setTimeout(() => { t.hidden = true; t.classList.remove('leaving'); }, 200); }, Math.min(7000, 2600 + String(text).length * 30));
 }
 api.on('toast', showToast);
 
