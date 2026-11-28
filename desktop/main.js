@@ -2656,7 +2656,13 @@ const uiCommands = {
     if (!t) return null;
     const host = hostOfUrl(t.url);
     const info = await mediaCall(t.view.webContents, 'window.__sakuraMedia.info()');
-    return { host, ...siteMedia(host), clip: !!t.clipArmed, cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+    return { host, playing: !!t.audible, ...siteMedia(host), clip: !!t.clipArmed, cinema: !!(t.media && t.media.cinema), volume: t.volume == null ? 100 : t.volume, info, twitch: isTwitch(t.view.webContents.getURL()), audioOnly: !!t.audioOnly, sleep: sleepTimer ? { mode: sleepTimer.mode, until: sleepTimer.until || null, minutes: sleepTimer.minutes || null } : null };
+  },
+  // Start/Pause/Spulen im aktiven Tab (Fenster „Video und Ton“)
+  mediaPlay: async (w, act) => {
+    const t = w.active;
+    if (!t || !['toggle', 'next', 'prev'].includes(act)) return null;
+    try { const r = await t.view.webContents.executeJavaScript(`${MEDIA_JS}(${JSON.stringify(act)})`, true); setTimeout(() => refreshMediaTitle(t), 800); return r; } catch { return null; }
   },
   // Arbeitsbereiche
   spaceSwitch: (w, id) => w.switchSpace(String(id)),

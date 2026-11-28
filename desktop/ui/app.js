@@ -1373,6 +1373,11 @@ async function openMedia() {
   pop.innerHTML = `
     <h3>Video und Ton</h3>
     <p class="m-sub">Einstellungen für ${esc(m.host)} werden gemerkt.</p>
+    <div class="m-play">
+      <button class="icon" data-play="prev" title="Zurück"><svg><use href="#i-back"/></svg></button>
+      <button class="icon m-big" data-play="toggle" title="${m.playing ? 'Pause' : 'Abspielen'}"><svg><use href="#${m.playing ? 'i-pause' : 'i-play'}"/></svg></button>
+      <button class="icon" data-play="next" title="Weiter"><svg><use href="#i-fwd"/></svg></button>
+    </div>
     <div class="m-sec"><b>Sleep-Timer</b> <span id="m-sleep-txt">${esc(sleepLabel())}</span>
       <div class="m-chips">${[['0', 'Aus'], ['15', '15 Min.'], ['30', '30 Min.'], ['60', '1 Std.'], ['ep', 'Ende der Folge']].map(([v, l]) =>
         `<button data-sleep="${v}" class="${(v === '0' && !m.sleep) || (m.sleep && (m.sleep.mode === 'episode' ? v === 'ep' : String(m.sleep.minutes) === v)) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
@@ -1419,6 +1424,13 @@ async function openMedia() {
   $('#m-clip-save').onclick = async () => { const r = await api.call('clipSave'); if (r && r.error) note(r); };
   $('#m-cinema').onchange = async e => note(await api.call('mediaSet', { cinema: e.target.checked }));
   $('#m-dialog').onchange = async e => note(await api.call('mediaSet', { dialog: e.target.checked }));
+  pop.querySelectorAll('[data-play]').forEach(b => b.onclick = async () => {
+    const r = await api.call('mediaPlay', b.dataset.play);
+    if (b.dataset.play === 'toggle') {
+      if (r === 'paused' || r === 'playing') { b.querySelector('use').setAttribute('href', r === 'playing' ? '#i-pause' : '#i-play'); b.title = r === 'playing' ? 'Pause' : 'Abspielen'; }
+      else note({ error: 'Auf dieser Seite wurde kein Video gefunden.' });
+    }
+  });
   $('#m-reset').onclick = async () => { await api.call('mediaReset'); openMedia(); };
   pop.querySelectorAll('[data-sleep]').forEach(b => b.onclick = async () => {
     const v = b.dataset.sleep;
